@@ -8,53 +8,59 @@ var __decorate = (this && this.__decorate) || function (decorators, target, key,
 var __metadata = (this && this.__metadata) || function (k, v) {
     if (typeof Reflect === "object" && typeof Reflect.metadata === "function") return Reflect.metadata(k, v);
 };
-var _a, _b;
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.Service = void 0;
 const typeorm_1 = require("typeorm");
-const service_category_entity_1 = require("../../service-category/entities/service-category.entity");
-const order_item_entity_1 = require("../../order/entities/order-item.entity");
+const swagger_1 = require("@nestjs/swagger");
 let Service = class Service {
 };
 __decorate([
-    (0, typeorm_1.PrimaryGeneratedColumn)(),
-    __metadata("design:type", Number)
+    (0, typeorm_1.PrimaryGeneratedColumn)('uuid'),
+    (0, swagger_1.ApiProperty)({ description: 'The unique identifier for the service' }),
+    __metadata("design:type", String)
 ], Service.prototype, "id", void 0);
 __decorate([
-    (0, typeorm_1.Column)({ type: 'varchar', length: 100 }),
+    (0, typeorm_1.Column)({ nullable: false }),
+    (0, swagger_1.ApiProperty)({ description: 'The name of the service' }),
     __metadata("design:type", String)
 ], Service.prototype, "name", void 0);
 __decorate([
     (0, typeorm_1.Column)({ type: 'text', nullable: true }),
+    (0, swagger_1.ApiProperty)({ description: 'A description of the service' }),
     __metadata("design:type", String)
 ], Service.prototype, "description", void 0);
 __decorate([
-    (0, typeorm_1.Column)({ type: 'decimal', precision: 10, scale: 2 }),
+    (0, typeorm_1.Column)({ type: 'decimal', precision: 10, scale: 2, nullable: false }),
+    (0, swagger_1.ApiProperty)({ description: 'The price of the service' }),
     __metadata("design:type", Number)
 ], Service.prototype, "price", void 0);
 __decorate([
-    (0, typeorm_1.Column)({ name: 'category_id', nullable: true }),
+    (0, typeorm_1.Column)({ nullable: false, default: 'kg' }),
+    (0, swagger_1.ApiProperty)({ description: 'The unit of measurement for the service (e.g., kg, pcs)' }),
+    __metadata("design:type", String)
+], Service.prototype, "unit", void 0);
+__decorate([
+    (0, typeorm_1.Column)({ nullable: true }),
+    (0, swagger_1.ApiProperty)({ description: 'The estimated time to complete the service in hours' }),
     __metadata("design:type", Number)
-], Service.prototype, "categoryId", void 0);
+], Service.prototype, "estimatedTime", void 0);
 __decorate([
-    (0, typeorm_1.ManyToOne)(() => service_category_entity_1.ServiceCategory, category => category.services),
-    (0, typeorm_1.JoinColumn)({ name: 'category_id' }),
-    __metadata("design:type", service_category_entity_1.ServiceCategory)
-], Service.prototype, "category", void 0);
-__decorate([
-    (0, typeorm_1.OneToMany)(() => order_item_entity_1.OrderItem, orderItem => orderItem.service),
-    __metadata("design:type", Array)
-], Service.prototype, "orderItems", void 0);
+    (0, typeorm_1.Column)({ name: 'is_active', default: true }),
+    (0, swagger_1.ApiProperty)({ description: 'Whether the service is active or not' }),
+    __metadata("design:type", Boolean)
+], Service.prototype, "isActive", void 0);
 __decorate([
     (0, typeorm_1.CreateDateColumn)({ name: 'created_at' }),
-    __metadata("design:type", typeof (_a = typeof Date !== "undefined" && Date) === "function" ? _a : Object)
+    (0, swagger_1.ApiProperty)({ description: 'The timestamp when the service was created' }),
+    __metadata("design:type", Date)
 ], Service.prototype, "createdAt", void 0);
 __decorate([
     (0, typeorm_1.UpdateDateColumn)({ name: 'updated_at' }),
-    __metadata("design:type", typeof (_b = typeof Date !== "undefined" && Date) === "function" ? _b : Object)
+    (0, swagger_1.ApiProperty)({ description: 'The timestamp when the service was last updated' }),
+    __metadata("design:type", Date)
 ], Service.prototype, "updatedAt", void 0);
 Service = __decorate([
-    (0, typeorm_1.Entity)({ name: 'services' })
+    (0, typeorm_1.Entity)('services')
 ], Service);
 exports.Service = Service;
 //# sourceMappingURL=service.entity.js.map

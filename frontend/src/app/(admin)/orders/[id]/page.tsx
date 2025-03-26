@@ -10,6 +10,7 @@ import {
 import ArrowBackIcon from '@mui/icons-material/ArrowBack';
 import { format } from 'date-fns';
 import { id } from 'date-fns/locale';
+import Link from 'next/link';
 
 // Tipe data untuk Order
 interface Customer {
@@ -177,15 +178,39 @@ export default function OrderDetailPage() {
     );
   }
 
+  // Calculate total amount
+  const calculateTotal = () => {
+    return order.items.reduce((total: number, item: any) => {
+      return total + (item.quantity * item.price);
+    }, 0);
+  };
+
   return (
     <Box>
-      <Button 
-        startIcon={<ArrowBackIcon />} 
-        onClick={handleBack}
-        sx={{ mb: 2 }}
-      >
-        Kembali ke Daftar Pesanan
-      </Button>
+      <Box display="flex" justifyContent="space-between" alignItems="center" mb={2}>
+        <Typography variant="h4" gutterBottom>
+          {formatTitle(order)}
+        </Typography>
+        
+        <Box display="flex" gap={2}>
+          <Button 
+            variant="contained" 
+            color="primary"
+            component={Link}
+            href={`/orders/${params.id}/payment`}
+          >
+            Process Payment
+          </Button>
+          
+          <Button 
+            startIcon={<ArrowBackIcon />} 
+            onClick={handleBack}
+            variant="outlined"
+          >
+            Kembali ke Daftar Pesanan
+          </Button>
+        </Box>
+      </Box>
 
       <Paper sx={{ p: 3, mb: 3 }}>
         <Grid container spacing={2}>
@@ -261,7 +286,7 @@ export default function OrderDetailPage() {
               )}
               <TableRow>
                 <TableCell colSpan={3} align="right"><strong>Total:</strong></TableCell>
-                <TableCell align="right"><strong>Rp {formatCurrency(order.totalAmount || 0)}</strong></TableCell>
+                <TableCell align="right"><strong>Rp {formatCurrency(calculateTotal())}</strong></TableCell>
               </TableRow>
             </TableBody>
           </Table>

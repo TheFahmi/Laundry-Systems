@@ -1,6 +1,7 @@
 'use client';
 
-import React, { useState } from 'react';
+import { useState } from 'react';
+import { useRouter } from 'next/navigation';
 import {
   Container,
   Typography,
@@ -41,7 +42,8 @@ const services = [
 // Langkah-langkah pembuatan pesanan
 const steps = ['Pilih Layanan', 'Detail Pengiriman', 'Metode Pembayaran', 'Konfirmasi'];
 
-export default function NewOrderPage() {
+export default function CustomerCreateOrderPage() {
+  const router = useRouter();
   const [activeStep, setActiveStep] = useState(0);
   const [order, setOrder] = useState({
     services: [] as { serviceId: number; quantity: number }[],
@@ -447,8 +449,12 @@ export default function NewOrderPage() {
               <Typography variant="body1" paragraph>
                 Anda dapat melacak status pesanan di halaman &quot;Pelacakan Pesanan&quot;.
               </Typography>
-              <Button variant="contained" color="primary">
-                Kembali ke Beranda
+              <Button 
+                variant="contained" 
+                color="primary"
+                onClick={() => router.push('/my-orders')}
+              >
+                Kembali ke Daftar Pesanan
               </Button>
             </Box>
           ) : (

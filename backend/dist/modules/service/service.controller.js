@@ -11,68 +11,89 @@ var __metadata = (this && this.__metadata) || function (k, v) {
 var __param = (this && this.__param) || function (paramIndex, decorator) {
     return function (target, key) { decorator(target, key, paramIndex); }
 };
-var _a, _b, _c, _d, _e;
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.ServiceController = void 0;
 const common_1 = require("@nestjs/common");
+const swagger_1 = require("@nestjs/swagger");
 const service_service_1 = require("./service.service");
-const service_entity_1 = require("./entities/service.entity");
+const create_service_dto_1 = require("./dto/create-service.dto");
+const update_service_dto_1 = require("./dto/update-service.dto");
 let ServiceController = class ServiceController {
     constructor(serviceService) {
         this.serviceService = serviceService;
     }
-    findAll() {
-        return this.serviceService.findAll();
+    async findAll(page, limit) {
+        page = page ? parseInt(page.toString()) : 1;
+        limit = limit ? parseInt(limit.toString()) : 10;
+        return this.serviceService.findAll({ page, limit });
     }
-    findOne(id) {
+    async findOne(id) {
         return this.serviceService.findOne(id);
     }
-    create(service) {
-        return this.serviceService.create(service);
+    async create(createServiceDto) {
+        return this.serviceService.create(createServiceDto);
     }
-    update(id, service) {
-        return this.serviceService.update(id, service);
+    async update(id, updateServiceDto) {
+        return this.serviceService.update(id, updateServiceDto);
     }
-    remove(id) {
+    async remove(id) {
         return this.serviceService.remove(id);
     }
 };
 __decorate([
     (0, common_1.Get)(),
+    (0, swagger_1.ApiOperation)({ summary: 'Get all services' }),
+    (0, swagger_1.ApiResponse)({ status: 200, description: 'Return all services' }),
+    (0, swagger_1.ApiQuery)({ name: 'page', required: false, type: Number }),
+    (0, swagger_1.ApiQuery)({ name: 'limit', required: false, type: Number }),
+    __param(0, (0, common_1.Query)('page')),
+    __param(1, (0, common_1.Query)('limit')),
     __metadata("design:type", Function),
-    __metadata("design:paramtypes", []),
-    __metadata("design:returntype", typeof (_a = typeof Promise !== "undefined" && Promise) === "function" ? _a : Object)
+    __metadata("design:paramtypes", [Number, Number]),
+    __metadata("design:returntype", Promise)
 ], ServiceController.prototype, "findAll", null);
 __decorate([
     (0, common_1.Get)(':id'),
-    __param(0, (0, common_1.Param)('id')),
+    (0, swagger_1.ApiOperation)({ summary: 'Get service by id' }),
+    (0, swagger_1.ApiResponse)({ status: 200, description: 'Return service by id' }),
+    (0, swagger_1.ApiResponse)({ status: 404, description: 'Service not found' }),
+    __param(0, (0, common_1.Param)('id', common_1.ParseUUIDPipe)),
     __metadata("design:type", Function),
-    __metadata("design:paramtypes", [Number]),
-    __metadata("design:returntype", typeof (_b = typeof Promise !== "undefined" && Promise) === "function" ? _b : Object)
+    __metadata("design:paramtypes", [String]),
+    __metadata("design:returntype", Promise)
 ], ServiceController.prototype, "findOne", null);
 __decorate([
     (0, common_1.Post)(),
+    (0, swagger_1.ApiOperation)({ summary: 'Create new service' }),
+    (0, swagger_1.ApiResponse)({ status: 201, description: 'Service successfully created' }),
     __param(0, (0, common_1.Body)()),
     __metadata("design:type", Function),
-    __metadata("design:paramtypes", [service_entity_1.Service]),
-    __metadata("design:returntype", typeof (_c = typeof Promise !== "undefined" && Promise) === "function" ? _c : Object)
+    __metadata("design:paramtypes", [create_service_dto_1.CreateServiceDto]),
+    __metadata("design:returntype", Promise)
 ], ServiceController.prototype, "create", null);
 __decorate([
     (0, common_1.Put)(':id'),
-    __param(0, (0, common_1.Param)('id')),
+    (0, swagger_1.ApiOperation)({ summary: 'Update service' }),
+    (0, swagger_1.ApiResponse)({ status: 200, description: 'Service successfully updated' }),
+    (0, swagger_1.ApiResponse)({ status: 404, description: 'Service not found' }),
+    __param(0, (0, common_1.Param)('id', common_1.ParseUUIDPipe)),
     __param(1, (0, common_1.Body)()),
     __metadata("design:type", Function),
-    __metadata("design:paramtypes", [Number, service_entity_1.Service]),
-    __metadata("design:returntype", typeof (_d = typeof Promise !== "undefined" && Promise) === "function" ? _d : Object)
+    __metadata("design:paramtypes", [String, update_service_dto_1.UpdateServiceDto]),
+    __metadata("design:returntype", Promise)
 ], ServiceController.prototype, "update", null);
 __decorate([
     (0, common_1.Delete)(':id'),
-    __param(0, (0, common_1.Param)('id')),
+    (0, swagger_1.ApiOperation)({ summary: 'Delete service' }),
+    (0, swagger_1.ApiResponse)({ status: 200, description: 'Service successfully deleted' }),
+    (0, swagger_1.ApiResponse)({ status: 404, description: 'Service not found' }),
+    __param(0, (0, common_1.Param)('id', common_1.ParseUUIDPipe)),
     __metadata("design:type", Function),
-    __metadata("design:paramtypes", [Number]),
-    __metadata("design:returntype", typeof (_e = typeof Promise !== "undefined" && Promise) === "function" ? _e : Object)
+    __metadata("design:paramtypes", [String]),
+    __metadata("design:returntype", Promise)
 ], ServiceController.prototype, "remove", null);
 ServiceController = __decorate([
+    (0, swagger_1.ApiTags)('services'),
     (0, common_1.Controller)('services'),
     __metadata("design:paramtypes", [service_service_1.ServiceService])
 ], ServiceController);

@@ -11,7 +11,6 @@ var __metadata = (this && this.__metadata) || function (k, v) {
 var __param = (this && this.__param) || function (paramIndex, decorator) {
     return function (target, key) { decorator(target, key, paramIndex); }
 };
-var _a;
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.ServiceService = void 0;
 const common_1 = require("@nestjs/common");
@@ -22,36 +21,56 @@ let ServiceService = class ServiceService {
     constructor(serviceRepository) {
         this.serviceRepository = serviceRepository;
     }
-    async findAll() {
-        return this.serviceRepository.find({ relations: ['category'] });
+    async create(createServiceDto) {
+        const service = this.serviceRepository.create(createServiceDto);
+        return this.serviceRepository.save(service);
+    }
+    async findAll(options = {}) {
+        const { page = 1, limit = 10 } = options;
+        const skip = (page - 1) * limit;
+        const [items, total] = await this.serviceRepository.findAndCount({
+            skip,
+            take: limit,
+            order: { name: 'ASC' },
+        });
+        const mappedItems = items.map(item => {
+            if (item.hasOwnProperty('is_active') && !item.hasOwnProperty('isActive')) {
+                const itemWithCorrectProps = Object.assign(Object.assign({}, item), { isActive: item.is_active });
+                delete itemWithCorrectProps.is_active;
+                return itemWithCorrectProps;
+            }
+            return item;
+        });
+        return {
+            items: mappedItems,
+            total,
+            page,
+            limit,
+        };
     }
     async findOne(id) {
-        const service = await this.serviceRepository.findOne({
-            where: { id },
-            relations: ['category']
-        });
+        const service = await this.serviceRepository.findOne({ where: { id } });
         if (!service) {
             throw new common_1.NotFoundException(`Service with ID ${id} not found`);
         }
         return service;
     }
-    async create(service) {
+    async update(id, updateServiceDto) {
+        const service = await this.findOne(id);
+        Object.assign(service, updateServiceDto);
         return this.serviceRepository.save(service);
     }
-    async update(id, updateData) {
-        await this.findOne(id);
-        await this.serviceRepository.update(id, updateData);
-        return this.findOne(id);
-    }
     async remove(id) {
-        const service = await this.findOne(id);
-        await this.serviceRepository.remove(service);
+        const result = await this.serviceRepository.delete(id);
+        if (result.affected === 0) {
+            throw new common_1.NotFoundException(`Service with ID ${id} not found`);
+        }
     }
 };
 ServiceService = __decorate([
     (0, common_1.Injectable)(),
     __param(0, (0, typeorm_1.InjectRepository)(service_entity_1.Service)),
-    __metadata("design:paramtypes", [typeof (_a = typeof typeorm_2.Repository !== "undefined" && typeorm_2.Repository) === "function" ? _a : Object])
+    __metadata("design:paramtypes", [typeorm_2.Repository])
 ], ServiceService);
 exports.ServiceService = ServiceService;
 //# sourceMappingURL=service.service.js.map

@@ -1,34 +1,41 @@
-import { Entity, Column, PrimaryGeneratedColumn, CreateDateColumn, UpdateDateColumn, ManyToOne, JoinColumn, OneToMany } from 'typeorm';
-import { ServiceCategory } from '../../service-category/entities/service-category.entity';
-import { OrderItem } from '../../order/entities/order-item.entity';
+import { Column, CreateDateColumn, Entity, PrimaryGeneratedColumn, UpdateDateColumn } from 'typeorm';
+import { ApiProperty } from '@nestjs/swagger';
 
-@Entity({ name: 'services' })
+@Entity('services')
 export class Service {
-  @PrimaryGeneratedColumn()
-  id: number;
+  @PrimaryGeneratedColumn('uuid')
+  @ApiProperty({ description: 'The unique identifier for the service' })
+  id: string;
 
-  @Column({ type: 'varchar', length: 100 })
+  @Column({ nullable: false })
+  @ApiProperty({ description: 'The name of the service' })
   name: string;
 
   @Column({ type: 'text', nullable: true })
+  @ApiProperty({ description: 'A description of the service' })
   description: string;
 
-  @Column({ type: 'decimal', precision: 10, scale: 2 })
+  @Column({ type: 'decimal', precision: 10, scale: 2, nullable: false })
+  @ApiProperty({ description: 'The price of the service' })
   price: number;
 
-  @Column({ name: 'category_id', nullable: true })
-  categoryId: number;
+  @Column({ nullable: false, default: 'kg' })
+  @ApiProperty({ description: 'The unit of measurement for the service (e.g., kg, pcs)' })
+  unit: string;
 
-  @ManyToOne(() => ServiceCategory, category => category.services)
-  @JoinColumn({ name: 'category_id' })
-  category: ServiceCategory;
+  @Column({ nullable: true })
+  @ApiProperty({ description: 'The estimated time to complete the service in hours' })
+  estimatedTime: number;
 
-  @OneToMany(() => OrderItem, orderItem => orderItem.service)
-  orderItems: OrderItem[];
+  @Column({ name: 'is_active', default: true })
+  @ApiProperty({ description: 'Whether the service is active or not' })
+  isActive: boolean;
 
   @CreateDateColumn({ name: 'created_at' })
+  @ApiProperty({ description: 'The timestamp when the service was created' })
   createdAt: Date;
 
   @UpdateDateColumn({ name: 'updated_at' })
+  @ApiProperty({ description: 'The timestamp when the service was last updated' })
   updatedAt: Date;
 } 

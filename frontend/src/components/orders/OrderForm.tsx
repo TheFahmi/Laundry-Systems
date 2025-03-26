@@ -8,15 +8,33 @@ import {
   InputLabel, FormHelperText
 } from '@mui/material';
 
+interface OrderItem {
+  serviceId?: string;
+  id?: string;
+  name: string;
+  quantity: number;
+  price: number;
+}
+
+interface Service {
+  id: string;
+  name: string;
+  price: number;
+  unit: string;
+  description?: string;
+}
+
+interface OrderFormValues {
+  customerId: string;
+  items: OrderItem[];
+  notes: string;
+  total?: number; // Adding total to the form values interface
+}
+
 interface OrderFormProps {
   initialData?: {
     customerId?: string;
-    items?: Array<{
-      id?: string;
-      name: string;
-      quantity: number;
-      price: number;
-    }>;
+    items?: OrderItem[];
     notes?: string;
   };
   onSubmit: (data: any) => void;
@@ -27,10 +45,19 @@ interface OrderFormProps {
 export default function OrderForm({ initialData, onSubmit, onCancel, isLoading }: OrderFormProps) {
   const [customers, setCustomers] = useState<any[]>([]);
   const [loadingCustomers, setLoadingCustomers] = useState(false);
+  const [services, setServices] = useState<Service[]>([]);
+  const [loadingServices, setLoadingServices] = useState(false);
   
-  const [formValues, setFormValues] = useState({
+  // Define the newItem state
+  const [newItem, setNewItem] = useState({
+    serviceId: '',
+    quantity: 1,
+    price: 0
+  });
+  
+  const [formValues, setFormValues] = useState<OrderFormValues>({
     customerId: initialData?.customerId || '',
-    items: initialData?.items || [{ name: '', quantity: 1, price: 0 }],
+    items: initialData?.items || [],
     notes: initialData?.notes || ''
   });
   
@@ -41,12 +68,26 @@ export default function OrderForm({ initialData, onSubmit, onCancel, isLoading }
     const fetchCustomers = async () => {
       setLoadingCustomers(true);
       try {
-        const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/customers?limit=100`);
+        const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
+        console.log('Fetching customers from:', `${apiUrl}/customers?limit=100&page=1`);
+        
+        const response = await fetch(`${apiUrl}/customers?limit=100&page=1`);
+        
         if (!response.ok) {
-          throw new Error('Failed to fetch customers');
+          throw new Error(`Failed to fetch customers: ${response.status} ${response.statusText}`);
         }
+        
         const data = await response.json();
-        setCustomers(data.items || []);
+        console.log('Customers response:', data);
+        
+        if (data.items && Array.isArray(data.items)) {
+          setCustomers(data.items);
+        } else if (Array.isArray(data)) {
+          setCustomers(data);
+        } else {
+          console.error('Unexpected customers response format:', data);
+          setCustomers([]);
+        }
       } catch (error) {
         console.error('Error fetching customers:', error);
       } finally {
@@ -54,7 +95,26 @@ export default function OrderForm({ initialData, onSubmit, onCancel, isLoading }
       }
     };
 
+    // Fetch services from backend
+    const fetchServices = async () => {
+      setLoadingServices(true);
+      try {
+        const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
+        const response = await fetch(`${apiUrl}/services?limit=100&page=1`);
+        if (!response.ok) {
+          throw new Error('Failed to fetch services');
+        }
+        const data = await response.json();
+        setServices(data.items || []);
+      } catch (error) {
+        console.error('Error fetching services:', error);
+      } finally {
+        setLoadingServices(false);
+      }
+    };
+
     fetchCustomers();
+    fetchServices();
   }, []);
 
   // Handle basic input change
@@ -91,20 +151,94 @@ export default function OrderForm({ initialData, onSubmit, onCancel, isLoading }
     }
   };
 
+  // Handle service selection for newItem
+  const handleNewServiceChange = (e: React.ChangeEvent<{ value: unknown }>) => {
+    const serviceId = e.target.value as string;
+    const selectedService = services.find(service => service.id === serviceId);
+    
+    if (selectedService) {
+      setNewItem({
+        serviceId,
+        quantity: newItem.quantity,
+        price: selectedService.price
+      });
+    }
+  };
+
+  // Handle quantity change for newItem
+  const handleNewItemQuantityChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const quantity = parseInt(e.target.value) || 1;
+    setNewItem(prev => ({
+      ...prev,
+      quantity
+    }));
+  };
+
+  // Handle service selection
+  const handleServiceSelect = (index: number, serviceId: string) => {
+    const selectedService = services.find(service => service.id === serviceId);
+    if (selectedService) {
+      setFormValues(prev => {
+        const updatedItems = [...prev.items];
+        updatedItems[index] = {
+          ...updatedItems[index],
+          serviceId: selectedService.id,
+          name: selectedService.name,
+          price: selectedService.price
+        };
+        return {
+          ...prev,
+          items: updatedItems
+        };
+      });
+    }
+  };
+
   // Handle adding a new item
   const handleAddItem = () => {
-    setFormValues(prev => ({
-      ...prev,
-      items: [...prev.items, { name: '', quantity: 1, price: 0 }]
-    }));
+    if (!newItem.serviceId || newItem.quantity <= 0) {
+      return;
+    }
+    
+    // Find the selected service
+    const selectedService = services.find(service => service.id === newItem.serviceId);
+    
+    if (!selectedService) {
+      return;
+    }
+    
+    const updatedItems = [...formValues.items, {
+      serviceId: newItem.serviceId,
+      name: selectedService.name,
+      quantity: newItem.quantity,
+      price: selectedService.price
+    }];
+    
+    // Update items and calculate new total
+    setFormValues({
+      ...formValues,
+      items: updatedItems,
+      total: calculateTotal(updatedItems)
+    });
+    
+    // Reset the new item
+    setNewItem({
+      serviceId: '',
+      quantity: 1,
+      price: 0
+    });
   };
 
   // Handle removing an item
   const handleRemoveItem = (index: number) => {
-    setFormValues(prev => ({
-      ...prev,
-      items: prev.items.filter((_, i) => i !== index)
-    }));
+    setFormValues(prev => {
+      const updatedItems = prev.items.filter((_, i) => i !== index);
+      return {
+        ...prev,
+        items: updatedItems,
+        total: calculateTotal(updatedItems)
+      };
+    });
   };
 
   // Handle item field change
@@ -117,7 +251,8 @@ export default function OrderForm({ initialData, onSubmit, onCancel, isLoading }
       };
       return {
         ...prev,
-        items: updatedItems
+        items: updatedItems,
+        total: calculateTotal(updatedItems)
       };
     });
     
@@ -133,8 +268,8 @@ export default function OrderForm({ initialData, onSubmit, onCancel, isLoading }
   };
 
   // Calculate total order amount
-  const calculateTotal = () => {
-    return formValues.items.reduce((total, item) => {
+  const calculateTotal = (items: OrderItem[]): number => {
+    return items.reduce((total, item) => {
       return total + (item.quantity * item.price);
     }, 0);
   };
@@ -147,9 +282,13 @@ export default function OrderForm({ initialData, onSubmit, onCancel, isLoading }
       errors.customerId = 'Pelanggan wajib dipilih';
     }
     
+    if (formValues.items.length === 0) {
+      errors.items = 'Minimal satu layanan harus ditambahkan';
+    }
+    
     formValues.items.forEach((item, index) => {
-      if (!item.name) {
-        errors[`items.${index}.name`] = 'Nama layanan wajib diisi';
+      if (!item.serviceId && !item.name) {
+        errors[`items.${index}.serviceId`] = 'Layanan wajib dipilih';
       }
       
       if (item.quantity <= 0) {
@@ -177,7 +316,20 @@ export default function OrderForm({ initialData, onSubmit, onCancel, isLoading }
     
     if (!validateForm()) return;
     
-    onSubmit(formValues);
+    // Prepare data for submission
+    const submitData = {
+      customerId: formValues.customerId,
+      items: formValues.items.map(item => ({
+        serviceId: item.serviceId,
+        name: item.name,
+        quantity: item.quantity,
+        price: item.price
+      })),
+      notes: formValues.notes,
+      total: calculateTotal(formValues.items)
+    };
+    
+    onSubmit(submitData);
   };
 
   return (
@@ -227,16 +379,36 @@ export default function OrderForm({ initialData, onSubmit, onCancel, isLoading }
             <Box key={index} sx={{ mb: 2, p: 2, border: '1px solid #e0e0e0', borderRadius: 1 }}>
               <Grid container spacing={2}>
                 <Grid item xs={12} sm={6}>
-                  <TextField
-                    label="Nama Layanan *"
-                    fullWidth
-                    value={item.name}
-                    onChange={(e) => handleItemChange(index, 'name', e.target.value)}
-                    error={!!getItemError(index, 'name')}
-                    helperText={getItemError(index, 'name')}
-                    disabled={isLoading}
-                    required
-                  />
+                  <FormControl fullWidth error={!!getItemError(index, 'serviceId')}>
+                    <InputLabel id={`service-select-label-${index}`}>Layanan *</InputLabel>
+                    <Select
+                      labelId={`service-select-label-${index}`}
+                      id={`service-select-${index}`}
+                      value={item.serviceId || ''}
+                      onChange={(e) => handleServiceSelect(index, e.target.value as string)}
+                      label="Layanan *"
+                      disabled={isLoading || loadingServices}
+                    >
+                      {loadingServices ? (
+                        <MenuItem value="" disabled>
+                          Loading services...
+                        </MenuItem>
+                      ) : services.length === 0 ? (
+                        <MenuItem value="" disabled>
+                          No services found
+                        </MenuItem>
+                      ) : (
+                        services.map(service => (
+                          <MenuItem key={service.id} value={service.id}>
+                            {service.name} - Rp {service.price.toLocaleString()}
+                          </MenuItem>
+                        ))
+                      )}
+                    </Select>
+                    {getItemError(index, 'serviceId') && (
+                      <FormHelperText>{getItemError(index, 'serviceId')}</FormHelperText>
+                    )}
+                  </FormControl>
                 </Grid>
                 
                 <Grid item xs={6} sm={2}>
@@ -263,44 +435,98 @@ export default function OrderForm({ initialData, onSubmit, onCancel, isLoading }
                     onChange={(e) => handleItemChange(index, 'price', parseInt(e.target.value) || 0)}
                     error={!!getItemError(index, 'price')}
                     helperText={getItemError(index, 'price')}
-                    disabled={isLoading}
+                    disabled={isLoading || item.serviceId !== ''}
                     InputProps={{ inputProps: { min: 0 } }}
                     required
                   />
                 </Grid>
                 
                 <Grid item xs={12} sm={1} display="flex" alignItems="center" justifyContent="center">
-                  {formValues.items.length > 1 && (
-                    <Button 
-                      variant="outlined" 
-                      color="error" 
-                      onClick={() => handleRemoveItem(index)}
-                      disabled={isLoading}
-                      sx={{ minWidth: '40px', p: '5px' }}
-                    >
-                      X
-                    </Button>
-                  )}
+                  <Button 
+                    variant="outlined" 
+                    color="error" 
+                    onClick={() => handleRemoveItem(index)}
+                    disabled={isLoading}
+                    sx={{ minWidth: '40px', p: '5px' }}
+                  >
+                    X
+                  </Button>
                 </Grid>
               </Grid>
             </Box>
           ))}
           
-          <Button
-            variant="outlined"
-            onClick={handleAddItem}
-            disabled={isLoading}
-            sx={{ mt: 1 }}
-          >
-            + Tambah Layanan
-          </Button>
+          {/* Add New Service Section */}
+          <Box sx={{ mb: 2, p: 2, border: '1px dashed #e0e0e0', borderRadius: 1 }}>
+            <Typography variant="subtitle2" gutterBottom>
+              Tambah Layanan Baru
+            </Typography>
+            <Grid container spacing={2} alignItems="center">
+              <Grid item xs={12} sm={6}>
+                <FormControl fullWidth>
+                  <InputLabel id="new-service-select-label">Pilih Layanan</InputLabel>
+                  <Select
+                    labelId="new-service-select-label"
+                    id="new-service-select"
+                    value={newItem.serviceId}
+                    onChange={handleNewServiceChange as any}
+                    label="Pilih Layanan"
+                    disabled={isLoading || loadingServices}
+                  >
+                    {loadingServices ? (
+                      <MenuItem value="" disabled>
+                        Loading services...
+                      </MenuItem>
+                    ) : services.length === 0 ? (
+                      <MenuItem value="" disabled>
+                        No services found
+                      </MenuItem>
+                    ) : (
+                      services.map(service => (
+                        <MenuItem key={service.id} value={service.id}>
+                          {service.name} - Rp {service.price.toLocaleString()}
+                        </MenuItem>
+                      ))
+                    )}
+                  </Select>
+                </FormControl>
+              </Grid>
+              
+              <Grid item xs={6} sm={2}>
+                <TextField
+                  label="Jumlah"
+                  type="number"
+                  fullWidth
+                  value={newItem.quantity}
+                  onChange={handleNewItemQuantityChange}
+                  disabled={isLoading}
+                  InputProps={{ inputProps: { min: 1 } }}
+                />
+              </Grid>
+              
+              <Grid item xs={6} sm={4}>
+                <Button
+                  variant="contained"
+                  onClick={handleAddItem}
+                  disabled={isLoading || !newItem.serviceId || newItem.quantity <= 0}
+                  fullWidth
+                >
+                  Tambah
+                </Button>
+              </Grid>
+            </Grid>
+          </Box>
+          
+          {formErrors.items && (
+            <FormHelperText error>{formErrors.items}</FormHelperText>
+          )}
         </Grid>
         
         {/* Total */}
         <Grid item xs={12}>
           <Box sx={{ display: 'flex', justifyContent: 'flex-end' }}>
             <Typography variant="h6">
-              Total: Rp {calculateTotal().toLocaleString()}
+              Total: Rp {calculateTotal(formValues.items).toLocaleString()}
             </Typography>
           </Box>
         </Grid>
@@ -333,7 +559,7 @@ export default function OrderForm({ initialData, onSubmit, onCancel, isLoading }
         <Button
           type="submit"
           variant="contained"
-          disabled={isLoading}
+          disabled={isLoading || formValues.items.length === 0}
           startIcon={isLoading ? <CircularProgress size={20} color="inherit" /> : null}
         >
           {isLoading ? 'Menyimpan...' : 'Simpan'}

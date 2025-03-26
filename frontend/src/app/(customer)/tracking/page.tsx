@@ -97,7 +97,7 @@ const getStatusColor = (status: string) => {
   return colorMap[status] || 'default';
 };
 
-export default function TrackingPage() {
+export default function CustomerTrackingPage() {
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedOrder, setSelectedOrder] = useState<typeof activeOrders[0] | null>(null);
 

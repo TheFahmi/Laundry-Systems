@@ -20,7 +20,8 @@ export default function NewCustomerPage() {
   const handleSubmit = async (formData: CustomerFormData) => {
     setIsLoading(true);
     try {
-      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/customers`, {
+      const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
+      const response = await fetch(`${apiUrl}/customers`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

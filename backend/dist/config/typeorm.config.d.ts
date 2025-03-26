@@ -1,4 +1,4 @@
-import { DataSourceOptions } from 'typeorm';
+import { DataSource, DataSourceOptions } from 'typeorm';
 export declare const dataSourceOptions: DataSourceOptions;
-declare const dataSource: any;
+declare const dataSource: DataSource;
 export default dataSource;

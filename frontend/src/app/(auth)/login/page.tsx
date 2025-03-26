@@ -14,7 +14,7 @@ import {
   Alert,
   Stack
 } from '@mui/material';
-import { Visibility, VisibilityOff } from '@mui/icons-material';
+import { Visibility, VisibilityOff, LockOutlined as LockOutlinedIcon } from '@mui/icons-material';
 import { useAuth } from '@/providers/AuthProvider';
 import { APP_NAME } from '@/config';
 import { useRouter } from 'next/navigation';
@@ -22,7 +22,6 @@ import Avatar from '@mui/material/Avatar';
 import FormControlLabel from '@mui/material/FormControlLabel';
 import Checkbox from '@mui/material/Checkbox';
 import Grid from '@mui/material/Grid';
-import LockOutlinedIcon from '@mui/icons-material/LockOutlined';
 
 export default function LoginPage() {
   const { login } = useAuth();
@@ -129,17 +128,17 @@ export default function LoginPage() {
           <Avatar sx={{ m: 1, bgcolor: 'primary.main' }}>
             <LockOutlinedIcon />
           </Avatar>
-          <Typography component="h1" variant="h5">
-            Login
+          <Typography component="h1" variant="h5" sx={{ mb: 3 }}>
+            {APP_NAME} - Login
           </Typography>
           
           {error && (
-            <Alert severity="error" sx={{ mt: 2, width: '100%' }}>
+            <Alert severity="error" sx={{ mt: 2, width: '100%', mb: 2 }}>
               {error}
             </Alert>
           )}
           
-          <Box component="form" noValidate onSubmit={handleSubmit} sx={{ mt: 1 }}>
+          <Box component="form" noValidate onSubmit={handleSubmit} sx={{ mt: 1, width: '100%' }}>
             <TextField
               margin="normal"
               required
@@ -152,6 +151,7 @@ export default function LoginPage() {
               value={username}
               onChange={e => setUsername(e.target.value)}
               disabled={loading}
+              sx={{ mb: 2 }}
             />
             <TextField
               margin="normal"
@@ -165,6 +165,7 @@ export default function LoginPage() {
               value={password}
               onChange={e => setPassword(e.target.value)}
               disabled={loading}
+              sx={{ mb: 2 }}
               InputProps={{
                 endAdornment: (
                   <InputAdornment position="end">
@@ -182,25 +183,26 @@ export default function LoginPage() {
             <FormControlLabel
               control={<Checkbox value="remember" color="primary" />}
               label="Ingat saya"
+              sx={{ mb: 2 }}
             />
             <Button
               type="submit"
               fullWidth
               variant="contained"
-              sx={{ mt: 3, mb: 2 }}
+              sx={{ mt: 1, mb: 3, py: 1.5 }}
               disabled={loading}
             >
               {loading ? 'Loading...' : 'Login'}
             </Button>
             <Grid container>
               <Grid item xs>
-                <Link href="#" variant="body2">
+                <Link href="#" style={{ textDecoration: 'none', color: 'primary.main' }}>
                   Lupa password?
                 </Link>
               </Grid>
               <Grid item>
-                <Link href="/register" variant="body2">
-                  {"Belum punya akun? Daftar"}
+                <Link href="/register" style={{ textDecoration: 'none', color: 'primary.main' }}>
+                  Belum punya akun? Daftar
                 </Link>
               </Grid>
             </Grid>

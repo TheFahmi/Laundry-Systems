@@ -6,6 +6,7 @@ import { toast } from 'react-toastify';
 import OrderForm from '@/components/orders/OrderForm';
 
 interface OrderItem {
+  serviceId?: string;
   name: string;
   quantity: number;
   price: number;
@@ -24,7 +25,8 @@ export default function NewOrderPage() {
   const handleSubmit = async (formData: OrderFormData) => {
     setIsLoading(true);
     try {
-      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/orders`, {
+      const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
+      const response = await fetch(`${apiUrl}/orders`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

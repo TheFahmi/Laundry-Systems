@@ -9,21 +9,17 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.ServiceModule = void 0;
 const common_1 = require("@nestjs/common");
 const typeorm_1 = require("@nestjs/typeorm");
-const service_entity_1 = require("./entities/service.entity");
 const service_controller_1 = require("./service.controller");
 const service_service_1 = require("./service.service");
-const service_category_module_1 = require("../service-category/service-category.module");
+const service_entity_1 = require("./entities/service.entity");
 let ServiceModule = class ServiceModule {
 };
 ServiceModule = __decorate([
     (0, common_1.Module)({
-        imports: [
-            typeorm_1.TypeOrmModule.forFeature([service_entity_1.Service]),
-            service_category_module_1.ServiceCategoryModule
-        ],
+        imports: [typeorm_1.TypeOrmModule.forFeature([service_entity_1.Service])],
         controllers: [service_controller_1.ServiceController],
         providers: [service_service_1.ServiceService],
-        exports: [service_service_1.ServiceService]
+        exports: [service_service_1.ServiceService],
     })
 ], ServiceModule);
 exports.ServiceModule = ServiceModule;

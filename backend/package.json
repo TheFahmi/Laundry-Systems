@@ -24,6 +24,7 @@
     "migration:create": "npx typeorm-ts-node-commonjs migration:create",
     "migration:direct": "node src/direct-migration.js",
     "db:init": "node src/init-db.js",
+    "seed:run": "ts-node src/db/seed-runner.ts",
     "rollback:ids": "node src/rollback-migration.js"
   },
   "keywords": [

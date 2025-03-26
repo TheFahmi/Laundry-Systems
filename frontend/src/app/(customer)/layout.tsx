@@ -36,7 +36,7 @@ import { useTheme } from '@/providers/ThemeProvider';
 
 const menuItems = [
   { text: 'Profil', icon: <PersonIcon />, path: '/profile' },
-  { text: 'Pesanan', icon: <OrdersIcon />, path: '/orders' },
+  { text: 'Pesanan', icon: <OrdersIcon />, path: '/my-orders' },
   { text: 'Pelacakan', icon: <TrackingIcon />, path: '/tracking' },
   { text: 'Pembayaran', icon: <PaymentIcon />, path: '/payments' },
   { text: 'Pesan', icon: <MessageIcon />, path: '/messages' },

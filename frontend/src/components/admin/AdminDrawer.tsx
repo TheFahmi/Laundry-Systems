@@ -12,7 +12,8 @@ import {
   Toolbar, 
   Typography,
   Divider,
-  useTheme
+  useTheme,
+  Badge
 } from '@mui/material';
 import {
   Dashboard as DashboardIcon,
@@ -23,15 +24,16 @@ import {
   BarChart as ReportsIcon,
   Settings as SettingsIcon,
   Payments as PaymentsIcon,
-  LocalLaundryService as LaundryIcon
+  LocalLaundryService as LaundryIcon,
+  Notifications as NotificationsIcon
 } from '@mui/icons-material';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import Image from 'next/image';
 
 const menuItems = [
-  { text: 'Dasbor', icon: <DashboardIcon />, path: '/dashboard' },
-  { text: 'Pesanan', icon: <OrdersIcon />, path: '/orders' },
+  { text: 'Dashboard', icon: <DashboardIcon />, path: '/dashboard' },
+  { text: 'Pesanan', icon: <OrdersIcon />, path: '/orders', badge: 5 },
   { text: 'Pelanggan', icon: <PeopleIcon />, path: '/customers' },
   { text: 'Pembayaran', icon: <PaymentsIcon />, path: '/payments' },
   { text: 'Layanan', icon: <LaundryIcon />, path: '/services' },
@@ -61,24 +63,43 @@ export default function AdminDrawer({ drawerWidth }: AdminDrawerProps) {
     };
   }, [mobileOpen]);
 
+  const isActive = (path: string) => {
+    if (path === '/dashboard' && pathname === '/dashboard') {
+      return true;
+    }
+    // Handle other paths, accounting for sub-paths
+    if (path !== '/dashboard' && pathname?.startsWith(path)) {
+      return true;
+    }
+    return false;
+  };
+
   const drawer = (
     <div>
       <Toolbar sx={{ justifyContent: 'center', py: 2 }}>
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-          <Image src="/logo.png" alt="Logo" width={32} height={32} />
+          <Box sx={{ position: 'relative', width: 40, height: 40 }}>
+            <Image 
+              src="/logo.png" 
+              alt="Logo" 
+              fill 
+              style={{ objectFit: 'contain' }} 
+            />
+          </Box>
           <Typography variant="h6" noWrap component="div" sx={{ fontWeight: 'bold' }}>
             Laundry Admin
           </Typography>
         </Box>
       </Toolbar>
       <Divider />
-      <List>
+      <List sx={{ px: 1 }}>
         {menuItems.map((item) => (
           <Link href={item.path} key={item.text} style={{ textDecoration: 'none', color: 'inherit' }}>
-            <ListItem disablePadding>
+            <ListItem disablePadding sx={{ mb: 0.5 }}>
               <ListItemButton 
-                selected={pathname === item.path}
+                selected={isActive(item.path)}
                 sx={{
+                  borderRadius: '8px',
                   '&.Mui-selected': {
                     backgroundColor: theme.palette.primary.main + '20',
                     '&:hover': {
@@ -94,7 +115,13 @@ export default function AdminDrawer({ drawerWidth }: AdminDrawerProps) {
                   },
                 }}
               >
-                <ListItemIcon sx={{ minWidth: 40 }}>{item.icon}</ListItemIcon>
+                <ListItemIcon sx={{ minWidth: 40 }}>
+                  {item.badge ? (
+                    <Badge badgeContent={item.badge} color="error">
+                      {item.icon}
+                    </Badge>
+                  ) : item.icon}
+                </ListItemIcon>
                 <ListItemText primary={item.text} />
               </ListItemButton>
             </ListItem>
