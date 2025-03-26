@@ -1,6 +1,6 @@
 import { Service } from '../../service/entities/service.entity';
 export declare class ServiceCategory {
-    id: number;
+    id: string;
     name: string;
     description: string;
     services: Service[];

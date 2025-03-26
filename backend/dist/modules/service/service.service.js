@@ -66,6 +66,27 @@ let ServiceService = class ServiceService {
             throw new common_1.NotFoundException(`Service with ID ${id} not found`);
         }
     }
+    async save(serviceData) {
+        try {
+            if (serviceData.id) {
+                const existingService = await this.serviceRepository.findOne({
+                    where: { id: serviceData.id }
+                });
+                if (existingService) {
+                    Object.assign(existingService, serviceData);
+                    const result = await this.serviceRepository.save(existingService);
+                    return result;
+                }
+            }
+            const newService = this.serviceRepository.create(serviceData);
+            const result = await this.serviceRepository.save(newService);
+            return Array.isArray(result) ? result[0] : result;
+        }
+        catch (error) {
+            console.error('Error saving service:', error);
+            throw error;
+        }
+    }
 };
 ServiceService = __decorate([
     (0, common_1.Injectable)(),

@@ -18,4 +18,5 @@ export declare class ServiceService {
     findOne(id: string): Promise<Service>;
     update(id: string, updateServiceDto: UpdateServiceDto): Promise<Service>;
     remove(id: string): Promise<void>;
+    save(serviceData: any): Promise<Service>;
 }

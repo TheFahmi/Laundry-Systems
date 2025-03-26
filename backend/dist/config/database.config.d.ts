@@ -1,2 +1,2 @@
-import { DataSourceOptions } from 'typeorm';
-export declare const config: DataSourceOptions;
+import { TypeOrmModuleOptions } from '@nestjs/typeorm';
+export declare const config: TypeOrmModuleOptions;

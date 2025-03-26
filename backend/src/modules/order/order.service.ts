@@ -2,6 +2,7 @@ import { Injectable, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, EntityManager } from 'typeorm';
 import { Order } from './entities/order.entity';
+import { OrderItem } from './entities/order-item.entity';
 import { CreateOrderDto } from './dto/create-order.dto';
 import { UpdateOrderDto } from './dto/update-order.dto';
 import { Payment, PaymentMethod, PaymentStatus } from '../payment/entities/payment.entity';
@@ -13,7 +14,9 @@ export class OrderService {
     @InjectRepository(Order)
     private orderRepository: Repository<Order>,
     @InjectRepository(Payment)
-    private paymentRepository: Repository<Payment>
+    private paymentRepository: Repository<Payment>,
+    @InjectRepository(OrderItem)
+    private orderItemRepository: Repository<OrderItem>
   ) {}
 
   async generateOrderNumber(): Promise<string> {
@@ -26,19 +29,74 @@ export class OrderService {
     return `ORD-${year}${month}${day}-${random}`;
   }
 
-  async create(createOrderDto: CreateOrderDto): Promise<Order> {
-    // Buat instance Customer berdasarkan customerId
-    const customer = { id: createOrderDto.customerId } as any;
-    
-    // Hilangkan customerId dari DTO dan tambahkan referensi customer
-    const { customerId, ...orderData } = createOrderDto;
-    const newOrder = this.orderRepository.create({
-      ...orderData,
-      customer,
-      orderNumber: await this.generateOrderNumber()
-    });
-    
-    return this.orderRepository.save(newOrder);
+  async create(createOrderDto: any): Promise<Order> {
+    try {
+      // Create a new ID if not provided
+      const orderId = uuidv4();
+      
+      // Create an order number (ORD-yyyyMMdd-xxxx format)
+      const date = new Date();
+      const dateStr = date.toISOString().slice(0, 10).replace(/-/g, '');
+      const randomNum = Math.floor(1000 + Math.random() * 9000);
+      const orderNumber = `ORD-${dateStr}-${randomNum}`;
+      
+      // Default status if not provided
+      const status = createOrderDto.status || 'new';
+      
+      // Create order items if provided
+      let items = [];
+      if (createOrderDto.items && Array.isArray(createOrderDto.items)) {
+        items = createOrderDto.items.map(item => {
+          const itemId = uuidv4();
+          return this.orderItemRepository.create({
+            id: itemId,
+            orderId,
+            serviceId: item.serviceId,
+            quantity: item.quantity,
+            price: item.price,
+            subtotal: item.price * item.quantity
+          });
+        });
+      }
+      
+      // Save order items
+      if (items.length > 0) {
+        await this.orderItemRepository.save(items);
+      }
+      
+      // Calculate total amount from items if not provided
+      let totalAmount = createOrderDto.totalAmount || 0;
+      if (items.length > 0 && !totalAmount) {
+        totalAmount = this.calculateTotalAmount(items);
+      }
+      
+      // Create order entity
+      const order = this.orderRepository.create({
+        id: orderId,
+        orderNumber,
+        customerId: createOrderDto.customerId,
+        status,
+        totalAmount,
+        totalWeight: createOrderDto.totalWeight || 0,
+        notes: createOrderDto.notes,
+        specialRequirements: createOrderDto.specialRequirements,
+        pickupDate: createOrderDto.pickupDate || new Date(),
+        deliveryDate: createOrderDto.deliveryDate,
+        createdAt: new Date(),
+        updatedAt: new Date()
+      });
+      
+      // Save order
+      const savedOrder = await this.orderRepository.save(order);
+      
+      // Add items to the saved order
+      savedOrder.items = items;
+      
+      return savedOrder;
+    } catch (error) {
+      console.error(`Error creating order: ${error.message}`);
+      throw new Error(`Failed to create order: ${error.message}`);
+    }
   }
 
   // Add this method to calculate the total amount from order items
@@ -52,7 +110,15 @@ export class OrderService {
     }, 0);
   }
 
-  async findAll(options: { page: number; limit: number }): Promise<{ items: Order[]; total: number; page: number; limit: number }> {
+  async findAll(options: { page: number; limit: number }): Promise<{ 
+    data: Order[]; 
+    meta: { 
+      totalItems: number; 
+      totalPages: number;
+      currentPage: number; 
+      itemsPerPage: number; 
+    } 
+  }> {
     const { page, limit } = options;
     const skip = (page - 1) * limit;
 
@@ -65,17 +131,17 @@ export class OrderService {
       });
 
       // Transform the data to match the frontend's expected format
-      const items = data.map(order => {
+      const mappedItems = data.map(order => {
         try {
           // Ensure customer data is available for the frontend
           const customerName = order.customer ? order.customer.name : 'Unknown Customer';
-          
+
           // Add customer name to order object
           const orderWithCustomer = {
             ...order,
             customerName // Add customerName field directly
           };
-          
+
           // Process order items to ensure they have serviceName, unitPrice, totalPrice
           if (Array.isArray(order.items)) {
             order.items.forEach(item => {
@@ -84,75 +150,39 @@ export class OrderService {
                 if (!item.serviceName) {
                   item.serviceName = item.service ? item.service.name : `Service #${item.serviceId || 'Unknown'}`;
                 }
-                
-                // Ensure price is not null or zero
-                if (!item.price) {
-                  item.price = item.service ? item.service.price : 15000; // Default price
-                }
-                
-                // Ensure subtotal is calculated
-                if (!item.subtotal) {
-                  item.subtotal = item.price * item.quantity;
-                }
-              } catch (itemErr) {
-                console.error(`Error processing order item: ${itemErr.message}`);
-                item.serviceName = 'Unknown Service';
-                item.price = item.price || 15000;
-                item.subtotal = item.subtotal || (item.price * item.quantity);
+              } catch (itemError) {
+                console.error(`Error processing item in order ${order.id}:`, itemError);
               }
             });
           }
-          
-          // If order doesn't have payments, add a default payment object
-          if (!order.payments || order.payments.length === 0) {
-            order.payments = [{
-              id: `TEMP-${Date.now()}-${order.id}`,
-              referenceNumber: `REF-${order.orderNumber || order.id}`,
-              amount: order.totalAmount || 0,
-              method: PaymentMethod.CASH,
-              status: PaymentStatus.PENDING,
-              createdAt: new Date(),
-              order: order
-            } as any];
-          }
 
-          // Recalculate total amount to ensure it matches the sum of items
-          orderWithCustomer.totalAmount = this.calculateTotalAmount(order.items);
-          
           return orderWithCustomer;
-        } catch (orderErr) {
-          console.error(`Error transforming order: ${orderErr.message}`);
-          // Return minimal order data if transformation fails
-          return {
-            ...order,
-            customerName: 'Unknown Customer',
-            items: [],
-            payments: [{
-              id: `TEMP-${Date.now()}`,
-              referenceNumber: 'Default Payment',
-              amount: 0,
-              method: PaymentMethod.CASH,
-              status: PaymentStatus.PENDING,
-              createdAt: new Date()
-            } as any]
-          } as Order;
+        } catch (orderError) {
+          console.error(`Error processing order ${order.id}:`, orderError);
+          return order; // Return the original order if there's an error in processing
         }
       });
 
-      return { 
-        items, 
-        total, 
-        page, 
-        limit 
+      return {
+        data: mappedItems,
+        meta: {
+          totalItems: total,
+          totalPages: Math.ceil(total / limit),
+          currentPage: page,
+          itemsPerPage: limit
+        }
       };
     } catch (error) {
       console.error(`Error in findAll method: ${error.message}`);
       // Return empty result with correct format on error
       return {
-        items: [],
-        total: 0,
-        page,
-        limit
+        data: [],
+        meta: {
+          totalItems: 0,
+          totalPages: 0,
+          currentPage: page,
+          itemsPerPage: limit
+        }
       };
     }
   }

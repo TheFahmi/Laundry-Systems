@@ -7,6 +7,7 @@ import {
   MenuItem, Select, FormControl, 
   InputLabel, FormHelperText
 } from '@mui/material';
+import { toast } from 'react-toastify';
 
 interface OrderItem {
   serviceId?: string;
@@ -74,22 +75,32 @@ export default function OrderForm({ initialData, onSubmit, onCancel, isLoading }
         const response = await fetch(`${apiUrl}/customers?limit=100&page=1`);
         
         if (!response.ok) {
+          const errorText = await response.text();
+          console.error('Failed to fetch customers:', response.status, response.statusText, errorText);
           throw new Error(`Failed to fetch customers: ${response.status} ${response.statusText}`);
         }
         
         const data = await response.json();
-        console.log('Customers response:', data);
-        
-        if (data.items && Array.isArray(data.items)) {
+        console.log('Customers response data:', data);
+
+        // Handle different response formats
+        if (data.data && Array.isArray(data.data)) {
+          setCustomers(data.data);
+          console.log(`Loaded ${data.data.length} customers from data property`);
+        } else if (data.items && Array.isArray(data.items)) {
           setCustomers(data.items);
+          console.log(`Loaded ${data.items.length} customers from items property`);
         } else if (Array.isArray(data)) {
           setCustomers(data);
+          console.log(`Loaded ${data.length} customers from array response`);
         } else {
           console.error('Unexpected customers response format:', data);
           setCustomers([]);
         }
       } catch (error) {
         console.error('Error fetching customers:', error);
+        // Show error in UI
+        toast.error('Failed to load customers. Please try again.');
       } finally {
         setLoadingCustomers(false);
       }
@@ -105,7 +116,19 @@ export default function OrderForm({ initialData, onSubmit, onCancel, isLoading }
           throw new Error('Failed to fetch services');
         }
         const data = await response.json();
-        setServices(data.items || []);
+        console.log('Services response data:', data);
+        
+        // Handle different response formats
+        if (data.data && Array.isArray(data.data)) {
+          setServices(data.data);
+        } else if (data.items && Array.isArray(data.items)) {
+          setServices(data.items);
+        } else if (Array.isArray(data)) {
+          setServices(data);
+        } else {
+          console.error('Unexpected services response format:', data);
+          setServices([]);
+        }
       } catch (error) {
         console.error('Error fetching services:', error);
       } finally {

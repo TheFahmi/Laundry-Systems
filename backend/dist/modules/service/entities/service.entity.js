@@ -12,6 +12,7 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.Service = void 0;
 const typeorm_1 = require("typeorm");
 const swagger_1 = require("@nestjs/swagger");
+const service_category_entity_1 = require("../../service-category/entities/service-category.entity");
 let Service = class Service {
 };
 __decorate([
@@ -35,7 +36,7 @@ __decorate([
     __metadata("design:type", Number)
 ], Service.prototype, "price", void 0);
 __decorate([
-    (0, typeorm_1.Column)({ nullable: false, default: 'kg' }),
+    (0, typeorm_1.Column)({ name: 'unit', nullable: false, default: 'kg' }),
     (0, swagger_1.ApiProperty)({ description: 'The unit of measurement for the service (e.g., kg, pcs)' }),
     __metadata("design:type", String)
 ], Service.prototype, "unit", void 0);
@@ -49,6 +50,17 @@ __decorate([
     (0, swagger_1.ApiProperty)({ description: 'Whether the service is active or not' }),
     __metadata("design:type", Boolean)
 ], Service.prototype, "isActive", void 0);
+__decorate([
+    (0, typeorm_1.Column)({ name: 'category_id', nullable: true }),
+    (0, swagger_1.ApiProperty)({ description: 'The ID of the category this service belongs to' }),
+    __metadata("design:type", String)
+], Service.prototype, "categoryId", void 0);
+__decorate([
+    (0, typeorm_1.ManyToOne)(() => service_category_entity_1.ServiceCategory, category => category.services),
+    (0, typeorm_1.JoinColumn)({ name: 'category_id' }),
+    (0, swagger_1.ApiProperty)({ description: 'The category this service belongs to' }),
+    __metadata("design:type", service_category_entity_1.ServiceCategory)
+], Service.prototype, "category", void 0);
 __decorate([
     (0, typeorm_1.CreateDateColumn)({ name: 'created_at' }),
     (0, swagger_1.ApiProperty)({ description: 'The timestamp when the service was created' }),

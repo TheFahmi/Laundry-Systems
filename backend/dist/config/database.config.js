@@ -1,19 +1,17 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.config = void 0;
-const dotenv_1 = require("dotenv");
-const path = require("path");
-(0, dotenv_1.config)();
+const dotenv = require("dotenv");
+dotenv.config();
 exports.config = {
     type: 'postgres',
-    host: process.env.DATABASE_HOST || 'localhost',
-    port: parseInt(process.env.DATABASE_PORT || '5432', 10),
-    username: process.env.DATABASE_USERNAME || 'postgres',
-    password: process.env.DATABASE_PASSWORD || 'postgres',
-    database: process.env.DATABASE_NAME || 'laundry',
-    entities: [path.join(__dirname, '../**/*.entity{.ts,.js}')],
-    migrations: [path.join(__dirname, '../database/migrations/*{.ts,.js}')],
+    host: process.env.DB_HOST || 'dono-03.danbot.host',
+    port: parseInt(process.env.DB_PORT, 10) || 2127,
+    username: process.env.DB_USERNAME || 'pterodactyl',
+    password: process.env.DB_PASSWORD || 'J1F7ZP2WBYWHCBRX',
+    database: process.env.DB_DATABASE || 'laundry_db',
+    entities: [__dirname + '/../**/*.entity{.ts,.js}'],
     synchronize: process.env.NODE_ENV !== 'production',
-    logging: process.env.NODE_ENV !== 'production',
+    logging: process.env.NODE_ENV === 'development',
 };
 //# sourceMappingURL=database.config.js.map

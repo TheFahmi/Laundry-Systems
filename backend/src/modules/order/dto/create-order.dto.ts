@@ -10,12 +10,12 @@ export class CreateOrderDto {
   @IsEnum(OrderStatus)
   status?: OrderStatus;
 
-  @IsNotEmpty()
-  @IsNumber()
-  totalAmount: number;
+  @IsOptional()
+  @IsNumber({ maxDecimalPlaces: 2 })
+  totalAmount?: number = 0;
 
   @IsOptional()
-  @IsNumber()
+  @IsNumber({ maxDecimalPlaces: 2 })
   totalWeight?: number;
 
   @IsOptional()
@@ -33,4 +33,8 @@ export class CreateOrderDto {
   @IsOptional()
   @IsDateString()
   deliveryDate?: Date;
+
+  // Optional array of order items
+  @IsOptional()
+  items?: any[];
 } 

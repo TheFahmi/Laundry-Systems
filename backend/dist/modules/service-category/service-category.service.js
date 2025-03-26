@@ -17,12 +17,30 @@ const common_1 = require("@nestjs/common");
 const typeorm_1 = require("@nestjs/typeorm");
 const typeorm_2 = require("typeorm");
 const service_category_entity_1 = require("./entities/service-category.entity");
+const service_entity_1 = require("../service/entities/service.entity");
 let ServiceCategoryService = class ServiceCategoryService {
-    constructor(serviceCategoryRepository) {
+    constructor(serviceCategoryRepository, serviceRepository) {
         this.serviceCategoryRepository = serviceCategoryRepository;
+        this.serviceRepository = serviceRepository;
     }
-    async findAll() {
-        return this.serviceCategoryRepository.find({ relations: ['services'] });
+    async create(createServiceCategoryDto) {
+        const category = this.serviceCategoryRepository.create(createServiceCategoryDto);
+        return this.serviceCategoryRepository.save(category);
+    }
+    async findAll(options = {}) {
+        const { page = 1, limit = 10 } = options;
+        const skip = (page - 1) * limit;
+        const [items, total] = await this.serviceCategoryRepository.findAndCount({
+            skip,
+            take: limit,
+            order: { name: 'ASC' },
+        });
+        return {
+            items,
+            total,
+            page,
+            limit,
+        };
     }
     async findOne(id) {
         const category = await this.serviceCategoryRepository.findOne({
@@ -34,23 +52,31 @@ let ServiceCategoryService = class ServiceCategoryService {
         }
         return category;
     }
-    async create(category) {
+    async findServices(id) {
+        const category = await this.findOne(id);
+        return this.serviceRepository.find({
+            where: { categoryId: id },
+            order: { name: 'ASC' },
+        });
+    }
+    async update(id, updateServiceCategoryDto) {
+        const category = await this.findOne(id);
+        Object.assign(category, updateServiceCategoryDto);
         return this.serviceCategoryRepository.save(category);
     }
-    async update(id, updateData) {
-        await this.findOne(id);
-        await this.serviceCategoryRepository.update(id, updateData);
-        return this.findOne(id);
-    }
     async remove(id) {
-        const category = await this.findOne(id);
-        await this.serviceCategoryRepository.remove(category);
+        const result = await this.serviceCategoryRepository.delete(id);
+        if (result.affected === 0) {
+            throw new common_1.NotFoundException(`Service category with ID ${id} not found`);
+        }
     }
 };
 ServiceCategoryService = __decorate([
     (0, common_1.Injectable)(),
     __param(0, (0, typeorm_1.InjectRepository)(service_category_entity_1.ServiceCategory)),
-    __metadata("design:paramtypes", [typeorm_2.Repository])
+    __param(1, (0, typeorm_1.InjectRepository)(service_entity_1.Service)),
+    __metadata("design:paramtypes", [typeorm_2.Repository,
+        typeorm_2.Repository])
 ], ServiceCategoryService);
 exports.ServiceCategoryService = ServiceCategoryService;
 //# sourceMappingURL=service-category.service.js.map

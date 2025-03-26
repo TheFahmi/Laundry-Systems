@@ -1,3 +1,4 @@
+import { ServiceCategory } from '../../service-category/entities/service-category.entity';
 export declare class Service {
     id: string;
     name: string;
@@ -6,6 +7,8 @@ export declare class Service {
     unit: string;
     estimatedTime: number;
     isActive: boolean;
+    categoryId: string;
+    category: ServiceCategory;
     createdAt: Date;
     updatedAt: Date;
 }

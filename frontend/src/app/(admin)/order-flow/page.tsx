@@ -33,12 +33,24 @@ export default function OrderFlow() {
       try {
         const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
         const response = await fetch(`${apiUrl}/services?limit=1&page=1`);
-        
+
         if (!response.ok) {
           const errorData = await response.json();
           console.error('Service API error:', errorData);
         } else {
-          console.log('Service API check successful');
+          const data = await response.json();
+          console.log('Service API check successful, response:', data);
+          
+          // Validate response structure
+          if (data.data && Array.isArray(data.data)) {
+            console.log(`Service API returned ${data.data.length} services in data property`);
+          } else if (data.items && Array.isArray(data.items)) {
+            console.log(`Service API returned ${data.items.length} services in items property`);
+          } else if (Array.isArray(data)) {
+            console.log(`Service API returned ${data.length} services in array`);
+          } else {
+            console.error('Unexpected service API response format:', data);
+          }
         }
       } catch (error) {
         console.error('Error checking service API:', error);

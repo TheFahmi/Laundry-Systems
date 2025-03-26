@@ -1,5 +1,6 @@
-import { Column, CreateDateColumn, Entity, PrimaryGeneratedColumn, UpdateDateColumn } from 'typeorm';
+import { Column, CreateDateColumn, Entity, PrimaryGeneratedColumn, UpdateDateColumn, ManyToOne, JoinColumn } from 'typeorm';
 import { ApiProperty } from '@nestjs/swagger';
+import { ServiceCategory } from '../../service-category/entities/service-category.entity';
 
 @Entity('services')
 export class Service {
@@ -19,7 +20,7 @@ export class Service {
   @ApiProperty({ description: 'The price of the service' })
   price: number;
 
-  @Column({ nullable: false, default: 'kg' })
+  @Column({ name: 'unit', nullable: false, default: 'kg' })
   @ApiProperty({ description: 'The unit of measurement for the service (e.g., kg, pcs)' })
   unit: string;
 
@@ -30,6 +31,15 @@ export class Service {
   @Column({ name: 'is_active', default: true })
   @ApiProperty({ description: 'Whether the service is active or not' })
   isActive: boolean;
+
+  @Column({ name: 'category_id', nullable: true })
+  @ApiProperty({ description: 'The ID of the category this service belongs to' })
+  categoryId: string;
+
+  @ManyToOne(() => ServiceCategory, category => category.services)
+  @JoinColumn({ name: 'category_id' })
+  @ApiProperty({ description: 'The category this service belongs to' })
+  category: ServiceCategory;
 
   @CreateDateColumn({ name: 'created_at' })
   @ApiProperty({ description: 'The timestamp when the service was created' })
