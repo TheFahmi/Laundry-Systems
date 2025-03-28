@@ -18,7 +18,9 @@ interface PaymentConfirmationProps {
     status: PaymentStatus;
     notes?: string;
     transactionId?: string;
-    created_at: string;
+    created_at?: string;
+    createdAt?: string;
+    referenceNumber?: string;
   };
   orderDetails?: {
     orderNumber?: string;
@@ -30,16 +32,31 @@ interface PaymentConfirmationProps {
 export default function PaymentConfirmation({ payment, orderDetails }: PaymentConfirmationProps) {
   const router = useRouter();
   
-  // Format date to readable format
-  const formatDate = (dateString: string) => {
-    const date = new Date(dateString);
-    return date.toLocaleString('id-ID', {
-      year: 'numeric',
-      month: 'long',
-      day: 'numeric',
-      hour: '2-digit',
-      minute: '2-digit',
-    });
+  // Format date to readable format with improved error handling
+  const formatDate = (dateString?: string | null): string => {
+    if (!dateString) return 'N/A';
+    
+    try {
+      // Try to parse the date
+      const date = new Date(dateString);
+      
+      // Check if date is valid
+      if (isNaN(date.getTime())) {
+        return 'N/A';
+      }
+      
+      // Format the date as a locale string with fallback
+      return date.toLocaleString('id-ID', {
+        year: 'numeric',
+        month: 'long',
+        day: 'numeric',
+        hour: '2-digit',
+        minute: '2-digit'
+      });
+    } catch (error) {
+      console.error('Error formatting date:', error);
+      return 'N/A';
+    }
   };
   
   // Get payment method display text
@@ -86,6 +103,17 @@ export default function PaymentConfirmation({ payment, orderDetails }: PaymentCo
     );
   };
   
+  // Get total amount with fallback and formatting
+  const formatAmount = (amount?: number | null): string => {
+    if (amount === undefined || amount === null) return 'Rp 0';
+    try {
+      return `Rp ${Number(amount).toLocaleString('id-ID')}`;
+    } catch (error) {
+      console.error('Error formatting amount:', error);
+      return 'Rp 0';
+    }
+  };
+  
   const handleViewOrder = () => {
     router.push(`/orders/${payment.orderId}`);
   };
@@ -106,13 +134,20 @@ export default function PaymentConfirmation({ payment, orderDetails }: PaymentCo
         </Typography>
         
         {/* Payment ID and Date */}
-        <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 3 }}>
-          <Typography variant="body2">
-            <strong>Payment ID:</strong> {payment.id}
-          </Typography>
-          <Typography variant="body2">
-            <strong>Tanggal:</strong> {formatDate(payment.created_at)}
-          </Typography>
+        <Box sx={{ mb: 3 }}>
+          <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 1 }}>
+            <Typography variant="body2">
+              <strong>Payment ID:</strong> {payment.id}
+            </Typography>
+            <Typography variant="body2">
+              <strong>Tanggal:</strong> {formatDate(payment.createdAt || payment.created_at)}
+            </Typography>
+          </Box>
+          {payment.referenceNumber && (
+            <Typography variant="body2">
+              <strong>Nomor Referensi:</strong> {payment.referenceNumber}
+            </Typography>
+          )}
         </Box>
         
         <Divider sx={{ mb: 3 }} />
@@ -133,9 +168,9 @@ export default function PaymentConfirmation({ payment, orderDetails }: PaymentCo
                     <strong>Nomor Pesanan:</strong> {orderDetails.orderNumber}
                   </Typography>
                 )}
-                {orderDetails?.total && (
+                {orderDetails?.total !== undefined && (
                   <Typography variant="body2">
-                    <strong>Total Pesanan:</strong> Rp {orderDetails.total.toLocaleString()}
+                    <strong>Total Pesanan:</strong> {formatAmount(orderDetails.total)}
                   </Typography>
                 )}
               </CardContent>
@@ -171,7 +206,7 @@ export default function PaymentConfirmation({ payment, orderDetails }: PaymentCo
             <Grid container spacing={2}>
               <Grid item xs={12} sm={6}>
                 <Typography variant="body2">
-                  <strong>Jumlah:</strong> Rp {payment.amount.toLocaleString()}
+                  <strong>Jumlah:</strong> {formatAmount(payment.amount)}
                 </Typography>
                 <Typography variant="body2">
                   <strong>Metode:</strong> {getPaymentMethodText(payment.method)}

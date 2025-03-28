@@ -103,14 +103,28 @@ export default function RegisterPage() {
     setLoading(true);
     setError(null);
 
-    const formData = new FormData(e.currentTarget);
-    const email = formData.get('email') as string;
-    const password = formData.get('password') as string;
-    const name = formData.get('name') as string;
-
     try {
-      await register(email, password, name);
-      // Redirect dilakukan di dalam register function
+      // Use the React state formData instead of trying to extract from form elements
+      const { username, password, email, name } = formData;
+
+      // Front-end validation
+      if (!username || !email || !password || !name) {
+        throw new Error('Semua field harus diisi: username, email, password, dan nama');
+      }
+
+      if (password.length < 6) {
+        throw new Error('Password minimal 6 karakter');
+      }
+
+      if (!/\S+@\S+\.\S+/.test(email)) {
+        throw new Error('Format email tidak valid');
+      }
+
+      console.log('Submitting registration with data:', { username, email, password, name });
+      
+      // Register using the complete data
+      await register(username, password, email, name);
+      // Redirect handled in register function
     } catch (err: unknown) {
       if (err instanceof Error) {
         setError(err.message || 'Registrasi gagal. Silakan coba lagi.');
@@ -186,7 +200,14 @@ export default function RegisterPage() {
           
           {error && (
             <Alert severity="error" sx={{ mb: 3 }}>
-              {error}
+              <Typography variant="body1" fontWeight="bold">Error:</Typography>
+              <Typography variant="body2">{error}</Typography>
+              <Typography variant="caption" sx={{ mt: 1, display: 'block' }}>
+                Data form: username={formData.username}, 
+                email={formData.email}, 
+                name={formData.name}, 
+                password={formData.password ? '[PROVIDED]' : '[EMPTY]'}
+              </Typography>
             </Alert>
           )}
           

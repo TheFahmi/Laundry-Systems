@@ -62,8 +62,29 @@ export const getServices = async (filters: ServiceFilters = {}): Promise<Service
       ...(search && { search })
     });
     
-    const response = await axios.get(`${API_URL}/services?${queryParams}`);
-    return response.data;
+    // Try to get CSRF token from sessionStorage
+    const csrfToken = typeof window !== 'undefined' ? sessionStorage.getItem('csrfToken') : null;
+    
+    if (!csrfToken) {
+      console.warn('[getServices] No CSRF token found in session storage');
+    }
+    
+    const response = await fetch(`/api/services?${queryParams}`, {
+      method: 'GET',
+      headers: {
+        'Content-Type': 'application/json',
+        ...(csrfToken && { 'X-CSRF-Token': csrfToken }),
+      },
+      credentials: 'include' // Include cookies automatically
+    });
+    
+    if (!response.ok) {
+      const errorText = await response.text();
+      console.error(`[getServices] API error (${response.status}):`, errorText);
+      throw new Error(`API request failed: ${errorText}`);
+    }
+    
+    return await response.json();
   } catch (error) {
     console.error('Error fetching services:', error);
     throw error;
@@ -73,8 +94,29 @@ export const getServices = async (filters: ServiceFilters = {}): Promise<Service
 // Fungsi untuk mendapatkan layanan berdasarkan ID
 export const getServiceById = async (id: string): Promise<LaundryService> => {
   try {
-    const response = await axios.get(`${API_URL}/services/${id}`);
-    return response.data;
+    // Try to get CSRF token from sessionStorage
+    const csrfToken = typeof window !== 'undefined' ? sessionStorage.getItem('csrfToken') : null;
+    
+    if (!csrfToken) {
+      console.warn('[getServiceById] No CSRF token found in session storage');
+    }
+    
+    const response = await fetch(`/api/services/${id}`, {
+      method: 'GET',
+      headers: {
+        'Content-Type': 'application/json',
+        ...(csrfToken && { 'X-CSRF-Token': csrfToken }),
+      },
+      credentials: 'include' // Include cookies automatically
+    });
+    
+    if (!response.ok) {
+      const errorText = await response.text();
+      console.error(`[getServiceById] API error (${response.status}):`, errorText);
+      throw new Error(`API request failed: ${errorText}`);
+    }
+    
+    return await response.json();
   } catch (error) {
     console.error(`Error fetching service with ID ${id}:`, error);
     throw error;
@@ -84,8 +126,30 @@ export const getServiceById = async (id: string): Promise<LaundryService> => {
 // Fungsi untuk membuat layanan baru
 export const createService = async (data: CreateServiceDto): Promise<LaundryService> => {
   try {
-    const response = await axios.post(`${API_URL}/services`, data);
-    return response.data;
+    // Try to get CSRF token from sessionStorage
+    const csrfToken = typeof window !== 'undefined' ? sessionStorage.getItem('csrfToken') : null;
+    
+    if (!csrfToken) {
+      console.warn('[createService] No CSRF token found in session storage');
+    }
+    
+    const response = await fetch('/api/services', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        ...(csrfToken && { 'X-CSRF-Token': csrfToken }),
+      },
+      body: JSON.stringify(data),
+      credentials: 'include' // Include cookies automatically
+    });
+    
+    if (!response.ok) {
+      const errorText = await response.text();
+      console.error(`[createService] API error (${response.status}):`, errorText);
+      throw new Error(`API request failed: ${errorText}`);
+    }
+    
+    return await response.json();
   } catch (error) {
     console.error('Error creating service:', error);
     throw error;
@@ -95,8 +159,30 @@ export const createService = async (data: CreateServiceDto): Promise<LaundryServ
 // Fungsi untuk mengupdate layanan
 export const updateService = async (id: string, data: UpdateServiceDto): Promise<LaundryService> => {
   try {
-    const response = await axios.put(`${API_URL}/services/${id}`, data);
-    return response.data;
+    // Try to get CSRF token from sessionStorage
+    const csrfToken = typeof window !== 'undefined' ? sessionStorage.getItem('csrfToken') : null;
+    
+    if (!csrfToken) {
+      console.warn('[updateService] No CSRF token found in session storage');
+    }
+    
+    const response = await fetch(`/api/services/${id}`, {
+      method: 'PUT',
+      headers: {
+        'Content-Type': 'application/json',
+        ...(csrfToken && { 'X-CSRF-Token': csrfToken }),
+      },
+      body: JSON.stringify(data),
+      credentials: 'include' // Include cookies automatically
+    });
+    
+    if (!response.ok) {
+      const errorText = await response.text();
+      console.error(`[updateService] API error (${response.status}):`, errorText);
+      throw new Error(`API request failed: ${errorText}`);
+    }
+    
+    return await response.json();
   } catch (error) {
     console.error(`Error updating service with ID ${id}:`, error);
     throw error;
@@ -106,7 +192,27 @@ export const updateService = async (id: string, data: UpdateServiceDto): Promise
 // Fungsi untuk menghapus layanan
 export const deleteService = async (id: string): Promise<void> => {
   try {
-    await axios.delete(`${API_URL}/services/${id}`);
+    // Try to get CSRF token from sessionStorage
+    const csrfToken = typeof window !== 'undefined' ? sessionStorage.getItem('csrfToken') : null;
+    
+    if (!csrfToken) {
+      console.warn('[deleteService] No CSRF token found in session storage');
+    }
+    
+    const response = await fetch(`/api/services/${id}`, {
+      method: 'DELETE',
+      headers: {
+        'Content-Type': 'application/json',
+        ...(csrfToken && { 'X-CSRF-Token': csrfToken }),
+      },
+      credentials: 'include' // Include cookies automatically
+    });
+    
+    if (!response.ok) {
+      const errorText = await response.text();
+      console.error(`[deleteService] API error (${response.status}):`, errorText);
+      throw new Error(`API request failed: ${errorText}`);
+    }
   } catch (error) {
     console.error(`Error deleting service with ID ${id}:`, error);
     throw error;
@@ -116,8 +222,29 @@ export const deleteService = async (id: string): Promise<void> => {
 // Fungsi untuk mendapatkan kategori layanan
 export const getServiceCategories = async (): Promise<string[]> => {
   try {
-    const response = await axios.get(`${API_URL}/services/categories`);
-    return response.data;
+    // Try to get CSRF token from sessionStorage
+    const csrfToken = typeof window !== 'undefined' ? sessionStorage.getItem('csrfToken') : null;
+    
+    if (!csrfToken) {
+      console.warn('[getServiceCategories] No CSRF token found in session storage');
+    }
+    
+    const response = await fetch('/api/services/categories', {
+      method: 'GET',
+      headers: {
+        'Content-Type': 'application/json',
+        ...(csrfToken && { 'X-CSRF-Token': csrfToken }),
+      },
+      credentials: 'include' // Include cookies automatically
+    });
+    
+    if (!response.ok) {
+      const errorText = await response.text();
+      console.error(`[getServiceCategories] API error (${response.status}):`, errorText);
+      throw new Error(`API request failed: ${errorText}`);
+    }
+    
+    return await response.json();
   } catch (error) {
     console.error('Error fetching service categories:', error);
     throw error;

@@ -7,7 +7,7 @@ export class Customer {
   @PrimaryColumn({ type: 'varchar', length: 255 })
   id: string;
 
-  @Column({ type: 'varchar', length: 100 })
+  @Column({ type: 'varchar', length: 100, nullable: false, default: 'Unknown Customer' })
   name: string;
 
   @Column({ type: 'varchar', length: 20, unique: true })

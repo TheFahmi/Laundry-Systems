@@ -5,16 +5,20 @@ import {
   Box, Paper, Button, CircularProgress, 
   TextField, Grid, Typography, 
   MenuItem, Select, FormControl, 
-  InputLabel, FormHelperText
+  InputLabel, FormHelperText, FormControlLabel, Checkbox
 } from '@mui/material';
 import { toast } from 'react-toastify';
 
-interface OrderItem {
-  serviceId?: string;
+export interface OrderItem {
   id?: string;
-  name: string;
+  serviceId: string;
+  serviceName: string;
   quantity: number;
   price: number;
+  subtotal?: number;
+  weightBased?: boolean;
+  weight?: number;
+  service?: Service;
 }
 
 interface Service {
@@ -23,6 +27,7 @@ interface Service {
   price: number;
   unit: string;
   description?: string;
+  priceModel?: 'per_kg' | 'per_piece' | 'flat_rate';
 }
 
 interface OrderFormValues {
@@ -40,7 +45,7 @@ interface OrderFormProps {
   };
   onSubmit: (data: any) => void;
   onCancel: () => void;
-  isLoading: boolean;
+  isLoading?: boolean;
 }
 
 export default function OrderForm({ initialData, onSubmit, onCancel, isLoading }: OrderFormProps) {
@@ -49,19 +54,25 @@ export default function OrderForm({ initialData, onSubmit, onCancel, isLoading }
   const [services, setServices] = useState<Service[]>([]);
   const [loadingServices, setLoadingServices] = useState(false);
   
-  // Define the newItem state
-  const [newItem, setNewItem] = useState({
-    serviceId: '',
-    quantity: 1,
-    price: 0
-  });
-  
-  const [formValues, setFormValues] = useState<OrderFormValues>({
+  // Form state
+  const [formValues, setFormValues] = useState({
     customerId: initialData?.customerId || '',
-    items: initialData?.items || [],
-    notes: initialData?.notes || ''
+    items: initialData?.items || [] as OrderItem[],
+    notes: initialData?.notes || '',
+    total: 0
   });
   
+  // New item state
+  const [newItem, setNewItem] = useState<OrderItem>({
+    serviceId: '',
+    serviceName: '',
+    quantity: 1,
+    weight: 0.5,
+    price: 0,
+    weightBased: false
+  });
+  
+  // Form errors
   const [formErrors, setFormErrors] = useState<Record<string, string>>({});
 
   useEffect(() => {
@@ -174,81 +185,120 @@ export default function OrderForm({ initialData, onSubmit, onCancel, isLoading }
     }
   };
 
-  // Handle service selection for newItem
+  // Handle new service selection
   const handleNewServiceChange = (e: React.ChangeEvent<{ value: unknown }>) => {
     const serviceId = e.target.value as string;
+    
+    // Find the selected service from our service list
     const selectedService = services.find(service => service.id === serviceId);
     
     if (selectedService) {
+      // Check if this is a weight-based service
+      const isWeightBased = 
+        // First priority: Check priceModel
+        selectedService.priceModel === 'per_kg' ||
+        // Fallback: Check by service name/id for legacy data
+        ['Dry Cleaning', 'Cuci Express', 'Cuci Reguler', 'Setrika'].includes(selectedService.name) ||
+        [1, 2, 3, 4].includes(Number(selectedService.id));
+      
       setNewItem({
         serviceId,
-        quantity: newItem.quantity,
-        price: selectedService.price
+        serviceName: selectedService.name,
+        quantity: 1,
+        weight: 0.5, // Default weight for weight-based services
+        price: selectedService.price,
+        weightBased: isWeightBased,
+        service: selectedService
+      });
+    } else {
+      setNewItem({
+        serviceId,
+        serviceName: '',
+        quantity: 1,
+        weight: 0.5,
+        price: 0,
+        weightBased: false
       });
     }
   };
 
-  // Handle quantity change for newItem
+  // Handle new item quantity change
   const handleNewItemQuantityChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const quantity = parseInt(e.target.value) || 1;
-    setNewItem(prev => ({
+    const quantity = parseInt(e.target.value) || 0;
+    setNewItem({ ...newItem, quantity });
+  };
+
+  // Handle service selection for an existing item
+  const handleServiceSelect = (index: number, serviceId: string) => {
+    // Find the selected service
+    const selectedService = services.find(service => service.id === serviceId);
+    
+    if (!selectedService) return;
+    
+    // Check if this is a weight-based service
+    const isWeightBased = 
+      // First priority: Check priceModel
+      selectedService.priceModel === 'per_kg' ||
+      // Fallback: Check by service name/id for legacy data
+      ['Dry Cleaning', 'Cuci Express', 'Cuci Reguler', 'Setrika'].includes(selectedService.name) ||
+      [1, 2, 3, 4].includes(Number(selectedService.id));
+    
+    // Update the item with service details
+    const updatedItems = [...formValues.items];
+    updatedItems[index] = {
+      ...updatedItems[index],
+      serviceId,
+      serviceName: selectedService.name,
+      price: selectedService.price,
+      weightBased: isWeightBased,
+      // Set default weight if it's weight-based and weight is not yet set
+      weight: isWeightBased ? (updatedItems[index].weight || 0.5) : undefined,
+      service: selectedService
+    };
+    
+    // Update form values
+    setFormValues(prev => ({
       ...prev,
-      quantity
+      items: updatedItems,
+      total: calculateTotal(updatedItems)
     }));
   };
 
-  // Handle service selection
-  const handleServiceSelect = (index: number, serviceId: string) => {
-    const selectedService = services.find(service => service.id === serviceId);
-    if (selectedService) {
-      setFormValues(prev => {
-        const updatedItems = [...prev.items];
-        updatedItems[index] = {
-          ...updatedItems[index],
-          serviceId: selectedService.id,
-          name: selectedService.name,
-          price: selectedService.price
-        };
-        return {
-          ...prev,
-          items: updatedItems
-        };
-      });
-    }
-  };
-
-  // Handle adding a new item
+  // Handle add item
   const handleAddItem = () => {
-    if (!newItem.serviceId || newItem.quantity <= 0) {
+    if (!newItem.serviceId || (newItem.weightBased ? (!newItem.weight || newItem.weight < 0.1) : newItem.quantity <= 0)) {
       return;
     }
     
-    // Find the selected service
-    const selectedService = services.find(service => service.id === newItem.serviceId);
-    
-    if (!selectedService) {
-      return;
-    }
-    
-    const updatedItems = [...formValues.items, {
+    // Create the item to add
+    const itemToAdd: OrderItem = {
       serviceId: newItem.serviceId,
-      name: selectedService.name,
-      quantity: newItem.quantity,
-      price: selectedService.price
-    }];
+      serviceName: newItem.serviceName,
+      quantity: newItem.weightBased ? 1 : newItem.quantity, // For weight-based items, set quantity to 1
+      weight: newItem.weightBased ? Number(newItem.weight) : undefined, // Ensure weight is a number
+      price: newItem.price,
+      weightBased: newItem.weightBased || false,
+      service: newItem.service,
+      subtotal: newItem.weightBased 
+        ? Number(newItem.weight) * newItem.price 
+        : newItem.quantity * newItem.price
+    };
     
-    // Update items and calculate new total
-    setFormValues({
-      ...formValues,
-      items: updatedItems,
-      total: calculateTotal(updatedItems)
-    });
+    // Add item to form values
+    setFormValues(prev => ({
+      ...prev,
+      items: [...prev.items, itemToAdd],
+      total: calculateTotal([...prev.items, itemToAdd])
+    }));
     
-    // Reset the new item
+    // Reset new item form
     setNewItem({
       serviceId: '',
+      serviceName: '',
       quantity: 1,
-      price: 0
+      weight: 0.5,
+      price: 0,
+      weightBased: false
     });
   };
 
@@ -268,10 +318,26 @@ export default function OrderForm({ initialData, onSubmit, onCancel, isLoading }
   const handleItemChange = (index: number, field: string, value: any) => {
     setFormValues(prev => {
       const updatedItems = [...prev.items];
+      const item = updatedItems[index];
+      
+      // Update the field
       updatedItems[index] = {
-        ...updatedItems[index],
+        ...item,
         [field]: value
       };
+      
+      // Recalculate subtotal if price, weight, or quantity changes
+      if (field === 'price' || field === 'weight' || field === 'quantity') {
+        const isWeightBased = item.service?.priceModel === 'per_kg';
+        const weight = isWeightBased ? Number(item.weight) : undefined;
+        const quantity = isWeightBased ? 1 : Number(item.quantity);
+        const price = Number(item.price);
+        
+        updatedItems[index].subtotal = isWeightBased && weight !== undefined
+          ? weight * price
+          : quantity * price;
+      }
+      
       return {
         ...prev,
         items: updatedItems,
@@ -290,9 +356,13 @@ export default function OrderForm({ initialData, onSubmit, onCancel, isLoading }
     }
   };
 
-  // Calculate total order amount
+  // Calculate total order amount based on service priceModel
   const calculateTotal = (items: OrderItem[]): number => {
     return items.reduce((total, item) => {
+      const isWeightBased = item.service?.priceModel === 'per_kg';
+      if (isWeightBased && item.weight !== undefined) {
+        return total + (Number(item.weight) * item.price);
+      }
       return total + (item.quantity * item.price);
     }, 0);
   };
@@ -301,27 +371,39 @@ export default function OrderForm({ initialData, onSubmit, onCancel, isLoading }
   const validateForm = (): boolean => {
     const errors: Record<string, string> = {};
     
+    // Validate customer ID
     if (!formValues.customerId) {
       errors.customerId = 'Pelanggan wajib dipilih';
     }
     
-    if (formValues.items.length === 0) {
-      errors.items = 'Minimal satu layanan harus ditambahkan';
+    // Validate items
+    if (!formValues.items.length) {
+      errors.items = 'Minimal satu layanan wajib ditambahkan';
+    } else {
+      formValues.items.forEach((item, index) => {
+        if (!item.serviceId && !item.serviceName) {
+          errors[`items.${index}.serviceId`] = 'Layanan wajib dipilih';
+        }
+        
+        // Validate quantity or weight based on weightBased flag
+        if (item.weightBased) {
+          // For weight-based items, validate weight
+          if (!item.weight || item.weight < 0.1) {
+            errors[`items.${index}.weight`] = 'Berat minimal 0.1 kg';
+          }
+        } else {
+          // For piece-based items, validate quantity
+          if (!item.quantity || item.quantity <= 0) {
+            errors[`items.${index}.quantity`] = 'Jumlah wajib diisi';
+          }
+        }
+        
+        // Validate price
+        if (!item.price || item.price <= 0) {
+          errors[`items.${index}.price`] = 'Harga wajib diisi';
+        }
+      });
     }
-    
-    formValues.items.forEach((item, index) => {
-      if (!item.serviceId && !item.name) {
-        errors[`items.${index}.serviceId`] = 'Layanan wajib dipilih';
-      }
-      
-      if (item.quantity <= 0) {
-        errors[`items.${index}.quantity`] = 'Jumlah harus lebih dari 0';
-      }
-      
-      if (item.price <= 0) {
-        errors[`items.${index}.price`] = 'Harga harus lebih dari 0';
-      }
-    });
     
     setFormErrors(errors);
     return Object.keys(errors).length === 0;
@@ -344,9 +426,11 @@ export default function OrderForm({ initialData, onSubmit, onCancel, isLoading }
       customerId: formValues.customerId,
       items: formValues.items.map(item => ({
         serviceId: item.serviceId,
-        name: item.name,
+        serviceName: item.serviceName,
         quantity: item.quantity,
-        price: item.price
+        price: item.price,
+        weightBased: item.weightBased,
+        weight: item.weight
       })),
       notes: formValues.notes,
       total: calculateTotal(formValues.items)
@@ -401,7 +485,7 @@ export default function OrderForm({ initialData, onSubmit, onCancel, isLoading }
           {formValues.items.map((item, index) => (
             <Box key={index} sx={{ mb: 2, p: 2, border: '1px solid #e0e0e0', borderRadius: 1 }}>
               <Grid container spacing={2}>
-                <Grid item xs={12} sm={6}>
+                <Grid item xs={12} sm={5}>
                   <FormControl fullWidth error={!!getItemError(index, 'serviceId')}>
                     <InputLabel id={`service-select-label-${index}`}>Layanan *</InputLabel>
                     <Select
@@ -435,21 +519,54 @@ export default function OrderForm({ initialData, onSubmit, onCancel, isLoading }
                 </Grid>
                 
                 <Grid item xs={6} sm={2}>
-                  <TextField
-                    label="Jumlah *"
-                    type="number"
-                    fullWidth
-                    value={item.quantity}
-                    onChange={(e) => handleItemChange(index, 'quantity', parseInt(e.target.value) || 0)}
-                    error={!!getItemError(index, 'quantity')}
-                    helperText={getItemError(index, 'quantity')}
-                    disabled={isLoading}
-                    InputProps={{ inputProps: { min: 1 } }}
-                    required
+                  <FormControlLabel
+                    control={
+                      <Checkbox
+                        checked={item.weightBased || false}
+                        onChange={(e) => handleItemChange(index, 'weightBased', e.target.checked)}
+                        disabled={isLoading}
+                      />
+                    }
+                    label="Berbasis Berat"
                   />
                 </Grid>
                 
-                <Grid item xs={6} sm={3}>
+                <Grid item xs={6} sm={2}>
+                  {item.weightBased ? (
+                    <TextField
+                      label="Berat (kg) *"
+                      type="number"
+                      fullWidth
+                      value={item.weight !== undefined ? item.weight : item.quantity}
+                      onChange={(e) => handleItemChange(index, 'weight', parseFloat(e.target.value) || 0)}
+                      error={!!getItemError(index, 'weight')}
+                      helperText={getItemError(index, 'weight')}
+                      disabled={isLoading}
+                      InputProps={{ 
+                        inputProps: { 
+                          min: 0.1,
+                          step: 0.1
+                        } 
+                      }}
+                      required
+                    />
+                  ) : (
+                    <TextField
+                      label="Jumlah *"
+                      type="number"
+                      fullWidth
+                      value={item.quantity}
+                      onChange={(e) => handleItemChange(index, 'quantity', parseInt(e.target.value) || 0)}
+                      error={!!getItemError(index, 'quantity')}
+                      helperText={getItemError(index, 'quantity')}
+                      disabled={isLoading}
+                      InputProps={{ inputProps: { min: 1 } }}
+                      required
+                    />
+                  )}
+                </Grid>
+                
+                <Grid item xs={6} sm={2}>
                   <TextField
                     label="Harga *"
                     type="number"
@@ -485,7 +602,7 @@ export default function OrderForm({ initialData, onSubmit, onCancel, isLoading }
               Tambah Layanan Baru
             </Typography>
             <Grid container spacing={2} alignItems="center">
-              <Grid item xs={12} sm={6}>
+              <Grid item xs={12} sm={4}>
                 <FormControl fullWidth>
                   <InputLabel id="new-service-select-label">Pilih Layanan</InputLabel>
                   <Select
@@ -516,22 +633,57 @@ export default function OrderForm({ initialData, onSubmit, onCancel, isLoading }
               </Grid>
               
               <Grid item xs={6} sm={2}>
-                <TextField
-                  label="Jumlah"
-                  type="number"
-                  fullWidth
-                  value={newItem.quantity}
-                  onChange={handleNewItemQuantityChange}
-                  disabled={isLoading}
-                  InputProps={{ inputProps: { min: 1 } }}
+                <FormControlLabel
+                  control={
+                    <Checkbox
+                      checked={newItem.weightBased || false}
+                      onChange={(e) => {
+                        setNewItem({ ...newItem, weightBased: e.target.checked });
+                      }}
+                      disabled={isLoading}
+                    />
+                  }
+                  label="Berbasis Berat"
                 />
               </Grid>
               
-              <Grid item xs={6} sm={4}>
+              <Grid item xs={6} sm={2}>
+                {newItem.weightBased ? (
+                  <TextField
+                    label="Berat (kg)"
+                    type="number"
+                    fullWidth
+                    value={newItem.weight !== undefined ? newItem.weight : newItem.quantity}
+                    onChange={(e) => {
+                      const weight = parseFloat(e.target.value) || 0.1;
+                      setNewItem({ ...newItem, weight });
+                    }}
+                    disabled={isLoading}
+                    InputProps={{ 
+                      inputProps: { 
+                        min: 0.1,
+                        step: 0.1
+                      } 
+                    }}
+                  />
+                ) : (
+                  <TextField
+                    label="Jumlah"
+                    type="number"
+                    fullWidth
+                    value={newItem.quantity}
+                    onChange={handleNewItemQuantityChange}
+                    disabled={isLoading}
+                    InputProps={{ inputProps: { min: 1 } }}
+                  />
+                )}
+              </Grid>
+              
+              <Grid item xs={6} sm={2}>
                 <Button
                   variant="contained"
                   onClick={handleAddItem}
-                  disabled={isLoading || !newItem.serviceId || newItem.quantity <= 0}
+                  disabled={isLoading || !newItem.serviceId || (newItem.weightBased ? (!newItem.weight || newItem.weight < 0.1) : newItem.quantity <= 0)}
                   fullWidth
                 >
                   Tambah

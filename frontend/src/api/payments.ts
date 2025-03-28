@@ -49,10 +49,11 @@ export interface PaymentFilters {
   method?: string;
 }
 
-// Fungsi untuk mendapatkan semua data pembayaran
+// Fungsi untuk mendapatkan semua pembayaran
 export const getPayments = async (filters: PaymentFilters = {}): Promise<PaymentListResponse> => {
-  const { page = 1, limit = 10, status, method } = filters;
   try {
+    const { page = 1, limit = 10, status, method } = filters;
+    
     const queryParams = new URLSearchParams({
       page: page.toString(),
       limit: limit.toString(),
@@ -60,40 +61,61 @@ export const getPayments = async (filters: PaymentFilters = {}): Promise<Payment
       ...(method && { method })
     });
     
-    const response = await axios.get(`${API_URL}/payments?${queryParams}`);
+    // Try to get CSRF token from sessionStorage
+    const csrfToken = typeof window !== 'undefined' ? sessionStorage.getItem('csrfToken') : null;
     
-    // Handle both response formats (backward compatibility)
-    if (response.data.data && response.data.meta) {
-      // New format with data/meta structure
-      return {
-        items: response.data.data,
-        total: response.data.meta.total || 0,
-        page: response.data.meta.page || page,
-        limit: response.data.meta.limit || limit
-      };
-    } else if (Array.isArray(response.data)) {
-      // Handle case where response is just an array of payments
-      return {
-        items: response.data,
-        total: response.data.length,
-        page: page,
-        limit: limit
-      };
-    } else {
-      // Original format or any other format
-      return response.data;
+    if (!csrfToken) {
+      console.warn('[getPayments] No CSRF token found in session storage');
     }
+    
+    const response = await fetch(`/api/payments?${queryParams}`, {
+      method: 'GET',
+      headers: {
+        'Content-Type': 'application/json',
+        ...(csrfToken && { 'X-CSRF-Token': csrfToken }),
+      },
+      credentials: 'include' // Include cookies automatically
+    });
+    
+    if (!response.ok) {
+      const errorText = await response.text();
+      console.error(`[getPayments] API error (${response.status}):`, errorText);
+      throw new Error(`API request failed: ${errorText}`);
+    }
+    
+    return await response.json();
   } catch (error) {
     console.error('Error fetching payments:', error);
     throw error;
   }
 };
 
-// Fungsi untuk mendapatkan detail pembayaran berdasarkan ID
+// Fungsi untuk mendapatkan pembayaran berdasarkan ID
 export const getPaymentById = async (id: string): Promise<Payment> => {
   try {
-    const response = await axios.get(`${API_URL}/payments/${id}`);
-    return response.data;
+    // Try to get CSRF token from sessionStorage
+    const csrfToken = typeof window !== 'undefined' ? sessionStorage.getItem('csrfToken') : null;
+    
+    if (!csrfToken) {
+      console.warn('[getPaymentById] No CSRF token found in session storage');
+    }
+    
+    const response = await fetch(`/api/payments/${id}`, {
+      method: 'GET',
+      headers: {
+        'Content-Type': 'application/json',
+        ...(csrfToken && { 'X-CSRF-Token': csrfToken }),
+      },
+      credentials: 'include' // Include cookies automatically
+    });
+    
+    if (!response.ok) {
+      const errorText = await response.text();
+      console.error(`[getPaymentById] API error (${response.status}):`, errorText);
+      throw new Error(`API request failed: ${errorText}`);
+    }
+    
+    return await response.json();
   } catch (error) {
     console.error(`Error fetching payment with ID ${id}:`, error);
     throw error;
@@ -103,8 +125,29 @@ export const getPaymentById = async (id: string): Promise<Payment> => {
 // Fungsi untuk mendapatkan pembayaran berdasarkan ID pesanan
 export const getPaymentsByOrderId = async (orderId: string): Promise<Payment[]> => {
   try {
-    const response = await axios.get(`${API_URL}/payments/order/${orderId}`);
-    return response.data;
+    // Try to get CSRF token from sessionStorage
+    const csrfToken = typeof window !== 'undefined' ? sessionStorage.getItem('csrfToken') : null;
+    
+    if (!csrfToken) {
+      console.warn('[getPaymentsByOrderId] No CSRF token found in session storage');
+    }
+    
+    const response = await fetch(`/api/payments/order/${orderId}`, {
+      method: 'GET',
+      headers: {
+        'Content-Type': 'application/json',
+        ...(csrfToken && { 'X-CSRF-Token': csrfToken }),
+      },
+      credentials: 'include' // Include cookies automatically
+    });
+    
+    if (!response.ok) {
+      const errorText = await response.text();
+      console.error(`[getPaymentsByOrderId] API error (${response.status}):`, errorText);
+      throw new Error(`API request failed: ${errorText}`);
+    }
+    
+    return await response.json();
   } catch (error) {
     console.error(`Error fetching payments for order ${orderId}:`, error);
     throw error;
@@ -114,8 +157,30 @@ export const getPaymentsByOrderId = async (orderId: string): Promise<Payment[]> 
 // Fungsi untuk membuat pembayaran baru
 export const createPayment = async (data: CreatePaymentDto): Promise<Payment> => {
   try {
-    const response = await axios.post(`${API_URL}/payments`, data);
-    return response.data;
+    // Try to get CSRF token from sessionStorage
+    const csrfToken = typeof window !== 'undefined' ? sessionStorage.getItem('csrfToken') : null;
+    
+    if (!csrfToken) {
+      console.warn('[createPayment] No CSRF token found in session storage');
+    }
+    
+    const response = await fetch('/api/payments', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        ...(csrfToken && { 'X-CSRF-Token': csrfToken }),
+      },
+      body: JSON.stringify(data),
+      credentials: 'include' // Include cookies automatically
+    });
+    
+    if (!response.ok) {
+      const errorText = await response.text();
+      console.error(`[createPayment] API error (${response.status}):`, errorText);
+      throw new Error(`API request failed: ${errorText}`);
+    }
+    
+    return await response.json();
   } catch (error) {
     console.error('Error creating payment:', error);
     throw error;
@@ -125,8 +190,30 @@ export const createPayment = async (data: CreatePaymentDto): Promise<Payment> =>
 // Fungsi untuk memperbarui data pembayaran
 export const updatePayment = async (id: string, data: UpdatePaymentDto): Promise<Payment> => {
   try {
-    const response = await axios.put(`${API_URL}/payments/${id}`, data);
-    return response.data;
+    // Try to get CSRF token from sessionStorage
+    const csrfToken = typeof window !== 'undefined' ? sessionStorage.getItem('csrfToken') : null;
+    
+    if (!csrfToken) {
+      console.warn('[updatePayment] No CSRF token found in session storage');
+    }
+    
+    const response = await fetch(`/api/payments/${id}`, {
+      method: 'PATCH',
+      headers: {
+        'Content-Type': 'application/json',
+        ...(csrfToken && { 'X-CSRF-Token': csrfToken }),
+      },
+      body: JSON.stringify(data),
+      credentials: 'include' // Include cookies automatically
+    });
+    
+    if (!response.ok) {
+      const errorText = await response.text();
+      console.error(`[updatePayment] API error (${response.status}):`, errorText);
+      throw new Error(`API request failed: ${errorText}`);
+    }
+    
+    return await response.json();
   } catch (error) {
     console.error(`Error updating payment with ID ${id}:`, error);
     throw error;
@@ -136,7 +223,27 @@ export const updatePayment = async (id: string, data: UpdatePaymentDto): Promise
 // Fungsi untuk menghapus pembayaran
 export const deletePayment = async (id: string): Promise<void> => {
   try {
-    await axios.delete(`${API_URL}/payments/${id}`);
+    // Try to get CSRF token from sessionStorage
+    const csrfToken = typeof window !== 'undefined' ? sessionStorage.getItem('csrfToken') : null;
+    
+    if (!csrfToken) {
+      console.warn('[deletePayment] No CSRF token found in session storage');
+    }
+    
+    const response = await fetch(`/api/payments/${id}`, {
+      method: 'DELETE',
+      headers: {
+        'Content-Type': 'application/json',
+        ...(csrfToken && { 'X-CSRF-Token': csrfToken }),
+      },
+      credentials: 'include' // Include cookies automatically
+    });
+    
+    if (!response.ok) {
+      const errorText = await response.text();
+      console.error(`[deletePayment] API error (${response.status}):`, errorText);
+      throw new Error(`API request failed: ${errorText}`);
+    }
   } catch (error) {
     console.error(`Error deleting payment with ID ${id}:`, error);
     throw error;

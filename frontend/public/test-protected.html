@@ -1,0 +1,193 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Test Protected Routes</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      max-width: 800px;
+      margin: 0 auto;
+      padding: 20px;
+    }
+    .form-group {
+      margin-bottom: 15px;
+    }
+    label {
+      display: block;
+      margin-bottom: 5px;
+    }
+    input, select {
+      width: 100%;
+      padding: 8px;
+      box-sizing: border-box;
+    }
+    button {
+      padding: 10px 15px;
+      background-color: #4CAF50;
+      color: white;
+      border: none;
+      cursor: pointer;
+      margin-right: 10px;
+    }
+    button.secondary {
+      background-color: #2196F3;
+    }
+    pre {
+      background-color: #f5f5f5;
+      padding: 10px;
+      border-radius: 5px;
+      overflow-x: auto;
+    }
+    .section {
+      margin-bottom: 30px;
+      border-bottom: 1px solid #ddd;
+      padding-bottom: 20px;
+    }
+  </style>
+</head>
+<body>
+  <h1>Test Protected Routes</h1>
+
+  <div class="section">
+    <h2>Step 1: Login First</h2>
+    <div class="form-group">
+      <label for="username">Username:</label>
+      <input type="text" id="username" value="testuser123">
+    </div>
+    
+    <div class="form-group">
+      <label for="password">Password:</label>
+      <input type="password" id="password" value="password123">
+    </div>
+    
+    <button id="login-btn">Login</button>
+    
+    <h3>Login Response:</h3>
+    <pre id="login-response">Not logged in yet...</pre>
+  </div>
+
+  <div class="section">
+    <h2>Step 2: Access Protected Routes</h2>
+    
+    <div class="form-group">
+      <label for="endpoint">Endpoint:</label>
+      <input type="text" id="endpoint" value="/orders">
+    </div>
+    
+    <div class="form-group">
+      <label for="method">HTTP Method:</label>
+      <select id="method">
+        <option value="GET">GET</option>
+        <option value="POST">POST</option>
+        <option value="PUT">PUT</option>
+        <option value="DELETE">DELETE</option>
+      </select>
+    </div>
+    
+    <div class="form-group">
+      <label for="request-body">Request Body (for POST/PUT):</label>
+      <textarea id="request-body" rows="5" style="width: 100%;">{}</textarea>
+    </div>
+    
+    <button id="send-btn" class="secondary">Send Request</button>
+    
+    <h3>Response:</h3>
+    <pre id="protected-response">No request sent yet...</pre>
+  </div>
+  
+  <script>
+    let authToken = localStorage.getItem('authToken') || '';
+    
+    // Check if token exists and update UI
+    if (authToken) {
+      document.getElementById('login-response').textContent = 'Already logged in with token: ' + authToken.substring(0, 20) + '...';
+    }
+    
+    // Login functionality
+    document.getElementById('login-btn').addEventListener('click', async () => {
+      const username = document.getElementById('username').value;
+      const password = document.getElementById('password').value;
+      const responseEl = document.getElementById('login-response');
+      
+      try {
+        responseEl.textContent = 'Logging in...';
+        
+        const response = await fetch('/api/auth/login', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({ username, password })
+        });
+        
+        const data = await response.json();
+        
+        if (data.token) {
+          authToken = data.token;
+          localStorage.setItem('authToken', authToken);
+          responseEl.textContent = JSON.stringify(data, null, 2);
+          console.log('Token stored in localStorage');
+        } else {
+          responseEl.textContent = 'Login failed: ' + JSON.stringify(data, null, 2);
+        }
+      } catch (error) {
+        responseEl.textContent = `Error: ${error.message}`;
+        console.error('Login error:', error);
+      }
+    });
+    
+    // Protected route request
+    document.getElementById('send-btn').addEventListener('click', async () => {
+      const endpoint = document.getElementById('endpoint').value;
+      const method = document.getElementById('method').value;
+      const requestBody = document.getElementById('request-body').value;
+      const responseEl = document.getElementById('protected-response');
+      
+      if (!authToken) {
+        responseEl.textContent = 'Error: You must login first!';
+        return;
+      }
+      
+      try {
+        responseEl.textContent = 'Sending request...';
+        
+        const requestOptions = {
+          method,
+          headers: {
+            'Authorization': `Bearer ${authToken}`,
+            'Content-Type': 'application/json'
+          }
+        };
+        
+        // Add body for POST/PUT requests
+        if (method === 'POST' || method === 'PUT') {
+          try {
+            requestOptions.body = requestBody.trim() ? requestBody : '{}';
+          } catch (e) {
+            responseEl.textContent = 'Error: Invalid JSON in request body';
+            return;
+          }
+        }
+        
+        const fullUrl = endpoint.startsWith('http') 
+          ? endpoint 
+          : (endpoint.startsWith('/') ? endpoint : '/' + endpoint);
+          
+        const response = await fetch(fullUrl, requestOptions);
+        
+        try {
+          const data = await response.json();
+          responseEl.textContent = `Status: ${response.status}\n\n${JSON.stringify(data, null, 2)}`;
+        } catch (e) {
+          responseEl.textContent = `Status: ${response.status}\n\nNo JSON response`;
+        }
+      } catch (error) {
+        responseEl.textContent = `Error: ${error.message}`;
+        console.error('Request error:', error);
+      }
+    });
+  </script>
+</body>
+</html> 

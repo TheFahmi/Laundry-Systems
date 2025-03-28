@@ -21,6 +21,12 @@ export interface Service {
   estimatedTime: string;
   isPopular: boolean;
   isAvailable: boolean;
+  priceUnit?: 'kg' | 'item'; // Untuk UI frontend
+  
+  // Properti dari API backend yang mungkin ditemui
+  priceModel?: string; // 'per_kg' | 'per_piece' | 'flat_rate'
+  processingTimeHours?: number;
+  isActive?: boolean;
 }
 
 // Props untuk komponen ServiceCard
@@ -106,6 +112,11 @@ export default function ServiceCard({ service, onEdit, onDelete }: ServiceCardPr
             </Typography>
             <Typography variant="h6" color="primary">
               Rp {service.price.toLocaleString()}
+              {service.priceUnit && (
+                <Typography component="span" variant="body2" color="textSecondary" sx={{ ml: 0.5 }}>
+                  / {service.priceUnit === 'kg' ? 'kg' : 'item'}
+                </Typography>
+              )}
             </Typography>
           </Grid>
         </Grid>

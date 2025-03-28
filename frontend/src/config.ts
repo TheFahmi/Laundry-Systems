@@ -1,7 +1,7 @@
 // Application configuration
 
 export const APP_NAME = 'Laundry Management System';
-export const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
+export const API_URL = process.env.NEXT_PUBLIC_API_URL || '/api';
 export const DEFAULT_AVATAR = 'https://www.gravatar.com/avatar/00000000000000000000000000000000?d=mp&f=y';
 
 // Currency formatter

@@ -14,17 +14,20 @@ const order_service_1 = require("./order.service");
 const order_entity_1 = require("./entities/order.entity");
 const order_item_entity_1 = require("./entities/order-item.entity");
 const payment_entity_1 = require("../payment/entities/payment.entity");
+const service_entity_1 = require("../service/entities/service.entity");
+const auth_module_1 = require("../auth/auth.module");
 let OrderModule = class OrderModule {
 };
-OrderModule = __decorate([
+exports.OrderModule = OrderModule;
+exports.OrderModule = OrderModule = __decorate([
     (0, common_1.Module)({
         imports: [
-            typeorm_1.TypeOrmModule.forFeature([order_entity_1.Order, order_item_entity_1.OrderItem, payment_entity_1.Payment])
+            typeorm_1.TypeOrmModule.forFeature([order_entity_1.Order, order_item_entity_1.OrderItem, payment_entity_1.Payment, service_entity_1.Service]),
+            auth_module_1.AuthModule
         ],
         controllers: [order_controller_1.OrderController],
         providers: [order_service_1.OrderService],
         exports: [order_service_1.OrderService]
     })
 ], OrderModule);
-exports.OrderModule = OrderModule;
 //# sourceMappingURL=order.module.js.map

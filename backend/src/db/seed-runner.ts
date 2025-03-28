@@ -212,7 +212,7 @@ async function seedDatabase() {
       // Create customers table if it doesn't exist
       await dataSource.query(`
         CREATE TABLE IF NOT EXISTS "customers" (
-          "id" UUID PRIMARY KEY,
+          "id" UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
           "name" VARCHAR(255) NOT NULL,
           "phone" VARCHAR(20),
           "address" TEXT,

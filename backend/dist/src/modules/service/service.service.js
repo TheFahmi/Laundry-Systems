@@ -28,35 +28,43 @@ let ServiceService = class ServiceService {
     async findAll(options = {}) {
         const { page = 1, limit = 10 } = options;
         const skip = (page - 1) * limit;
-        const [items, total] = await this.serviceRepository.findAndCount({
-            skip,
-            take: limit,
-            order: { name: 'ASC' },
-        });
-        const mappedItems = items.map(item => {
-            if (item.hasOwnProperty('is_active') && !item.hasOwnProperty('isActive')) {
-                const itemWithCorrectProps = Object.assign(Object.assign({}, item), { isActive: item.is_active });
-                delete itemWithCorrectProps.is_active;
-                return itemWithCorrectProps;
-            }
-            return item;
-        });
-        return {
-            data: mappedItems,
-            meta: {
-                totalItems: total,
-                totalPages: Math.ceil(total / limit),
-                currentPage: page,
-                itemsPerPage: limit
-            }
-        };
+        try {
+            const [items, total] = await this.serviceRepository.findAndCount({
+                skip,
+                take: limit,
+                order: { name: 'ASC' }
+            });
+            return {
+                items,
+                total,
+                page,
+                limit
+            };
+        }
+        catch (error) {
+            console.error('Error in findAll:', error);
+            return {
+                items: [],
+                total: 0,
+                page,
+                limit
+            };
+        }
     }
     async findOne(id) {
-        const service = await this.serviceRepository.findOne({ where: { id } });
-        if (!service) {
-            throw new common_1.NotFoundException(`Service with ID ${id} not found`);
+        try {
+            const service = await this.serviceRepository.findOne({
+                where: { id }
+            });
+            if (!service) {
+                throw new common_1.NotFoundException(`Service with ID ${id} not found`);
+            }
+            return service;
         }
-        return service;
+        catch (error) {
+            console.error('Error in findOne:', error);
+            throw error;
+        }
     }
     async update(id, updateServiceDto) {
         const service = await this.findOne(id);
@@ -91,10 +99,10 @@ let ServiceService = class ServiceService {
         }
     }
 };
-ServiceService = __decorate([
+exports.ServiceService = ServiceService;
+exports.ServiceService = ServiceService = __decorate([
     (0, common_1.Injectable)(),
     __param(0, (0, typeorm_1.InjectRepository)(service_entity_1.Service)),
     __metadata("design:paramtypes", [typeorm_2.Repository])
 ], ServiceService);
-exports.ServiceService = ServiceService;
 //# sourceMappingURL=service.service.js.map

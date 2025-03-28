@@ -1,11 +1,12 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import { Injectable, NotFoundException, BadRequestException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository, EntityManager } from 'typeorm';
-import { Order } from './entities/order.entity';
+import { Repository, EntityManager, DeepPartial } from 'typeorm';
+import { Order, OrderStatus } from './entities/order.entity';
 import { OrderItem } from './entities/order-item.entity';
-import { CreateOrderDto } from './dto/create-order.dto';
+import { CreateOrderDto, OrderItemDto } from './dto/create-order.dto';
 import { UpdateOrderDto } from './dto/update-order.dto';
 import { Payment, PaymentMethod, PaymentStatus } from '../payment/entities/payment.entity';
+import { Service } from '../service/entities/service.entity';
 import { v4 as uuidv4 } from 'uuid';
 
 @Injectable()
@@ -16,7 +17,9 @@ export class OrderService {
     @InjectRepository(Payment)
     private paymentRepository: Repository<Payment>,
     @InjectRepository(OrderItem)
-    private orderItemRepository: Repository<OrderItem>
+    private orderItemRepository: Repository<OrderItem>,
+    @InjectRepository(Service)
+    private serviceRepository: Repository<Service>
   ) {}
 
   async generateOrderNumber(): Promise<string> {
@@ -29,73 +32,217 @@ export class OrderService {
     return `ORD-${year}${month}${day}-${random}`;
   }
 
-  async create(createOrderDto: any): Promise<Order> {
+  async create(createOrderDto: CreateOrderDto): Promise<{ data: Order }> {
     try {
-      // Create a new ID if not provided
+      console.log('Starting order creation with data:', JSON.stringify(createOrderDto));
+      
+      // Create a new ID
       const orderId = uuidv4();
+      console.log('Generated order ID:', orderId);
       
-      // Create an order number (ORD-yyyyMMdd-xxxx format)
-      const date = new Date();
-      const dateStr = date.toISOString().slice(0, 10).replace(/-/g, '');
-      const randomNum = Math.floor(1000 + Math.random() * 9000);
-      const orderNumber = `ORD-${dateStr}-${randomNum}`;
-      
-      // Default status if not provided
-      const status = createOrderDto.status || 'new';
-      
-      // Create order items if provided
-      let items = [];
-      if (createOrderDto.items && Array.isArray(createOrderDto.items)) {
-        items = createOrderDto.items.map(item => {
-          const itemId = uuidv4();
-          return this.orderItemRepository.create({
-            id: itemId,
-            orderId,
-            serviceId: item.serviceId,
-            quantity: item.quantity,
-            price: item.price,
-            subtotal: item.price * item.quantity
-          });
-        });
-      }
-      
-      // Save order items
-      if (items.length > 0) {
-        await this.orderItemRepository.save(items);
-      }
+      // Generate order number
+      const orderNumber = await this.generateOrderNumber();
+      console.log('Generated order number:', orderNumber);
       
       // Calculate total amount from items if not provided
-      let totalAmount = createOrderDto.totalAmount || 0;
-      if (items.length > 0 && !totalAmount) {
-        totalAmount = this.calculateTotalAmount(items);
+      let totalAmount = createOrderDto.totalAmount;
+      if (createOrderDto.total !== undefined) {
+        totalAmount = createOrderDto.total;
       }
+      if (!totalAmount && createOrderDto.items && Array.isArray(createOrderDto.items)) {
+        totalAmount = this.calculateTotalAmount(createOrderDto.items);
+      }
+      totalAmount = totalAmount || 0;
+      console.log('Calculated total amount:', totalAmount);
       
       // Create order entity
-      const order = this.orderRepository.create({
+      const orderData: DeepPartial<Order> = {
         id: orderId,
         orderNumber,
         customerId: createOrderDto.customerId,
-        status,
+        status: OrderStatus.NEW,
         totalAmount,
-        totalWeight: createOrderDto.totalWeight || 0,
-        notes: createOrderDto.notes,
-        specialRequirements: createOrderDto.specialRequirements,
-        pickupDate: createOrderDto.pickupDate || new Date(),
-        deliveryDate: createOrderDto.deliveryDate,
+        totalWeight: 0, // Initialize to 0, we'll calculate from weight-based items
+        notes: createOrderDto.notes || '',
+        specialRequirements: createOrderDto.specialRequirements || '',
+        pickupDate: createOrderDto.pickupDate || null,
+        deliveryDate: createOrderDto.deliveryDate || null,
         createdAt: new Date(),
         updatedAt: new Date()
-      });
+      };
       
-      // Save order
+      // Calculate totalWeight from weight-based items
+      if (createOrderDto.items && Array.isArray(createOrderDto.items)) {
+        const totalWeight = createOrderDto.items.reduce((sum, item) => {
+          if (item.weightBased) {
+            // Use weight property if available, otherwise use quantity
+            const weight = parseFloat(String(item.weight || item.quantity || '0').replace(',', '.'));
+            return sum + (isNaN(weight) ? 0 : weight);
+          }
+          return sum;
+        }, 0);
+        
+        // Set the calculated total weight without any rounding
+        orderData.totalWeight = totalWeight;
+        console.log(`Calculated total weight for order: ${totalWeight} kg`);
+      }
+      
+      console.log('Creating order with data:', JSON.stringify(orderData));
+      const order = this.orderRepository.create(orderData);
+      
+      // Save order FIRST before creating order items
+      console.log('Saving order to database...');
       const savedOrder = await this.orderRepository.save(order);
+      console.log('Order saved successfully with ID:', savedOrder.id);
       
-      // Add items to the saved order
-      savedOrder.items = items;
+      // AFTER saving the order, now create order items
+      let items: any[] = [];
+      if (createOrderDto.items && Array.isArray(createOrderDto.items)) {
+        console.log('Processing order items:', JSON.stringify(createOrderDto.items));
+        
+        for (const item of createOrderDto.items) {
+          // Get weightBased property but remove it from what goes to DB
+          const { weightBased, ...itemData } = item as any;
+          
+          try {
+            // Look up the service name if not provided
+            let serviceName = itemData.serviceName;
+            if (!serviceName && itemData.serviceId) {
+              try {
+                // Try to get the service name from the service repository
+                // Convert to string for UUID type compatibility
+                const serviceId = String(itemData.serviceId);
+                const service = await this.serviceRepository.findOne({ where: { id: serviceId } });
+                if (service) {
+                  serviceName = service.name;
+                  console.log(`Found service name from database: ${serviceName} for ID: ${serviceId}`);
+                }
+              } catch (serviceError) {
+                console.error(`Error finding service name for ID ${itemData.serviceId}:`, serviceError);
+                // Fallback to generic name if lookup fails
+                serviceName = `Service ${itemData.serviceId}`;
+              }
+            }
+            
+            // Handle quantity differently based on whether it's weight-based or piece-based
+            let quantity: number;
+            let actualQuantity: number;
+            
+            if (weightBased) {
+              // For weight-based items, use weight property if available, otherwise use quantity
+              const rawWeight = parseFloat(String(itemData.weight || itemData.quantity || 0.5).replace(',', '.'));
+              // Ensure we have at least 0.1 kg for weight-based items
+              const itemWeight = Math.max(rawWeight, 0.1);
+              
+              // For weight-based items, store weight in the weight field and quantity=1
+              quantity = 1; // Set quantity to 1 for compatibility
+              
+              // Update order's totalWeight with this item's weight
+              savedOrder.totalWeight = Number((parseFloat(savedOrder.totalWeight.toString()) + itemWeight).toFixed(2));
+              await this.orderRepository.save(savedOrder);
+              
+              console.log(`Processing WEIGHT-BASED item: ${rawWeight} kg → ${itemWeight} kg (stored as weight)`);
+              console.log(`Updated order totalWeight to: ${savedOrder.totalWeight} kg`);
+              
+              // Calculate subtotal based on weight
+              const price = parseFloat(String(itemData.price || 0).replace(',', '.'));
+              const subtotal = price * itemWeight;
+              
+              // Use raw query with explicit type casting for PostgreSQL to ensure decimal handling
+              const result = await this.orderItemRepository.query(
+                `INSERT INTO order_items 
+                (order_id, service_id, service_name, quantity, weight, price, subtotal, unit_price, total_price, notes, created_at, updated_at) 
+                VALUES($1, $2, $3, $4::decimal, $5::decimal, $6::decimal, $7::decimal, $8::decimal, $9::decimal, $10, NOW(), NOW()) 
+                RETURNING *`,
+                [
+                  savedOrder.id, 
+                  String(itemData.serviceId || '00000000-0000-0000-0000-000000000000'), // Ensure serviceId is never null
+                  serviceName,
+                  quantity.toString(), // Quantity is 1 for weight-based items
+                  itemWeight.toString(),   // Weight is the actual weight in kg
+                  price.toString(),
+                  subtotal.toString(),
+                  price.toString(),
+                  subtotal.toString(),
+                  `Weight: ${itemWeight} kg`
+                ]
+              );
+              
+              console.log(`Created weight-based item using raw query:`, result && result[0] ? result[0] : 'No result');
+              
+              if (result && result.length > 0) {
+                // Convert the result to an OrderItem entity
+                const savedItem = this.orderItemRepository.create(result[0]);
+                items.push(savedItem);
+              }
+            } else {
+              // For piece-based items, use integer with minimum of 1
+              const parsedQuantity = parseInt(String(itemData.quantity || 1));
+              quantity = Math.max(parsedQuantity, 1); // Ensure at least 1 piece
+              actualQuantity = quantity; // Same as quantity for pieces
+              console.log(`Processing PIECE-BASED item: ${quantity} pcs`);
+              
+              const price = parseFloat(String(itemData.price || 0).replace(',', '.'));
+              const subtotal = price * quantity;
+              
+              // For standard piece-based items use the normal approach
+              const orderItem = this.orderItemRepository.create({
+                orderId: savedOrder.id,
+                serviceId: String(itemData.serviceId || '00000000-0000-0000-0000-000000000000'), // Ensure serviceId is never null
+                serviceName: serviceName,
+                quantity,
+                price,
+                subtotal,
+                unitPrice: price,
+                totalPrice: subtotal,
+                notes: null
+              });
+              
+              // Save piece-based item
+              const savedItem = await this.orderItemRepository.save(orderItem);
+              console.log(`Saved piece-based item:`, savedItem);
+              items.push(savedItem);
+            }
+          } catch (itemError) {
+            console.error(`Error saving order item:`, itemError);
+            throw new BadRequestException(`Failed to create order item: ${itemError.message}`);
+          }
+        }
+        
+        // Set the items in the saved order
+        savedOrder.items = items;
+      }
       
-      return savedOrder;
+      // Create payment record if payment information is provided
+      if (createOrderDto.payment) {
+        try {
+          console.log('Creating payment record with data:', JSON.stringify(createOrderDto.payment));
+          const paymentId = uuidv4();
+          const payment = this.paymentRepository.create({
+            id: paymentId,
+            orderId: savedOrder.id,
+            customerId: savedOrder.customerId,
+            amount: createOrderDto.payment.amount,
+            method: createOrderDto.payment.method,
+            status: PaymentStatus.COMPLETED,
+            referenceNumber: `PAY-${Date.now().toString().substring(0, 10)}`,
+            transactionId: `CHANGE-${createOrderDto.payment.change}`
+          });
+          
+          await this.paymentRepository.save(payment);
+          console.log('Payment record created successfully with ID:', payment.id);
+        } catch (paymentError) {
+          console.error('Error creating payment record:', paymentError);
+          // Don't fail the whole order if payment creation fails
+        }
+      }
+      
+      // Return with correct format
+      return { data: savedOrder };
     } catch (error) {
-      console.error(`Error creating order: ${error.message}`);
-      throw new Error(`Failed to create order: ${error.message}`);
+      console.error(`Error creating order:`, error);
+      console.error('Error stack:', error.stack);
+      throw new BadRequestException(`Failed to create order: ${error.message}`);
     }
   }
 
@@ -103,207 +250,116 @@ export class OrderService {
   private calculateTotalAmount(items: any[]): number {
     if (!items || !Array.isArray(items)) return 0;
     
+    console.log("Calculating total amount from:", items);
+    
     return items.reduce((total, item) => {
-      // Use subtotal if available, otherwise calculate from price * quantity
-      const itemTotal = item.subtotal || (item.price * item.quantity) || 0;
+      // For weight-based items, use weight property if available
+      if (item.weightBased) {
+        // Use weight property if available, otherwise use quantity
+        const weight = parseFloat(String(item.weight || item.quantity || 0.5).replace(',', '.'));
+        const price = parseFloat(String(item.price || 0).replace(',', '.'));
+        const itemTotal = price * weight;
+        console.log(`Weight-based item subtotal: Price ${price} × Weight ${weight} = ${itemTotal}`);
+        return total + Number(itemTotal);
+      }
+      
+      // For piece-based items, use quantity
+      const quantity = parseInt(String(item.quantity || 1));
+      const price = parseFloat(String(item.price || 0).replace(',', '.'));
+      const itemTotal = price * quantity;
+      console.log(`Piece-based item subtotal: Price ${price} × Quantity ${quantity} = ${itemTotal}`);
+      
       return total + Number(itemTotal);
     }, 0);
   }
 
-  async findAll(options: { page: number; limit: number }): Promise<{ 
-    data: Order[]; 
-    meta: { 
-      totalItems: number; 
-      totalPages: number;
-      currentPage: number; 
-      itemsPerPage: number; 
-    } 
-  }> {
-    const { page, limit } = options;
-    const skip = (page - 1) * limit;
-
-    try {
-      const [data, total] = await this.orderRepository.findAndCount({
-        relations: ['customer', 'items', 'items.service', 'payments'],
-        skip,
-        take: limit,
-        order: { createdAt: 'DESC' }
-      });
-
-      // Transform the data to match the frontend's expected format
-      const mappedItems = data.map(order => {
-        try {
-          // Ensure customer data is available for the frontend
-          const customerName = order.customer ? order.customer.name : 'Unknown Customer';
-
-          // Add customer name to order object
-          const orderWithCustomer = {
-            ...order,
-            customerName // Add customerName field directly
-          };
-
-          // Process order items to ensure they have serviceName, unitPrice, totalPrice
-          if (Array.isArray(order.items)) {
-            order.items.forEach(item => {
-              try {
-                // Add serviceName if it doesn't exist
-                if (!item.serviceName) {
-                  item.serviceName = item.service ? item.service.name : `Service #${item.serviceId || 'Unknown'}`;
-                }
-              } catch (itemError) {
-                console.error(`Error processing item in order ${order.id}:`, itemError);
-              }
-            });
-          }
-
-          return orderWithCustomer;
-        } catch (orderError) {
-          console.error(`Error processing order ${order.id}:`, orderError);
-          return order; // Return the original order if there's an error in processing
-        }
-      });
-
-      return {
-        data: mappedItems,
-        meta: {
-          totalItems: total,
-          totalPages: Math.ceil(total / limit),
-          currentPage: page,
-          itemsPerPage: limit
-        }
-      };
-    } catch (error) {
-      console.error(`Error in findAll method: ${error.message}`);
-      // Return empty result with correct format on error
-      return {
-        data: [],
-        meta: {
-          totalItems: 0,
-          totalPages: 0,
-          currentPage: page,
-          itemsPerPage: limit
-        }
-      };
+  async findAll({ page = 1, limit = 10, status }: { page?: number; limit?: number; status?: OrderStatus }): Promise<{ items: Order[]; total: number; page: number; limit: number }> {
+    const query = this.orderRepository.createQueryBuilder('order')
+      .leftJoinAndSelect('order.customer', 'customer')
+      .leftJoinAndSelect('order.items', 'orderItems')
+      .leftJoinAndSelect('orderItems.service', 'service');
+    
+    if (status) {
+      query.andWhere('order.status = :status', { status });
     }
+    
+    const [items, total] = await query
+      .skip((page - 1) * limit)
+      .take(limit)
+      .getManyAndCount();
+
+    return {
+      items,
+      total,
+      page,
+      limit,
+    };
   }
 
   async findOne(id: string): Promise<Order> {
-    try {
-      const order = await this.orderRepository.findOne({
-        where: { id },
-        relations: ['customer', 'items', 'items.service', 'payments']
-      });
+    const order = await this.orderRepository.findOne({
+      where: { id },
+      relations: ['customer', 'items', 'items.service', 'payments'],
+    });
 
-      if (!order) {
-        throw new NotFoundException(`Pesanan dengan ID ${id} tidak ditemukan`);
-      }
-
-      // Add customer name to order object
-      const customerName = order.customer ? order.customer.name : 'Unknown Customer';
-      order['customerName'] = customerName;
-      
-      // Process order items to ensure they have serviceName and valid price/subtotal
-      if (Array.isArray(order.items)) {
-        order.items.forEach(item => {
-          try {
-            // Add serviceName if it doesn't exist
-            if (!item.serviceName) {
-              item.serviceName = item.service ? item.service.name : `Service #${item.serviceId || 'Unknown'}`;
-            }
-            
-            // Ensure price is not null or zero
-            if (!item.price) {
-              item.price = item.service ? item.service.price : 15000; // Default price
-            }
-            
-            // Ensure subtotal is calculated
-            if (!item.subtotal) {
-              item.subtotal = item.price * item.quantity;
-            }
-          } catch (itemErr) {
-            console.error(`Error processing order item: ${itemErr.message}`);
-            item.serviceName = 'Unknown Service';
-            item.price = item.price || 15000;
-            item.subtotal = item.subtotal || (item.price * item.quantity);
-          }
-        });
-      }
-      
-      // Recalculate total amount to ensure it matches the sum of items
-      order.totalAmount = this.calculateTotalAmount(order.items);
-
-      // If order doesn't have payments, create a default payment
-      if (!order.payments || order.payments.length === 0) {
-        try {
-          // Get the EntityManager from the repository
-          const entityManager = this.orderRepository.manager;
-          
-          // Create a payment ID
-          const paymentId = `PAYMENT-${Date.now()}`;
-          const referenceNumber = `REF-${order.orderNumber || order.id}`;
-          
-          // Create new payment directly
-          const payment = new Payment();
-          payment.id = paymentId;
-          payment.referenceNumber = referenceNumber;
-          payment.amount = order.totalAmount || 0;
-          payment.method = PaymentMethod.CASH;
-          payment.status = PaymentStatus.PENDING;
-          payment.order = order;
-          payment.customerId = order.customer?.id;
-          payment.createdAt = new Date();
-          payment.updatedAt = new Date();
-          
-          // Save the payment
-          await entityManager.save(payment);
-          
-          // Refresh the order to include the new payment
-          order.payments = [payment];
-          
-          console.log(`Created default payment for order ${order.id}`);
-        } catch (paymentErr) {
-          console.error(`Error creating default payment: ${paymentErr.message}`);
-          
-          // If we can't save to the database, at least return a default payment object
-          order.payments = [{
-            id: `TEMP-${Date.now()}`,
-            referenceNumber: `REF-${order.orderNumber || order.id}`,
-            amount: order.totalAmount || 0,
-            method: PaymentMethod.CASH,
-            status: PaymentStatus.PENDING,
-            createdAt: new Date(),
-            order: order
-          } as any];
-        }
-      }
-
-      return order;
-    } catch (error) {
-      if (error instanceof NotFoundException) {
-        throw error; // Re-throw NotFoundException
-      }
-      
-      console.error(`Error in findOne method: ${error.message}`);
-      throw new Error(`Unable to retrieve order: ${error.message}`);
+    if (!order) {
+      throw new NotFoundException(`Order with ID ${id} not found`);
     }
+
+    return order;
   }
 
   async update(id: string, updateOrderDto: UpdateOrderDto): Promise<Order> {
     const order = await this.findOne(id);
-    if (!order) {
-      throw new NotFoundException(`Order with id ${id} not found`);
+    
+    // Extract items from the DTO to handle them separately
+    const { items, ...orderData } = updateOrderDto;
+    
+    // Update the order without items
+    this.orderRepository.merge(order, orderData);
+    const updatedOrder = await this.orderRepository.save(order);
+    
+    // Handle items separately if they exist
+    if (items && items.length > 0) {
+      // Delete existing items
+      await this.orderItemRepository.delete({ orderId: id });
+      
+      // Create new order items
+      const orderItems = items.map(item => 
+        this.orderItemRepository.create({
+          orderId: id,
+          serviceId: String(item.serviceId || '00000000-0000-0000-0000-000000000000'), // Ensure serviceId is never null
+          serviceName: item.serviceName || `Service ${item.serviceId || 'Unknown'}`,
+          quantity: item.quantity,
+          price: item.price || 0,
+          subtotal: (item.price || 0) * item.quantity,
+          unitPrice: item.price || 0,
+          totalPrice: (item.price || 0) * item.quantity
+        })
+      );
+      
+      // Save new items
+      const savedItems = await this.orderItemRepository.save(orderItems);
+      updatedOrder.items = savedItems;
     }
     
-    const updatedOrder = this.orderRepository.merge(order, updateOrderDto);
-    return this.orderRepository.save(updatedOrder);
+    return updatedOrder;
   }
 
-  async remove(id: string): Promise<{ affected: number }> {
+  async updateStatus(id: string, status: OrderStatus): Promise<Order> {
+    const order = await this.findOne(id);
+    
+    order.status = status;
+    
+    return this.orderRepository.save(order);
+  }
+
+  async remove(id: string): Promise<void> {
     const result = await this.orderRepository.delete(id);
+    
     if (result.affected === 0) {
-      throw new NotFoundException(`Order with id ${id} not found`);
+      throw new NotFoundException(`Order with ID ${id} not found`);
     }
-    return { affected: result.affected };
   }
 
   async createDefaultPayment(order: Order): Promise<Payment> {

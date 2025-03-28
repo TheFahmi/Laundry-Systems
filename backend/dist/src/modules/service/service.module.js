@@ -14,13 +14,13 @@ const service_service_1 = require("./service.service");
 const service_entity_1 = require("./entities/service.entity");
 let ServiceModule = class ServiceModule {
 };
-ServiceModule = __decorate([
+exports.ServiceModule = ServiceModule;
+exports.ServiceModule = ServiceModule = __decorate([
     (0, common_1.Module)({
         imports: [typeorm_1.TypeOrmModule.forFeature([service_entity_1.Service])],
         controllers: [service_controller_1.ServiceController],
         providers: [service_service_1.ServiceService],
-        exports: [service_service_1.ServiceService],
+        exports: [service_service_1.ServiceService, typeorm_1.TypeOrmModule.forFeature([service_entity_1.Service])],
     })
 ], ServiceModule);
-exports.ServiceModule = ServiceModule;
 //# sourceMappingURL=service.module.js.map

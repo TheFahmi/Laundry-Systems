@@ -1,11 +1,13 @@
-import { Controller, Get, Post, Put, Delete, Param, Body, Query, ParseUUIDPipe } from '@nestjs/common';
-import { ApiTags, ApiOperation, ApiResponse, ApiQuery } from '@nestjs/swagger';
+import { Controller, Get, Post, Put, Delete, Param, Body, Query, ParseIntPipe, UseGuards } from '@nestjs/common';
+import { ApiTags, ApiOperation, ApiResponse, ApiQuery, ApiParam, ApiBearerAuth } from '@nestjs/swagger';
 import { ServiceService } from './service.service';
 import { Service } from './entities/service.entity';
 import { CreateServiceDto } from './dto/create-service.dto';
 import { UpdateServiceDto } from './dto/update-service.dto';
+import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 
 @ApiTags('services')
+@ApiBearerAuth()
 @Controller('services')
 export class ServiceController {
   constructor(private readonly serviceService: ServiceService) {}
@@ -15,6 +17,7 @@ export class ServiceController {
   @ApiResponse({ status: 200, description: 'Return all services' })
   @ApiQuery({ name: 'page', required: false, type: Number })
   @ApiQuery({ name: 'limit', required: false, type: Number })
+  @UseGuards(JwtAuthGuard)
   async findAll(
     @Query('page') page?: number,
     @Query('limit') limit?: number,
@@ -25,36 +28,43 @@ export class ServiceController {
   }
 
   @Get(':id')
-  @ApiOperation({ summary: 'Get service by id' })
+  @ApiOperation({ summary: 'Get a service by ID' })
   @ApiResponse({ status: 200, description: 'Return service by id' })
   @ApiResponse({ status: 404, description: 'Service not found' })
-  async findOne(@Param('id', ParseUUIDPipe) id: string) {
+  @ApiParam({ name: 'id', description: 'Service ID' })
+  @UseGuards(JwtAuthGuard)
+  async findOne(@Param('id') id: string) {
     return this.serviceService.findOne(id);
   }
 
   @Post()
   @ApiOperation({ summary: 'Create new service' })
   @ApiResponse({ status: 201, description: 'Service successfully created' })
+  @UseGuards(JwtAuthGuard)
   async create(@Body() createServiceDto: CreateServiceDto) {
     return this.serviceService.create(createServiceDto);
   }
 
   @Put(':id')
-  @ApiOperation({ summary: 'Update service' })
-  @ApiResponse({ status: 200, description: 'Service successfully updated' })
+  @ApiOperation({ summary: 'Update a service' })
+  @ApiResponse({ status: 200, description: 'Service updated successfully' })
   @ApiResponse({ status: 404, description: 'Service not found' })
+  @ApiParam({ name: 'id', description: 'Service ID' })
+  @UseGuards(JwtAuthGuard)
   async update(
-    @Param('id', ParseUUIDPipe) id: string,
+    @Param('id') id: string,
     @Body() updateServiceDto: UpdateServiceDto,
   ) {
     return this.serviceService.update(id, updateServiceDto);
   }
 
   @Delete(':id')
-  @ApiOperation({ summary: 'Delete service' })
-  @ApiResponse({ status: 200, description: 'Service successfully deleted' })
+  @ApiOperation({ summary: 'Delete a service' })
+  @ApiResponse({ status: 200, description: 'Service deleted successfully' })
   @ApiResponse({ status: 404, description: 'Service not found' })
-  async remove(@Param('id', ParseUUIDPipe) id: string) {
+  @ApiParam({ name: 'id', description: 'Service ID' })
+  @UseGuards(JwtAuthGuard)
+  async remove(@Param('id') id: string) {
     return this.serviceService.remove(id);
   }
 } 

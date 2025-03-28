@@ -18,56 +18,53 @@ export class ServiceService {
   }
 
   async findAll(options: { page?: number; limit?: number } = {}): Promise<{ 
-    data: Service[]; 
-    meta: { 
-      totalItems: number; 
-      totalPages: number;
-      currentPage: number; 
-      itemsPerPage: number; 
-    } 
+    items: Service[]; 
+    total: number;
+    page: number;
+    limit: number;
   }> {
     const { page = 1, limit = 10 } = options;
     const skip = (page - 1) * limit;
 
-    const [items, total] = await this.serviceRepository.findAndCount({
-      skip,
-      take: limit,
-      order: { name: 'ASC' },
-    });
+    try {
+      const [items, total] = await this.serviceRepository.findAndCount({
+        skip,
+        take: limit,
+        order: { name: 'ASC' }
+      });
 
-    // Map database column names to entity property names
-    const mappedItems = items.map(item => {
-      // If needed, convert is_active to isActive
-      if (item.hasOwnProperty('is_active') && !item.hasOwnProperty('isActive')) {
-        const itemWithCorrectProps = {
-          ...item,
-          isActive: (item as any).is_active
-        };
-        delete (itemWithCorrectProps as any).is_active;
-        return itemWithCorrectProps;
-      }
-      return item;
-    });
-
-    return {
-      data: mappedItems,
-      meta: {
-        totalItems: total,
-        totalPages: Math.ceil(total / limit),
-        currentPage: page,
-        itemsPerPage: limit
-      }
-    };
+      return {
+        items,
+        total,
+        page,
+        limit
+      };
+    } catch (error) {
+      console.error('Error in findAll:', error);
+      return {
+        items: [],
+        total: 0,
+        page,
+        limit
+      };
+    }
   }
 
   async findOne(id: string): Promise<Service> {
-    const service = await this.serviceRepository.findOne({ where: { id } });
-    
-    if (!service) {
-      throw new NotFoundException(`Service with ID ${id} not found`);
+    try {
+      const service = await this.serviceRepository.findOne({
+        where: { id }
+      });
+      
+      if (!service) {
+        throw new NotFoundException(`Service with ID ${id} not found`);
+      }
+      
+      return service;
+    } catch (error) {
+      console.error('Error in findOne:', error);
+      throw error;
     }
-    
-    return service;
   }
 
   async update(id: string, updateServiceDto: UpdateServiceDto): Promise<Service> {
@@ -86,7 +83,7 @@ export class ServiceService {
     }
   }
 
-  async save(serviceData: any): Promise<Service> {
+  async save(serviceData: Partial<Service>): Promise<Service> {
     try {
       // If the service has an ID, try to find it first
       if (serviceData.id) {

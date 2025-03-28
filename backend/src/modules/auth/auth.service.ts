@@ -63,6 +63,11 @@ export class AuthService {
     const { username, email, password, name, role } = registerDto;
 
     try {
+      // Validate required fields
+      if (!username || !email || !password || !name) {
+        throw new UnauthorizedException('All required fields must be provided: username, email, password, and name');
+      }
+      
       // Check if username or email already exists
       const existingUser = await this.userRepository.findOne({
         where: [{ username }, { email }],
@@ -99,7 +104,7 @@ export class AuthService {
       
       return userResponse;
     } catch (error) {
-      if (error instanceof ConflictException) {
+      if (error instanceof ConflictException || error instanceof UnauthorizedException) {
         throw error;
       }
       

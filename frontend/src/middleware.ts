@@ -1,13 +1,45 @@
 import { NextResponse } from 'next/server';
 import type { NextRequest } from 'next/server';
 
-// This middleware function will help us log and redirect malformed URLs
+// Define public routes that don't require authentication
+const publicPaths = [
+  '/login',
+  '/register',
+  '/forgot-password',
+  '/reset-password',
+  '/api/auth',
+  '/_next',
+  '/favicon.ico',
+];
+
+// This middleware function will help us handle authentication and redirect malformed URLs
 export function middleware(request: NextRequest) {
   const url = request.nextUrl.clone();
   const path = url.pathname;
 
   // Log all requests for debugging
   console.log(`[Middleware] Request path: ${path}`);
+
+  // Check if the path is public
+  const isPublicPath = publicPaths.some(publicPath => 
+    path.startsWith(publicPath) || path === '/'
+  );
+
+  // Get the token from cookies
+  const token = request.cookies.get('token')?.value;
+  
+  // Redirect to login if no token and accessing protected route
+  if (!token && !isPublicPath) {
+    url.pathname = '/login';
+    // Store the original URL to redirect back after login
+    url.searchParams.set('callbackUrl', request.url);
+    return NextResponse.redirect(url);
+  }
+
+  // Allow access to public routes even without token
+  if (isPublicPath) {
+    return NextResponse.next();
+  }
 
   // Check for potentially malformed paths like /orders/undefined/customers
   if (path.includes('/undefined/') || path.includes('undefined')) {
@@ -28,12 +60,9 @@ export function middleware(request: NextRequest) {
   return NextResponse.next();
 }
 
-// Only run middleware on specific paths to avoid unnecessary processing
+// Run middleware on all routes
 export const config = {
   matcher: [
-    '/orders/:path*',
-    '/customers/:path*',
-    '/dashboard/:path*',
-    '/payments/:path*',
+    '/((?!_next/static|_next/image|images|public|favicon.ico).*)',
   ],
 }; 

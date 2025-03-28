@@ -10,16 +10,13 @@ export declare class ServiceService {
         page?: number;
         limit?: number;
     }): Promise<{
-        data: Service[];
-        meta: {
-            totalItems: number;
-            totalPages: number;
-            currentPage: number;
-            itemsPerPage: number;
-        };
+        items: Service[];
+        total: number;
+        page: number;
+        limit: number;
     }>;
     findOne(id: string): Promise<Service>;
     update(id: string, updateServiceDto: UpdateServiceDto): Promise<Service>;
     remove(id: string): Promise<void>;
-    save(serviceData: any): Promise<Service>;
+    save(serviceData: Partial<Service>): Promise<Service>;
 }

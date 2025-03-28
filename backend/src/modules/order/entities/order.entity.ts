@@ -1,53 +1,96 @@
-import { Entity, Column, PrimaryColumn, CreateDateColumn, UpdateDateColumn, ManyToOne, JoinColumn, OneToMany } from 'typeorm';
-import { Customer } from '../../customer/customer.entity';
-import { Payment } from '../../payment/entities/payment.entity';
+import { Entity, Column, PrimaryGeneratedColumn, CreateDateColumn, UpdateDateColumn, ManyToOne, OneToMany, JoinColumn, BeforeInsert } from 'typeorm';
+import { ApiProperty } from '@nestjs/swagger';
+import { Customer } from '../../customer/entities/customer.entity';
 import { OrderItem } from './order-item.entity';
+import { Payment } from '../../payment/entities/payment.entity';
 
-@Entity({ name: 'orders' })
+export enum OrderStatus {
+  NEW = 'new',
+  PROCESSING = 'processing',
+  WASHING = 'washing',
+  DRYING = 'drying',
+  FOLDING = 'folding',
+  READY = 'ready',
+  DELIVERED = 'delivered',
+  CANCELLED = 'cancelled'
+}
+
+@Entity('orders')
 export class Order {
-  @PrimaryColumn({ type: 'varchar', length: 255 })
+  @ApiProperty({ description: 'The unique identifier of the order' })
+  @PrimaryGeneratedColumn('uuid')
   id: string;
 
-  @Column({ name: 'order_number', type: 'varchar', length: 50, unique: true })
+  @ApiProperty({ description: 'Unique order number in the format ORD-YYYYMMDD-XXXXX' })
+  @Column({ name: 'order_number', default: 'ORD-00000000-00000', nullable: false })
   orderNumber: string;
 
-  @Column({ name: 'customer_id', type: 'varchar', length: 255, nullable: true })
+  @Column({ name: 'customer_id' })
   customerId: string;
 
-  @ManyToOne(() => Customer)
+  @ApiProperty({ description: 'The customer who placed the order' })
+  @ManyToOne(() => Customer, customer => customer.orders)
   @JoinColumn({ name: 'customer_id' })
   customer: Customer;
-  
-  @Column({ name: 'total_amount', type: 'decimal', precision: 10, scale: 2 })
+
+  @ApiProperty({ description: 'The status of the order' })
+  @Column({
+    name: 'status',
+    type: 'enum',
+    enum: OrderStatus,
+    default: OrderStatus.NEW
+  })
+  status: OrderStatus;
+
+  @ApiProperty({ description: 'The total amount of the order' })
+  @Column({ name: 'total_amount', type: 'decimal', precision: 10, scale: 2, default: 0 })
   totalAmount: number;
 
-  @Column({ name: 'total_weight', type: 'decimal', precision: 10, scale: 2, nullable: true })
+  @ApiProperty({ description: 'The total weight of the order' })
+  @Column({ name: 'total_weight', type: 'decimal', precision: 10, scale: 2, default: 0 })
   totalWeight: number;
 
-  @Column({ type: 'varchar', length: 20 })
-  status: string;
+  @Column({ name: 'notes', nullable: true })
+  notes?: string;
 
-  @Column({ type: 'text', nullable: true })
-  notes: string;
+  @Column({ name: 'special_requirements', nullable: true })
+  specialRequirements?: string;
 
-  @Column({ name: 'special_requirements', type: 'text', nullable: true })
-  specialRequirements: string;
+  @Column({ name: 'pickup_date', type: 'timestamp', nullable: true })
+  pickupDate?: Date;
 
-  @Column({ name: 'pickup_date', type: 'timestamp' })
-  pickupDate: Date;
+  @Column({ name: 'delivery_date', type: 'timestamp', nullable: true })
+  deliveryDate?: Date;
 
-  @Column({ name: 'delivery_date', type: 'timestamp' })
-  deliveryDate: Date;
+  @ApiProperty({ description: 'The items in the order' })
+  @OneToMany(() => OrderItem, item => item.order, { cascade: true })
+  items: OrderItem[];
 
   @OneToMany(() => Payment, payment => payment.order)
   payments: Payment[];
 
-  @OneToMany(() => OrderItem, orderItem => orderItem.order, { cascade: true })
-  items: OrderItem[];
-
+  @ApiProperty({ description: 'The date when the order was created' })
   @CreateDateColumn({ name: 'created_at' })
   createdAt: Date;
 
+  @ApiProperty({ description: 'The date when the order was last updated' })
   @UpdateDateColumn({ name: 'updated_at' })
   updatedAt: Date;
+
+  /**
+   * Generate a unique order number if one is not already set
+   * Format: ORD-YYYYMMDD-XXXXX (e.g., ORD-20240415-12345)
+   */
+  @BeforeInsert()
+  generateOrderNumber() {
+    if (!this.orderNumber || this.orderNumber === 'ORD-00000000-00000') {
+      const date = new Date();
+      const year = date.getFullYear();
+      const month = String(date.getMonth() + 1).padStart(2, '0');
+      const day = String(date.getDate()).padStart(2, '0');
+      const random = Math.floor(Math.random() * 100000).toString().padStart(5, '0');
+      
+      this.orderNumber = `ORD-${year}${month}${day}-${random}`;
+    }
+  }
 } 

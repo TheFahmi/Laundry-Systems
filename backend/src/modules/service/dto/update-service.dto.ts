@@ -1,5 +1,6 @@
 import { ApiProperty } from '@nestjs/swagger';
-import { IsBoolean, IsNumber, IsOptional, IsString, Min } from 'class-validator';
+import { IsBoolean, IsNumber, IsOptional, IsString, Min, IsEnum } from 'class-validator';
+import { PriceModel } from '../entities/service.entity';
 
 export class UpdateServiceDto {
   @ApiProperty({
@@ -29,6 +30,16 @@ export class UpdateServiceDto {
   @IsNumber()
   @Min(0)
   price?: number;
+
+  @ApiProperty({
+    description: 'The pricing model for the service',
+    example: 'per_kg',
+    enum: PriceModel,
+    required: false,
+  })
+  @IsOptional()
+  @IsEnum(PriceModel)
+  priceModel?: PriceModel;
 
   @ApiProperty({
     description: 'The unit of measurement for the service',

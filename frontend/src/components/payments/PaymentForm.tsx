@@ -59,7 +59,7 @@ export default function PaymentForm({
     status: initialData?.status || PaymentStatus.PENDING,
     notes: initialData?.notes || '',
     transactionId: '',
-    paymentId: initialData?.id || ''
+    referenceNumber: `PAY-${Date.now().toString().substring(0, 10)}`
   });
   
   const [formErrors, setFormErrors] = useState<Record<string, string>>({});
@@ -243,6 +243,20 @@ export default function PaymentForm({
             />
           </Grid>
         )}
+        
+        {/* Reference Number - Required field */}
+        <Grid item xs={12} sm={6}>
+          <TextField
+            label="Nomor Referensi *"
+            name="referenceNumber"
+            fullWidth
+            value={formValues.referenceNumber}
+            onChange={handleInputChange}
+            disabled={isLoading}
+            placeholder="Nomor referensi pembayaran"
+            required
+          />
+        </Grid>
         
         {/* Notes */}
         <Grid item xs={12}>

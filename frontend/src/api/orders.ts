@@ -1,5 +1,6 @@
 import axios from 'axios';
 import { API_URL } from '@/config';
+import api from '@/utils/api';
 
 export enum OrderStatus {
   NEW = 'new',
@@ -35,7 +36,7 @@ export interface Order {
   id: string;
   orderNumber: string;
   customerId: string;
-  customerName: string;
+  customerName?: string;
   status: OrderStatus;
   totalAmount: number;
   totalWeight: number;
@@ -46,6 +47,15 @@ export interface Order {
   items: OrderItem[];
   createdAt: string;
   updatedAt: string;
+  customer?: {
+    id: string;
+    name: string;
+    phone?: string;
+    email?: string;
+    address?: string;
+    createdAt?: string;
+    updatedAt?: string;
+  };
 }
 
 export interface CreateOrderDto {
@@ -84,10 +94,20 @@ export interface OrderFilters {
 }
 
 export interface OrderListResponse {
-  items: Order[];
-  total: number;
-  page: number;
-  limit: number;
+  statusCode: number;
+  message: string;
+  timestamp: string;
+  data: {
+    data: {
+      items: Order[];
+      total: number;
+      page: number;
+      limit: number;
+    };
+    statusCode: number;
+    message: string;
+    timestamp: string;
+  };
 }
 
 // Fungsi untuk mendapatkan semua pesanan
@@ -103,6 +123,7 @@ export const getOrders = async (filters: OrderFilters = {}): Promise<OrderListRe
       search 
     } = filters;
     
+    // Create query params
     const queryParams = new URLSearchParams({
       page: page.toString(),
       limit: limit.toString(),
@@ -113,37 +134,34 @@ export const getOrders = async (filters: OrderFilters = {}): Promise<OrderListRe
       ...(search && { search })
     });
     
-    const response = await axios.get(`${API_URL}/orders?${queryParams}`);
+    console.log('[getOrders] Fetching orders with filters:', filters);
+    console.log('[getOrders] Full URL:', `/api/orders?${queryParams}`);
     
-    // Handle different response formats
-    if (response.data.items) {
-      // New format with items/total/page/limit structure
-      return response.data;
-    } else if (response.data.data) {
-      // Old format with data/meta structure
-      return {
-        items: response.data.data,
-        total: response.data.meta.total || 0,
-        page: response.data.meta.page || page,
-        limit: response.data.meta.limit || limit
-      };
-    } else if (Array.isArray(response.data)) {
-      // Direct array format
-      return {
-        items: response.data,
-        total: response.data.length,
-        page: page,
-        limit: limit
-      };
-    } else {
-      console.error('Unexpected API response format:', response.data);
-      return {
-        items: [],
-        total: 0,
-        page: page,
-        limit: limit
-      };
+    // Try to get CSRF token from sessionStorage
+    const csrfToken = typeof window !== 'undefined' ? sessionStorage.getItem('csrfToken') : null;
+    
+    if (!csrfToken) {
+      console.warn('[getOrders] No CSRF token found in session storage. Trying to refresh...');
+      // Try to refresh CSRF token if needed - can add this in a later implementation
     }
+    
+    // Use the simplified API route that automatically handles CSRF and authentication
+    const response = await fetch(`/api/orders?${queryParams}`, {
+      method: 'GET',
+      headers: {
+        'Content-Type': 'application/json',
+        ...(csrfToken && { 'X-CSRF-Token': csrfToken }),
+      },
+      credentials: 'include' // Include cookies automatically
+    });
+    
+    if (!response.ok) {
+      const errorText = await response.text();
+      console.error(`[getOrders] API error (${response.status}):`, errorText);
+      throw new Error(`API request failed: ${errorText}`);
+    }
+    
+    return await response.json();
   } catch (error) {
     console.error('Error fetching orders:', error);
     throw error;
@@ -153,8 +171,45 @@ export const getOrders = async (filters: OrderFilters = {}): Promise<OrderListRe
 // Fungsi untuk mendapatkan pesanan berdasarkan ID
 export const getOrderById = async (id: string): Promise<Order> => {
   try {
-    const response = await axios.get(`${API_URL}/orders/${id}`);
-    return response.data;
+    // Try to get CSRF token from sessionStorage
+    const csrfToken = typeof window !== 'undefined' ? sessionStorage.getItem('csrfToken') : null;
+    
+    if (!csrfToken) {
+      console.warn('[getOrderById] No CSRF token found in session storage');
+    }
+    
+    const response = await fetch(`/api/orders/${id}`, {
+      method: 'GET',
+      headers: {
+        'Content-Type': 'application/json',
+        ...(csrfToken && { 'X-CSRF-Token': csrfToken }),
+      },
+      credentials: 'include' // Include cookies automatically
+    });
+    
+    if (!response.ok) {
+      const errorText = await response.text();
+      console.error(`[getOrderById] API error (${response.status}):`, errorText);
+      throw new Error(`API request failed: ${errorText}`);
+    }
+    
+    const responseJson = await response.json();
+    console.log('[getOrderById] Raw response data:', responseJson);
+    
+    // Extract data from nested response if necessary
+    const orderData = responseJson.data || responseJson;
+    console.log('[getOrderById] Extracted order data:', orderData);
+    
+    // Process the order data to ensure correct types
+    const processedOrder = {
+      ...orderData,
+      // Ensure totalAmount is a number
+      totalAmount: typeof orderData.totalAmount === 'string' ? parseFloat(orderData.totalAmount) : (orderData.totalAmount || 0),
+      // Set customerName from customer object if available
+      customerName: orderData.customerName || (orderData.customer ? orderData.customer.name : '')
+    };
+    
+    return processedOrder;
   } catch (error) {
     console.error(`Error fetching order with ID ${id}:`, error);
     throw error;
@@ -164,8 +219,37 @@ export const getOrderById = async (id: string): Promise<Order> => {
 // Fungsi untuk membuat pesanan baru
 export const createOrder = async (data: CreateOrderDto): Promise<Order> => {
   try {
-    const response = await axios.post(`${API_URL}/orders`, data);
-    return response.data;
+    // Try to get CSRF token from sessionStorage
+    const csrfToken = typeof window !== 'undefined' ? sessionStorage.getItem('csrfToken') : null;
+    
+    if (!csrfToken) {
+      console.warn('[createOrder] No CSRF token found in session storage');
+    }
+    
+    const response = await fetch('/api/orders', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        ...(csrfToken && { 'X-CSRF-Token': csrfToken }),
+      },
+      body: JSON.stringify(data),
+      credentials: 'include' // Include cookies automatically
+    });
+    
+    if (!response.ok) {
+      const errorText = await response.text();
+      console.error('[createOrder] API error:', errorText);
+      throw new Error(`API request failed: ${errorText}`);
+    }
+    
+    const responseJson = await response.json();
+    console.log('[createOrder] Raw response data:', responseJson);
+    
+    // Extract data from nested response if necessary
+    const createdOrder = responseJson.data || responseJson;
+    console.log('[createOrder] Extracted order data:', createdOrder);
+    
+    return createdOrder;
   } catch (error) {
     console.error('Error creating order:', error);
     throw error;
@@ -175,8 +259,37 @@ export const createOrder = async (data: CreateOrderDto): Promise<Order> => {
 // Fungsi untuk mengupdate pesanan
 export const updateOrder = async (id: string, data: UpdateOrderDto): Promise<Order> => {
   try {
-    const response = await axios.put(`${API_URL}/orders/${id}`, data);
-    return response.data;
+    // Try to get CSRF token from sessionStorage
+    const csrfToken = typeof window !== 'undefined' ? sessionStorage.getItem('csrfToken') : null;
+    
+    if (!csrfToken) {
+      console.warn('[updateOrder] No CSRF token found in session storage');
+    }
+    
+    const response = await fetch(`/api/orders/${id}`, {
+      method: 'PUT',
+      headers: {
+        'Content-Type': 'application/json',
+        ...(csrfToken && { 'X-CSRF-Token': csrfToken }),
+      },
+      body: JSON.stringify(data),
+      credentials: 'include' // Include cookies automatically
+    });
+    
+    if (!response.ok) {
+      const errorText = await response.text();
+      console.error(`[updateOrder] API error for ID ${id}:`, errorText);
+      throw new Error(`API request failed: ${errorText}`);
+    }
+    
+    const responseJson = await response.json();
+    console.log('[updateOrder] Raw response data:', responseJson);
+    
+    // Extract data from nested response if necessary
+    const updatedOrder = responseJson.data || responseJson;
+    console.log('[updateOrder] Extracted order data:', updatedOrder);
+    
+    return updatedOrder;
   } catch (error) {
     console.error(`Error updating order with ID ${id}:`, error);
     throw error;
@@ -186,7 +299,29 @@ export const updateOrder = async (id: string, data: UpdateOrderDto): Promise<Ord
 // Fungsi untuk menghapus pesanan
 export const deleteOrder = async (id: string): Promise<void> => {
   try {
-    await axios.delete(`${API_URL}/orders/${id}`);
+    // Try to get CSRF token from sessionStorage
+    const csrfToken = typeof window !== 'undefined' ? sessionStorage.getItem('csrfToken') : null;
+    
+    if (!csrfToken) {
+      console.warn('[deleteOrder] No CSRF token found in session storage');
+    }
+    
+    const response = await fetch(`/api/orders/${id}`, {
+      method: 'DELETE',
+      headers: {
+        'Content-Type': 'application/json',
+        ...(csrfToken && { 'X-CSRF-Token': csrfToken }),
+      },
+      credentials: 'include' // Include cookies automatically
+    });
+    
+    if (!response.ok) {
+      const errorText = await response.text();
+      console.error(`[deleteOrder] API error for ID ${id}:`, errorText);
+      throw new Error(`API request failed: ${errorText}`);
+    }
+    
+    console.log('[deleteOrder] Delete response:', await response.json());
   } catch (error) {
     console.error(`Error deleting order with ID ${id}:`, error);
     throw error;
@@ -196,8 +331,37 @@ export const deleteOrder = async (id: string): Promise<void> => {
 // Fungsi untuk mengupdate status pesanan
 export const updateOrderStatus = async (id: string, status: OrderStatus): Promise<Order> => {
   try {
-    const response = await axios.patch(`${API_URL}/orders/${id}/status`, { status });
-    return response.data;
+    // Try to get CSRF token from sessionStorage
+    const csrfToken = typeof window !== 'undefined' ? sessionStorage.getItem('csrfToken') : null;
+    
+    if (!csrfToken) {
+      console.warn('[updateOrderStatus] No CSRF token found in session storage');
+    }
+    
+    const response = await fetch(`/api/orders/${id}/status`, {
+      method: 'PATCH',
+      headers: {
+        'Content-Type': 'application/json',
+        ...(csrfToken && { 'X-CSRF-Token': csrfToken }),
+      },
+      body: JSON.stringify({ status }),
+      credentials: 'include' // Include cookies automatically
+    });
+    
+    if (!response.ok) {
+      const errorText = await response.text();
+      console.error(`[updateOrderStatus] API error for ID ${id}:`, errorText);
+      throw new Error(`API request failed: ${errorText}`);
+    }
+    
+    const responseJson = await response.json();
+    console.log('[updateOrderStatus] Raw response data:', responseJson);
+    
+    // Extract data from nested response if necessary
+    const updatedOrder = responseJson.data || responseJson;
+    console.log('[updateOrderStatus] Extracted order data:', updatedOrder);
+    
+    return updatedOrder;
   } catch (error) {
     console.error(`Error updating status for order ${id}:`, error);
     throw error;

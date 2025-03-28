@@ -6,13 +6,10 @@ export declare class ServiceController {
     private readonly serviceService;
     constructor(serviceService: ServiceService);
     findAll(page?: number, limit?: number): Promise<{
-        data: Service[];
-        meta: {
-            totalItems: number;
-            totalPages: number;
-            currentPage: number;
-            itemsPerPage: number;
-        };
+        items: Service[];
+        total: number;
+        page: number;
+        limit: number;
     }>;
     findOne(id: string): Promise<Service>;
     create(createServiceDto: CreateServiceDto): Promise<Service>;

@@ -54,8 +54,32 @@ export default function CustomersPage() {
         search: searchQuery || undefined
       });
       
-      setCustomers(response?.data || []);
-      setTotalCustomers(response?.meta?.total || 0);
+      console.log('Customer response:', response);
+      
+      // Handle the deeply nested structure from the API
+      if (response && response.data && response.data.data) {
+        // The actual customer items are in response.data.data.items
+        if (response.data.data.items && Array.isArray(response.data.data.items)) {
+          setCustomers(response.data.data.items);
+          setTotalCustomers(response.data.data.total || 0);
+        } else if (Array.isArray(response.data.data)) {
+          // Alternative structure that might be returned
+          setCustomers(response.data.data);
+          setTotalCustomers(response.meta?.total || 0);
+        } else {
+          console.warn('Unexpected response structure:', response.data);
+          setCustomers([]);
+          setTotalCustomers(0);
+        }
+      } else if (response && response.data && Array.isArray(response.data)) {
+        // Handle simpler structure where response.data is the array
+        setCustomers(response.data);
+        setTotalCustomers(response.meta?.total || 0);
+      } else {
+        console.error('Invalid response structure:', response);
+        setCustomers([]);
+        setTotalCustomers(0);
+      }
     } catch (err) {
       console.error('Error fetching customers:', err);
       setError('Terjadi kesalahan saat mengambil data pelanggan');
@@ -188,13 +212,13 @@ export default function CustomersPage() {
             <TableBody>
               {loading ? (
                 <TableRow>
-                  <TableCell colSpan={5} align="center" sx={{ py: 3 }}>
+                  <TableCell colSpan={6} align="center" sx={{ py: 3 }}>
                     <CircularProgress size={30} />
                   </TableCell>
                 </TableRow>
               ) : !customers || customers.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={5} align="center" sx={{ py: 3 }}>
+                  <TableCell colSpan={6} align="center" sx={{ py: 3 }}>
                     Tidak ada pelanggan ditemukan
                   </TableCell>
                 </TableRow>
@@ -233,7 +257,11 @@ export default function CustomersPage() {
                       {format(new Date(customer.createdAt), 'dd MMM yyyy', { locale: id })}
                     </TableCell>
                     <TableCell>
-                      <Chip label={customer.status === 'active' ? 'Aktif' : 'Tidak Aktif'} color={customer.status === 'active' ? 'success' : 'default'} size="small" />
+                      <Chip 
+                        label={customer.status === 'active' ? 'Aktif' : 'Tidak Aktif'} 
+                        color={customer.status === 'active' ? 'success' : 'default'} 
+                        size="small" 
+                      />
                     </TableCell>
                     <TableCell align="right">
                       <Button
@@ -251,6 +279,7 @@ export default function CustomersPage() {
                       </IconButton>
                       <IconButton
                         size="small"
+                        color="error"
                         onClick={() => {}}
                       >
                         <DeleteIcon />
@@ -272,9 +301,6 @@ export default function CustomersPage() {
           onPageChange={handleChangePage}
           onRowsPerPageChange={handleChangeRowsPerPage}
           labelRowsPerPage="Baris per halaman:"
-          labelDisplayedRows={({ from, to, count }) => 
-            `${from}-${to} dari ${count !== -1 ? count : `lebih dari ${to}`}`
-          }
         />
       </Paper>
     </Container>

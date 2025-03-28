@@ -13,6 +13,40 @@ import PaymentConfirmation from '@/components/payments/PaymentConfirmation';
 // Step definitions
 const steps = ['Pilih Pelanggan & Layanan', 'Konfirmasi Order', 'Proses Pembayaran', 'Selesai'];
 
+// Helper function to generate a payment reference number
+const generateReferenceNumber = (orderId: string): string => {
+  const timestamp = Date.now().toString().slice(-6); // Get last 6 digits of timestamp
+  const orderIdShort = orderId.substring(0, 6); // Take first 6 characters of order ID
+  return `REF-${orderIdShort}-${timestamp}`;
+};
+
+// Add this helper function at the top of the file, before the OrderFlow component
+const formatDate = (dateString: string | undefined | null): string => {
+  if (!dateString) return 'N/A';
+  
+  try {
+    // Try to parse the date
+    const date = new Date(dateString);
+    
+    // Check if date is valid
+    if (isNaN(date.getTime())) {
+      return 'N/A';
+    }
+    
+    // Format the date as a locale string with fallback
+    return date.toLocaleString('id-ID', {
+      year: 'numeric',
+      month: 'long',
+      day: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit'
+    });
+  } catch (error) {
+    console.error('Error formatting date:', error);
+    return 'N/A';
+  }
+};
+
 // Main Order Flow Component
 export default function OrderFlow() {
   // State management
@@ -69,7 +103,48 @@ export default function OrderFlow() {
     try {
       const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
       
-      console.log('Order data to submit:', data);
+      console.log('Original order data to submit:', data);
+      
+      // Proses item untuk memastikan format data yang benar
+      const processedItems = data.items.map((item: any) => {
+        // Check if this is a weight-based item
+        const isWeightBased = 
+          item.weightBased || 
+          ['Dry Cleaning', 'Cuci Express', 'Cuci Reguler', 'Setrika'].includes(item.serviceName) ||
+          [1, 2, 3, 4].includes(Number(item.serviceId));
+        
+        // Create base item data
+        const processedItem: any = {
+          serviceId: item.serviceId,
+          serviceName: item.serviceName,
+          quantity: item.quantity,
+          price: item.price,
+          weightBased: isWeightBased
+        };
+        
+        // For weight-based items, add weight property properly
+        if (isWeightBased) {
+          // Use weight field if present, otherwise use quantity as weight
+          processedItem.weight = item.weight !== undefined ? item.weight : item.quantity;
+          console.log(`Weight-based item: ${item.serviceName}, Weight: ${processedItem.weight}kg, Price: ${item.price}`);
+          
+          // For backend compatibility, we set a standard quantity of 1 for weight-based items
+          // but preserve the actual weight in the weight field
+          processedItem.quantity = 1;
+        }
+        
+        return processedItem;
+      });
+      
+      // Create payload with processed items
+      const payload = {
+        customerId: data.customerId,
+        items: processedItems,
+        notes: data.notes || '',
+        total: calculateTotal(processedItems)
+      };
+      
+      console.log('Processed order payload:', JSON.stringify(payload));
       
       // Create order in the backend
       const response = await fetch(`${apiUrl}/orders`, {
@@ -77,7 +152,7 @@ export default function OrderFlow() {
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify(data),
+        body: JSON.stringify(payload),
       });
       
       if (!response.ok) {
@@ -87,7 +162,10 @@ export default function OrderFlow() {
       
       const orderResult = await response.json();
       console.log('Created order:', orderResult);
-      setCreatedOrder(orderResult);
+      
+      // Check if the order data is nested under a 'data' property
+      const orderData = orderResult.data || orderResult;
+      setCreatedOrder(orderData);
       
       // Fetch customer details
       if (data.customerId) {
@@ -125,26 +203,39 @@ export default function OrderFlow() {
     try {
       const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
       
+      // Extract only the necessary fields to avoid validation errors
+      const paymentData = {
+        orderId: createdOrder.id,
+        customerId: customer.id,
+        amount: Number(data.amount || createdOrder.totalAmount || calculateTotal(createdOrder.items || [])),
+        method: data.method,
+        status: data.status,
+        notes: data.notes || '',
+        transactionId: data.transactionId || '',
+        referenceNumber: generateReferenceNumber(createdOrder.id)
+      };
+      
+      console.log('Payment data to submit:', paymentData);
+      
       // Process payment in the backend
       const response = await fetch(`${apiUrl}/payments`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({
-          ...data,
-          orderId: createdOrder.id,
-          customerId: customer.id,
-        }),
+        body: JSON.stringify(paymentData),
       });
       
       if (!response.ok) {
         const errorData = await response.json();
+        console.error('Payment error response:', errorData);
         throw new Error(errorData.message || 'Failed to process payment');
       }
       
       const paymentResult = await response.json();
-      setPaymentData(paymentResult);
+      console.log('Payment result:', paymentResult);
+      const paymentResponseData = paymentResult.data || paymentResult;
+      setPaymentData(paymentResponseData);
       
       // Move to final step
       setActiveStep(3);
@@ -180,7 +271,49 @@ export default function OrderFlow() {
   
   // Calculate order total
   const calculateTotal = (items: any[]) => {
-    return items.reduce((total, item) => total + (item.price * item.quantity), 0);
+    if (!items || !Array.isArray(items)) return 0;
+    
+    return items.reduce((total, item) => {
+      console.log(`Calculating total for item: ${item.serviceName}`);
+      
+      // Determine if this is a weight-based item based on service priceModel
+      const isWeightBased = item.service?.priceModel === 'per_kg';
+      let actualQuantity = 0;
+      
+      if (isWeightBased) {
+        if (item.weight !== undefined && item.weight !== null) {
+          // Use explicit weight field if available
+          actualQuantity = Number(item.weight);
+          console.log(`Item ${item.serviceName} using weight field: ${actualQuantity}kg`);
+        } else if (item.notes && item.notes.includes('Weight:')) {
+          // Try to extract weight from notes
+          const match = item.notes.match(/Weight: ([\d.]+) kg/);
+          if (match && match[1]) {
+            actualQuantity = parseFloat(match[1]);
+            console.log(`Item ${item.serviceName} using weight from notes: ${actualQuantity}kg`);
+          } else {
+            // Default to existing quantity (no conversion/rounding)
+            actualQuantity = Number(item.quantity) || 0.5;
+            console.log(`Item ${item.serviceName} using quantity as weight: ${actualQuantity}kg`);
+          }
+        } else {
+          // Default to existing quantity for weight-based items
+          actualQuantity = Number(item.quantity) || 0.5; 
+          console.log(`Item ${item.serviceName} using fallback weight: ${actualQuantity}kg`);
+        }
+      } else {
+        // Non-weight based item, use quantity
+        actualQuantity = Number(item.quantity) || 0;
+        console.log(`Item ${item.serviceName} (piece-based) quantity: ${actualQuantity}`);
+      }
+      
+      const price = Number(item.price) || 0;
+      const subtotal = item.subtotal ? Number(item.subtotal) : (actualQuantity * price);
+      
+      console.log(`Item ${item.serviceName} subtotal: ${price} × ${actualQuantity} = ${subtotal}`);
+      
+      return total + subtotal;
+    }, 0);
   };
   
   // Render current step content
@@ -207,16 +340,19 @@ export default function OrderFlow() {
                 {/* Order Details */}
                 <Box sx={{ mb: 3 }}>
                   <Typography variant="subtitle1" gutterBottom>
-                    Detail Order
+                    Detail Pesanan
                   </Typography>
                   <Typography variant="body2">
-                    <strong>Order ID:</strong> {createdOrder.id}
+                    <strong>Order ID:</strong> {createdOrder.id || 'N/A'}
                   </Typography>
                   <Typography variant="body2">
-                    <strong>Status:</strong> {createdOrder.status}
+                    <strong>Order Number:</strong> {createdOrder.orderNumber || 'N/A'}
                   </Typography>
                   <Typography variant="body2">
-                    <strong>Tanggal:</strong> {new Date(createdOrder.created_at).toLocaleString()}
+                    <strong>Status:</strong> {createdOrder.status || 'N/A'}
+                  </Typography>
+                  <Typography variant="body2">
+                    <strong>Tanggal:</strong> {formatDate(createdOrder.createdAt)}
                   </Typography>
                 </Box>
                 
@@ -230,13 +366,13 @@ export default function OrderFlow() {
                   {customer && (
                     <>
                       <Typography variant="body2">
-                        <strong>Nama:</strong> {customer.name}
+                        <strong>Nama:</strong> {customer.name || 'N/A'}
                       </Typography>
                       <Typography variant="body2">
-                        <strong>Telepon:</strong> {customer.phone}
+                        <strong>Telepon:</strong> {customer.phone || 'N/A'}
                       </Typography>
                       <Typography variant="body2">
-                        <strong>Alamat:</strong> {customer.address}
+                        <strong>Alamat:</strong> {customer.address || 'N/A'}
                       </Typography>
                     </>
                   )}
@@ -248,36 +384,71 @@ export default function OrderFlow() {
                 <Typography variant="subtitle1" gutterBottom>
                   Item Pesanan
                 </Typography>
-                <Box sx={{ mb: 2 }}>
-                  <table style={{ width: '100%', borderCollapse: 'collapse' }}>
-                    <thead>
-                      <tr style={{ borderBottom: '1px solid #e0e0e0' }}>
-                        <th style={{ padding: '8px', textAlign: 'left' }}>Layanan</th>
-                        <th style={{ padding: '8px', textAlign: 'right' }}>Jumlah</th>
-                        <th style={{ padding: '8px', textAlign: 'right' }}>Harga</th>
-                        <th style={{ padding: '8px', textAlign: 'right' }}>Subtotal</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {createdOrder.items.map((item: any, index: number) => (
-                        <tr key={index} style={{ borderBottom: '1px solid #f0f0f0' }}>
-                          <td style={{ padding: '8px' }}>{item.name}</td>
-                          <td style={{ padding: '8px', textAlign: 'right' }}>{item.quantity}</td>
-                          <td style={{ padding: '8px', textAlign: 'right' }}>Rp {item.price.toLocaleString()}</td>
-                          <td style={{ padding: '8px', textAlign: 'right' }}>Rp {(item.quantity * item.price).toLocaleString()}</td>
+                {createdOrder.items && Array.isArray(createdOrder.items) && createdOrder.items.length > 0 && (
+                  <Box sx={{ mb: 2 }}>
+                    <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+                      <thead>
+                        <tr style={{ borderBottom: '1px solid #e0e0e0' }}>
+                          <th style={{ padding: '8px', textAlign: 'left' }}>Layanan</th>
+                          <th style={{ padding: '8px', textAlign: 'right' }}>Jumlah</th>
+                          <th style={{ padding: '8px', textAlign: 'right' }}>Harga</th>
+                          <th style={{ padding: '8px', textAlign: 'right' }}>Subtotal</th>
                         </tr>
-                      ))}
-                    </tbody>
-                    <tfoot>
-                      <tr>
-                        <td colSpan={3} style={{ padding: '8px', textAlign: 'right', fontWeight: 'bold' }}>Total:</td>
-                        <td style={{ padding: '8px', textAlign: 'right', fontWeight: 'bold' }}>
-                          Rp {calculateTotal(createdOrder.items).toLocaleString()}
-                        </td>
-                      </tr>
-                    </tfoot>
-                  </table>
-                </Box>
+                      </thead>
+                      <tbody>
+                        {createdOrder.items.map((item: any, index: number) => {
+                          // Determine if this is a weight-based item based on service priceModel
+                          const isWeightBased = item.service?.priceModel === 'per_kg';
+                          
+                          // Determine display quantity and unit
+                          let displayQuantity = item.quantity;
+                          let unit = 'pcs';
+                          
+                          if (isWeightBased) {
+                            if (item.weight !== undefined && item.weight !== null) {
+                              displayQuantity = item.weight;
+                            } else if (item.notes && item.notes.includes('Weight:')) {
+                              const match = item.notes.match(/Weight: ([\d.]+) kg/);
+                              if (match && match[1]) {
+                                displayQuantity = parseFloat(match[1]);
+                              }
+                            }
+                            unit = 'kg';
+                          }
+                          
+                          // Calculate actual subtotal
+                          const actualQuantity = isWeightBased ? displayQuantity : item.quantity;
+                          const subtotal = (Number(actualQuantity) * Number(item.price));
+                          
+                          return (
+                            <tr key={index} style={{ borderBottom: '1px solid #f0f0f0' }}>
+                              <td style={{ padding: '8px' }}>{item.serviceName}</td>
+                              <td style={{ padding: '8px', textAlign: 'right' }}>{displayQuantity} {unit}</td>
+                              <td style={{ padding: '8px', textAlign: 'right' }}>Rp {Number(item.price).toLocaleString()}</td>
+                              <td style={{ padding: '8px', textAlign: 'right' }}>Rp {subtotal.toLocaleString()}</td>
+                            </tr>
+                          );
+                        })}
+                      </tbody>
+                      <tfoot>
+                        <tr>
+                          <td colSpan={3} style={{ padding: '8px', textAlign: 'right', fontWeight: 'bold' }}>Total:</td>
+                          <td style={{ padding: '8px', textAlign: 'right', fontWeight: 'bold' }}>
+                            {createdOrder.totalAmount ? 
+                              `Rp ${Number(createdOrder.totalAmount).toLocaleString()}` : 
+                              `Rp ${calculateTotal(createdOrder.items).toLocaleString()}`}
+                          </td>
+                        </tr>
+                      </tfoot>
+                    </table>
+                  </Box>
+                )}
+                
+                {!createdOrder.items || !Array.isArray(createdOrder.items) || createdOrder.items.length === 0 && (
+                  <Typography variant="body2" color="text.secondary">
+                    Tidak ada item yang ditambahkan
+                  </Typography>
+                )}
                 
                 {createdOrder.notes && (
                   <Box sx={{ mt: 2 }}>
@@ -317,7 +488,7 @@ export default function OrderFlow() {
             
             <PaymentForm
               orderId={createdOrder?.id || ''}
-              orderAmount={calculateTotal(createdOrder?.items || [])}
+              orderAmount={createdOrder?.totalAmount || calculateTotal(createdOrder?.items || [])}
               customerId={customer?.id || ''}
               onSubmit={handlePaymentSubmit}
               onCancel={handleBack}
@@ -337,9 +508,9 @@ export default function OrderFlow() {
               <PaymentConfirmation
                 payment={paymentData}
                 orderDetails={{
-                  orderNumber: createdOrder?.id.substring(0, 8).toUpperCase(),
-                  customerName: customer?.name,
-                  total: calculateTotal(createdOrder?.items || [])
+                  orderNumber: createdOrder?.orderNumber || createdOrder?.id?.substring(0, 8).toUpperCase() || 'N/A',
+                  customerName: customer?.name || 'N/A',
+                  total: createdOrder?.totalAmount || calculateTotal(createdOrder?.items || [])
                 }}
               />
             )}

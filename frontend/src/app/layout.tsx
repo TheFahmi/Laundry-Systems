@@ -3,6 +3,7 @@ import { Inter } from "next/font/google";
 import "./globals.css";
 import { ThemeProvider } from "@/providers/ThemeProvider";
 import { AuthProvider } from "@/providers/AuthProvider";
+import { CsrfProvider } from "@/providers/CsrfProvider";
 import { Toaster } from "react-hot-toast";
 import { APP_NAME } from "@/config";
 
@@ -22,10 +23,12 @@ export default function RootLayout({
     <html lang="id">
       <body className={inter.className}>
         <AuthProvider>
-          <ThemeProvider>
-            {children}
-            <Toaster position="top-right" />
-          </ThemeProvider>
+          <CsrfProvider>
+            <ThemeProvider>
+              {children}
+              <Toaster position="top-right" />
+            </ThemeProvider>
+          </CsrfProvider>
         </AuthProvider>
       </body>
     </html>

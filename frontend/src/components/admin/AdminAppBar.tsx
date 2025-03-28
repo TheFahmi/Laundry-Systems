@@ -12,14 +12,12 @@ import {
   MenuItem,
   Divider,
   Tooltip,
-  Badge,
   useMediaQuery,
   useTheme as useMuiTheme,
   ListItemIcon
 } from '@mui/material';
 import {
   Menu as MenuIcon,
-  Notifications as NotificationsIcon,
   Settings as SettingsIcon,
   Person as PersonIcon,
   Logout as LogoutIcon,
@@ -29,6 +27,7 @@ import {
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/providers/AuthProvider';
 import { useTheme } from '@/providers/ThemeProvider';
+import NotificationCenter from '@/components/notifications/NotificationCenter';
 
 interface AdminAppBarProps {
   drawerWidth: number;
@@ -36,7 +35,6 @@ interface AdminAppBarProps {
 
 export default function AdminAppBar({ drawerWidth }: AdminAppBarProps) {
   const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null);
-  const [notificationsAnchorEl, setNotificationsAnchorEl] = useState<null | HTMLElement>(null);
   const { user, logout } = useAuth();
   const { mode, toggleTheme } = useTheme();
   const router = useRouter();
@@ -49,14 +47,6 @@ export default function AdminAppBar({ drawerWidth }: AdminAppBarProps) {
 
   const handleProfileMenuClose = () => {
     setAnchorEl(null);
-  };
-
-  const handleNotificationsOpen = (event: React.MouseEvent<HTMLElement>) => {
-    setNotificationsAnchorEl(event.currentTarget);
-  };
-
-  const handleNotificationsClose = () => {
-    setNotificationsAnchorEl(null);
   };
 
   const handleLogout = () => {
@@ -102,35 +92,7 @@ export default function AdminAppBar({ drawerWidth }: AdminAppBarProps) {
         </Tooltip>
         
         {/* Notifications */}
-        <Tooltip title="Notifications">
-          <IconButton 
-            color="inherit" 
-            onClick={handleNotificationsOpen}
-            sx={{ ml: 1 }}
-          >
-            <Badge badgeContent={4} color="error">
-              <NotificationsIcon />
-            </Badge>
-          </IconButton>
-        </Tooltip>
-        <Menu
-          anchorEl={notificationsAnchorEl}
-          open={Boolean(notificationsAnchorEl)}
-          onClose={handleNotificationsClose}
-          transformOrigin={{ horizontal: 'right', vertical: 'top' }}
-          anchorOrigin={{ horizontal: 'right', vertical: 'bottom' }}
-        >
-          <MenuItem onClick={handleNotificationsClose}>
-            <Typography variant="body2">Pesanan baru #12345</Typography>
-          </MenuItem>
-          <MenuItem onClick={handleNotificationsClose}>
-            <Typography variant="body2">Pembayaran tervalidasi</Typography>
-          </MenuItem>
-          <Divider />
-          <MenuItem onClick={handleNotificationsClose}>
-            <Typography variant="body2" color="primary">Lihat semua notifikasi</Typography>
-          </MenuItem>
-        </Menu>
+        <NotificationCenter />
         
         {/* User profile */}
         <Tooltip title={user?.name || 'User Profile'}>

@@ -1,7 +1,7 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
-import { Customer } from '../../models/customer.entity';
+import { Customer } from './entities/customer.entity';
 import { CreateCustomerDto } from './dto/create-customer.dto';
 import { UpdateCustomerDto } from './dto/update-customer.dto';
 
@@ -18,48 +18,67 @@ export class CustomerService {
   }
 
   async create(createCustomerDto: CreateCustomerDto): Promise<Customer> {
-    const newCustomer = this.customerRepository.create(createCustomerDto);
-    
-    // Simpan terlebih dahulu untuk mendapatkan id
-    const savedCustomer = await this.customerRepository.save(newCustomer);
-    
-    // Buat ID dengan format yang diinginkan menggunakan id yang dihasilkan
-    const formattedId = await this.generateCustomerId(parseInt(savedCustomer.id));
-    savedCustomer.id = formattedId;
-    
-    // Simpan kembali untuk memperbarui ID
-    return this.customerRepository.save(savedCustomer);
+    const customer = this.customerRepository.create(createCustomerDto);
+    return await this.customerRepository.save(customer);
   }
 
-  async findAll(options: { page: number; limit: number }) {
+  async findAll(options: { page: number; limit: number }): Promise<{
+    items: Customer[];
+    total: number;
+    page: number;
+    limit: number;
+  }> {
     const { page, limit } = options;
     const skip = (page - 1) * limit;
 
-    const [customers, total] = await this.customerRepository.findAndCount({
-      skip,
-      take: limit,
-      order: { createdAt: 'DESC' },
-    });
+    try {
+      // Use direct SQL query to bypass any ORM mapping issues
+      const totalResult = await this.customerRepository.query('SELECT COUNT(*) as count FROM customers');
+      const total = parseInt(totalResult[0].count);
+      
+      const data = await this.customerRepository.query(
+        `SELECT * FROM customers ORDER BY created_at DESC LIMIT $1 OFFSET $2`, 
+        [limit, skip]
+      );
+      
+      // Map the snake_case column names back to camelCase for the entity
+      const items = data.map(item => {
+        return {
+          id: item.id,
+          name: item.name,
+          email: item.email,
+          phone: item.phone,
+          address: item.address,
+          createdAt: item.created_at,
+          updatedAt: item.updated_at
+        };
+      });
 
-    return {
-      data: customers,
-      meta: {
+      return {
+        items,
         total,
         page,
-        limit,
-        totalPages: Math.ceil(total / limit),
-      },
-    };
+        limit
+      };
+    } catch (error) {
+      console.error('Error in findAll:', error);
+      return {
+        items: [],
+        total: 0,
+        page,
+        limit
+      };
+    }
   }
 
   async findOne(id: string): Promise<Customer> {
     const customer = await this.customerRepository.findOne({
       where: { id },
-      relations: ['orders'],
+      relations: ['orders']
     });
 
     if (!customer) {
-      throw new NotFoundException(`Pelanggan dengan ID "${id}" tidak ditemukan`);
+      throw new NotFoundException(`Customer with ID ${id} not found`);
     }
 
     return customer;
@@ -67,13 +86,14 @@ export class CustomerService {
 
   async update(id: string, updateCustomerDto: UpdateCustomerDto): Promise<Customer> {
     const customer = await this.findOne(id);
-    this.customerRepository.merge(customer, updateCustomerDto);
-    return this.customerRepository.save(customer);
+    const updated = Object.assign(customer, updateCustomerDto);
+    return await this.customerRepository.save(updated);
   }
 
-  async remove(id: string): Promise<{ message: string }> {
-    const customer = await this.findOne(id);
-    await this.customerRepository.remove(customer);
-    return { message: 'Pelanggan berhasil dihapus' };
+  async remove(id: string): Promise<void> {
+    const result = await this.customerRepository.delete(id);
+    if (result.affected === 0) {
+      throw new NotFoundException(`Customer with ID ${id} not found`);
+    }
   }
 } 

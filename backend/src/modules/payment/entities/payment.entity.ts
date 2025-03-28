@@ -1,4 +1,4 @@
-import { Entity, Column, PrimaryColumn, CreateDateColumn, UpdateDateColumn, ManyToOne, JoinColumn } from 'typeorm';
+import { Entity, Column, PrimaryColumn, CreateDateColumn, UpdateDateColumn, ManyToOne, JoinColumn, BeforeInsert } from 'typeorm';
 import { Order } from '../../order/entities/order.entity';
 import { Customer } from '../../customer/customer.entity';
 
@@ -37,13 +37,13 @@ export class Payment {
   @Column({ name: 'transaction_id', type: 'varchar', length: 255, nullable: true })
   transactionId: string;
 
-  @Column({ name: 'reference_number', type: 'varchar', length: 255, nullable: true })
+  @Column({ name: 'reference_number', type: 'varchar', length: 255, nullable: true, default: 'REF-00000000-00000' })
   referenceNumber: string;
 
   @Column({ name: 'payment_id', type: 'integer', nullable: true })
   paymentId: number;
 
-  @Column({ name: 'order_id', type: 'varchar', length: 255, nullable: true })
+  @Column({ name: 'order_id', type: 'varchar', nullable: true })
   orderId: string;
 
   @ManyToOne(() => Order, order => order.payments)
@@ -62,4 +62,21 @@ export class Payment {
 
   @UpdateDateColumn({ name: 'updated_at' })
   updatedAt: Date;
+
+  /**
+   * Generate a unique reference number if one is not already set
+   * Format: REF-YYYYMMDD-XXXXX (e.g., REF-20240327-12345)
+   */
+  @BeforeInsert()
+  generateReferenceNumber() {
+    if (!this.referenceNumber || this.referenceNumber === 'REF-00000000-00000') {
+      const date = new Date();
+      const year = date.getFullYear();
+      const month = String(date.getMonth() + 1).padStart(2, '0');
+      const day = String(date.getDate()).padStart(2, '0');
+      const random = Math.floor(Math.random() * 100000).toString().padStart(5, '0');
+      
+      this.referenceNumber = `REF-${year}${month}${day}-${random}`;
+    }
+  }
 } 

@@ -25,7 +25,8 @@ import {
   Settings as SettingsIcon,
   Payments as PaymentsIcon,
   LocalLaundryService as LaundryIcon,
-  Notifications as NotificationsIcon
+  Notifications as NotificationsIcon,
+  ManageAccounts as UserManagementIcon
 } from '@mui/icons-material';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
@@ -37,6 +38,7 @@ const menuItems = [
   { text: 'Pelanggan', icon: <PeopleIcon />, path: '/customers' },
   { text: 'Pembayaran', icon: <PaymentsIcon />, path: '/payments' },
   { text: 'Layanan', icon: <LaundryIcon />, path: '/services' },
+  { text: 'Pengguna', icon: <UserManagementIcon />, path: '/users' },
   { text: 'Inventaris', icon: <InventoryIcon />, path: '/inventory' },
   { text: 'Karyawan', icon: <EmployeeIcon />, path: '/employees' },
   { text: 'Laporan', icon: <ReportsIcon />, path: '/reports' },

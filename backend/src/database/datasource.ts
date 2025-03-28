@@ -1,5 +1,6 @@
 import { DataSource, DataSourceOptions } from 'typeorm';
 import * as dotenv from 'dotenv';
+import { Service } from '../modules/service/entities/service.entity';
 
 dotenv.config();
 
@@ -10,7 +11,10 @@ export const dataSourceOptions: DataSourceOptions = {
   username: process.env.DB_USERNAME || 'postgres',
   password: process.env.DB_PASSWORD || 'postgres',
   database: process.env.DB_DATABASE || 'laundry_db',
-  entities: [__dirname + '/../**/*.entity{.ts,.js}'],
+  entities: [
+    __dirname + '/../**/*.entity{.ts,.js}',
+    Service
+  ],
   migrations: [__dirname + '/migrations/*{.ts,.js}'],
   synchronize: false,
 };

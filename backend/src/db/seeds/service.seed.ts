@@ -1,123 +1,81 @@
 import { DataSource } from 'typeorm';
-import { Service } from '../../modules/service/entities/service.entity';
+import { PriceModel, Service } from '../../modules/service/entities/service.entity';
 import { ServiceCategory } from '../../modules/service-category/entities/service-category.entity';
-import { v4 as uuidv4 } from 'uuid';
 
-export async function seedServices(dataSource: DataSource) {
+export const seedServices = async (dataSource: DataSource) => {
   const serviceRepository = dataSource.getRepository(Service);
   const categoryRepository = dataSource.getRepository(ServiceCategory);
-  
-  console.log('Starting service seed...');
-  
-  // Check if we already have services
-  const count = await serviceRepository.count();
-  if (count > 0) {
-    console.log(`Database already has ${count} services. Skipping service seed.`);
-    return;
+
+  // Get categories
+  const washCategory = await categoryRepository.findOne({ where: { name: 'Wash' } });
+  const ironingCategory = await categoryRepository.findOne({ where: { name: 'Ironing' } });
+  const premiumCategory = await categoryRepository.findOne({ where: { name: 'Premium' } });
+
+  if (!washCategory || !ironingCategory || !premiumCategory) {
+    throw new Error('Categories not found. Please run category seeds first.');
   }
-  
-  // First check if we have categories
-  const categories = await categoryRepository.find();
-  
-  // If no categories exist, create them first
-  let washCategory: ServiceCategory;
-  let ironingCategory: ServiceCategory;
-  let premiumCategory: ServiceCategory;
-  
-  if (categories.length === 0) {
-    console.log('No service categories found. Creating categories first...');
-    
-    washCategory = categoryRepository.create({
-      name: 'Cuci',
-      description: 'Layanan cuci pakaian'
-    });
-    
-    ironingCategory = categoryRepository.create({
-      name: 'Setrika',
-      description: 'Layanan setrika pakaian'
-    });
-    
-    premiumCategory = categoryRepository.create({
-      name: 'Premium',
-      description: 'Layanan premium'
-    });
-    
-    await categoryRepository.save([washCategory, ironingCategory, premiumCategory]);
-    console.log('Service categories created.');
-  } else {
-    console.log('Using existing service categories.');
-    // Use existing categories
-    washCategory = categories.find(c => c.name === 'Cuci') || categories[0];
-    ironingCategory = categories.find(c => c.name === 'Setrika') || categories[0];
-    premiumCategory = categories.find(c => c.name === 'Premium') || categories[0];
-  }
-  
+
   // Create services
-  const services = [
-    serviceRepository.create({
-      id: uuidv4(),
-      name: 'Cuci Kering',
-      description: 'Layanan cuci kering untuk pakaian',
-      price: 7000,
-      unit: 'kg',
-      estimatedTime: 24,
-      isActive: true,
-      categoryId: washCategory.id
-    }),
-    serviceRepository.create({
-      id: uuidv4(),
-      name: 'Cuci Setrika',
-      description: 'Layanan cuci dan setrika pakaian',
-      price: 10000,
-      unit: 'kg',
-      estimatedTime: 48,
-      isActive: true,
-      categoryId: washCategory.id
-    }),
-    serviceRepository.create({
-      id: uuidv4(),
-      name: 'Setrika',
-      description: 'Layanan setrika untuk pakaian',
-      price: 5000,
-      unit: 'kg',
-      estimatedTime: 24,
-      isActive: true,
-      categoryId: ironingCategory.id
-    }),
-    serviceRepository.create({
-      id: uuidv4(),
-      name: 'Dry Clean',
-      description: 'Layanan dry clean untuk pakaian formal',
+  const services: Partial<Service>[] = [
+    {
+      name: 'Regular Wash',
+      description: 'Standard washing service',
       price: 15000,
-      unit: 'pcs',
-      estimatedTime: 72,
+      priceModel: PriceModel.PER_KG,
+      processingTimeHours: 2,
       isActive: true,
-      categoryId: premiumCategory.id
-    }),
-    serviceRepository.create({
-      id: uuidv4(),
-      name: 'Express Laundry',
-      description: 'Layanan cuci kilat (6 jam)',
-      price: 20000,
-      unit: 'kg',
-      estimatedTime: 6,
-      isActive: true,
-      categoryId: premiumCategory.id
-    }),
-    serviceRepository.create({
-      id: uuidv4(),
-      name: 'Cuci Sepatu',
-      description: 'Layanan cuci untuk sepatu',
+      category: washCategory.name
+    },
+    {
+      name: 'Express Wash',
+      description: 'Fast washing service (3-hour completion)',
       price: 25000,
-      unit: 'pair',
-      estimatedTime: 48,
+      priceModel: PriceModel.PER_KG,
+      processingTimeHours: 1,
       isActive: true,
-      categoryId: washCategory.id
-    })
+      category: washCategory.name
+    },
+    {
+      name: 'Regular Ironing',
+      description: 'Standard ironing service',
+      price: 10000,
+      priceModel: PriceModel.PER_PIECE,
+      processingTimeHours: 1,
+      isActive: true,
+      category: ironingCategory.name
+    },
+    {
+      name: 'Premium Wash',
+      description: 'Premium washing with special treatment',
+      price: 35000,
+      priceModel: PriceModel.PER_KG,
+      processingTimeHours: 3,
+      isActive: true,
+      category: premiumCategory.name
+    },
+    {
+      name: 'Premium Dry Clean',
+      description: 'Premium dry cleaning service',
+      price: 45000,
+      priceModel: PriceModel.PER_PIECE,
+      processingTimeHours: 4,
+      isActive: true,
+      category: premiumCategory.name
+    },
+    {
+      name: 'Quick Wash',
+      description: 'Quick washing service (2-hour completion)',
+      price: 20000,
+      priceModel: PriceModel.PER_KG,
+      processingTimeHours: 1,
+      isActive: true,
+      category: washCategory.name
+    }
   ];
-  
-  // Save all services to database
-  await serviceRepository.save(services);
-  
-  console.log(`Created ${services.length} services`);
-} 
+
+  // Create service entities
+  const serviceEntities = services.map(service => serviceRepository.create(service));
+
+  // Save all services
+  await serviceRepository.save(serviceEntities);
+}; 

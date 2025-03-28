@@ -38,10 +38,9 @@ export class ServiceCategoryService {
     };
   }
 
-  async findOne(id: string): Promise<ServiceCategory> {
+  async findOne(id: number): Promise<ServiceCategory> {
     const category = await this.serviceCategoryRepository.findOne({ 
-      where: { id },
-      relations: ['services'] 
+      where: { id }
     });
     
     if (!category) {
@@ -51,15 +50,20 @@ export class ServiceCategoryService {
     return category;
   }
 
-  async findServices(id: string): Promise<Service[]> {
+  async findServices(id: number): Promise<Service[]> {
     const category = await this.findOne(id);
+    
     return this.serviceRepository.find({
-      where: { categoryId: id },
-      order: { name: 'ASC' },
+      where: { 
+        category: category.name
+      },
+      order: {
+        name: 'ASC'
+      }
     });
   }
 
-  async update(id: string, updateServiceCategoryDto: UpdateServiceCategoryDto): Promise<ServiceCategory> {
+  async update(id: number, updateServiceCategoryDto: UpdateServiceCategoryDto): Promise<ServiceCategory> {
     const category = await this.findOne(id);
     
     Object.assign(category, updateServiceCategoryDto);
@@ -67,7 +71,7 @@ export class ServiceCategoryService {
     return this.serviceCategoryRepository.save(category);
   }
 
-  async remove(id: string): Promise<void> {
+  async remove(id: number): Promise<void> {
     const result = await this.serviceCategoryRepository.delete(id);
     
     if (result.affected === 0) {

@@ -1,30 +1,25 @@
-import { Entity, Column, PrimaryGeneratedColumn, CreateDateColumn, UpdateDateColumn, OneToMany } from 'typeorm';
+import { Entity, Column, PrimaryGeneratedColumn, CreateDateColumn, UpdateDateColumn } from 'typeorm';
 import { ApiProperty } from '@nestjs/swagger';
-import { Service } from '../../service/entities/service.entity';
 
 @Entity('service_categories')
 export class ServiceCategory {
-  @PrimaryGeneratedColumn('uuid')
+  @PrimaryGeneratedColumn()
   @ApiProperty({ description: 'The unique identifier for the service category' })
-  id: string;
+  id: number;
 
-  @Column({ nullable: false })
+  @Column()
   @ApiProperty({ description: 'The name of the service category' })
   name: string;
 
-  @Column({ type: 'text', nullable: true })
+  @Column({ nullable: true })
   @ApiProperty({ description: 'A description of the service category' })
-  description: string;
+  description?: string;
 
-  @OneToMany(() => Service, service => service.categoryId)
-  @ApiProperty({ description: 'The services in this category', type: [Service] })
-  services: Service[];
-
-  @CreateDateColumn({ name: 'created_at' })
+  @CreateDateColumn()
   @ApiProperty({ description: 'The timestamp when the service category was created' })
   createdAt: Date;
 
-  @UpdateDateColumn({ name: 'updated_at' })
+  @UpdateDateColumn()
   @ApiProperty({ description: 'The timestamp when the service category was last updated' })
   updatedAt: Date;
 } 

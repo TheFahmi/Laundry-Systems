@@ -208,7 +208,7 @@ export default function CustomerCreateOrderPage() {
                           secondary={`${item.quantity} ${getServiceUnit(item.serviceId)}`}
                         />
                         <Typography variant="body2">
-                          Rp {(services.find(s => s.id === item.serviceId)?.price || 0 * item.quantity).toLocaleString()}
+                          Rp {((services.find(s => s.id === item.serviceId)?.price || 0) * item.quantity).toLocaleString('id-ID', { minimumFractionDigits: 0, maximumFractionDigits: 2 })}
                         </Typography>
                       </ListItem>
                     ))}
@@ -336,7 +336,7 @@ export default function CustomerCreateOrderPage() {
                       secondary={`${item.quantity} ${getServiceUnit(item.serviceId)}`}
                     />
                     <Typography variant="body2">
-                      Rp {(services.find(s => s.id === item.serviceId)?.price || 0 * item.quantity).toLocaleString()}
+                      Rp {((services.find(s => s.id === item.serviceId)?.price || 0) * item.quantity).toLocaleString('id-ID', { minimumFractionDigits: 0, maximumFractionDigits: 2 })}
                     </Typography>
                   </ListItem>
                 ))}

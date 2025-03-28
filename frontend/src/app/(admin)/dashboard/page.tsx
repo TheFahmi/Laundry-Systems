@@ -4,67 +4,106 @@ import {
   ShoppingCart as ShoppingCartIcon,
   People as UsersIcon,
   CreditCard as CreditCardIcon,
-  LocalLaundryService as ServicesIcon
+  LocalLaundryService as ServicesIcon,
+  ManageAccounts as UserManagementIcon
 } from '@mui/icons-material';
 import Link from 'next/link';
+import RecentActivity from '@/components/dashboard/RecentActivity';
+import { Box, Grid, Paper, Typography } from '@mui/material';
 
 export default function DashboardPage() {
   const menuItems = [
     {
       title: 'Orders',
-      icon: <ShoppingCartIcon className="w-6 h-6" />,
+      icon: <ShoppingCartIcon sx={{ width: 24, height: 24 }} />,
       href: '/orders',
-      color: 'bg-blue-500'
+      color: 'primary.main'
     },
     {
       title: 'Customers',
-      icon: <UsersIcon className="w-6 h-6" />,
+      icon: <UsersIcon sx={{ width: 24, height: 24 }} />,
       href: '/customers',
-      color: 'bg-green-500'
+      color: 'success.main'
     },
     {
       title: 'Payments',
-      icon: <CreditCardIcon className="w-6 h-6" />,
+      icon: <CreditCardIcon sx={{ width: 24, height: 24 }} />,
       href: '/payments',
-      color: 'bg-yellow-500'
+      color: 'warning.main'
     },
     {
       title: 'Services',
-      icon: <ServicesIcon className="w-6 h-6" />,
+      icon: <ServicesIcon sx={{ width: 24, height: 24 }} />,
       href: '/services',
-      color: 'bg-purple-500'
+      color: 'secondary.main'
+    },
+    {
+      title: 'Users',
+      icon: <UserManagementIcon sx={{ width: 24, height: 24 }} />,
+      href: '/users',
+      color: 'info.main'
     }
   ];
   
   return (
-    <div className="p-6">
-      <div className="mb-8">
-        <h1 className="text-2xl font-bold text-gray-800">Dashboard</h1>
-        <p className="text-gray-600">Welcome back, Admin</p>
-      </div>
+    <Box sx={{ p: 3 }}>
+      <Box sx={{ mb: 4 }}>
+        <Typography variant="h4" sx={{ fontWeight: 'bold', color: 'text.primary' }}>Dashboard</Typography>
+        <Typography variant="body1" color="text.secondary">Welcome back, Admin</Typography>
+      </Box>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+      <Grid container spacing={3} sx={{ mb: 4 }}>
         {menuItems.map((item) => (
-          <Link
-            key={item.title}
-            href={item.href}
-            className="block p-6 bg-white rounded-lg shadow-md hover:shadow-lg transition-shadow duration-200"
-          >
-            <div className={`w-12 h-12 ${item.color} rounded-full flex items-center justify-center mb-4`}>
-              {item.icon}
-            </div>
-            <h2 className="text-xl font-semibold text-gray-800">{item.title}</h2>
-          </Link>
+          <Grid item xs={12} sm={6} md={3} key={item.title}>
+            <Link href={item.href} passHref>
+              <Paper 
+                elevation={1} 
+                sx={{ 
+                  p: 3, 
+                  display: 'block', 
+                  transition: 'box-shadow 0.2s',
+                  '&:hover': {
+                    boxShadow: 3,
+                  },
+                  cursor: 'pointer'
+                }}
+              >
+                <Box 
+                  sx={{ 
+                    width: 48, 
+                    height: 48, 
+                    bgcolor: item.color, 
+                    borderRadius: '50%',
+                    display: 'flex', 
+                    alignItems: 'center', 
+                    justifyContent: 'center', 
+                    mb: 2,
+                    color: 'white'
+                  }}
+                >
+                  {item.icon}
+                </Box>
+                <Typography variant="h6" sx={{ fontWeight: 'medium', color: 'text.primary' }}>{item.title}</Typography>
+              </Paper>
+            </Link>
+          </Grid>
         ))}
-      </div>
+      </Grid>
 
       {/* Recent Activity Section */}
-      <div className="mt-8">
-        <h2 className="text-xl font-semibold text-gray-800 mb-4">Recent Activity</h2>
-        <div className="bg-white rounded-lg shadow-md p-6">
-          {/* Add recent activity content here */}
-        </div>
-      </div>
-    </div>
+      <Grid container spacing={3}>
+        <Grid item xs={12} md={8}>
+          <RecentActivity />
+        </Grid>
+        <Grid item xs={12} md={4}>
+          <Paper elevation={1} sx={{ height: '100%', p: 2 }}>
+            <Typography variant="h6" sx={{ mb: 2 }}>Upcoming Tasks</Typography>
+            <Typography variant="body2" color="text.secondary" sx={{ textAlign: 'center', py: 4 }}>
+              Coming soon...
+            </Typography>
+          </Paper>
+        </Grid>
+      </Grid>
+    </Box>
   );
 } 

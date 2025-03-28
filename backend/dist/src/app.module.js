@@ -8,36 +8,50 @@ var __decorate = (this && this.__decorate) || function (decorators, target, key,
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.AppModule = void 0;
 const common_1 = require("@nestjs/common");
-const typeorm_1 = require("@nestjs/typeorm");
 const config_1 = require("@nestjs/config");
-const customer_module_1 = require("./modules/customer/customer.module");
-const payment_module_1 = require("./modules/payment/payment.module");
+const typeorm_1 = require("@nestjs/typeorm");
 const auth_module_1 = require("./modules/auth/auth.module");
-const dashboard_module_1 = require("./modules/dashboard/dashboard.module");
+const report_module_1 = require("./modules/report/report.module");
 const order_module_1 = require("./modules/order/order.module");
+const customer_module_1 = require("./modules/customer/customer.module");
 const service_module_1 = require("./modules/service/service.module");
-const service_category_module_1 = require("./modules/service-category/service-category.module");
-const datasource_1 = require("./database/datasource");
+const user_module_1 = require("./modules/user/user.module");
+const csrf_middleware_1 = require("./middleware/csrf.middleware");
+const validation_middleware_1 = require("./middleware/validation.middleware");
+const auth_module_2 = require("./guards/auth.module");
+const typeorm_naming_strategies_1 = require("typeorm-naming-strategies");
 let AppModule = class AppModule {
+    configure(consumer) {
+        consumer.apply(csrf_middleware_1.CsrfMiddleware).forRoutes('*');
+        consumer.apply(validation_middleware_1.ValidationMiddleware).forRoutes('auth/*');
+    }
 };
-AppModule = __decorate([
+exports.AppModule = AppModule;
+exports.AppModule = AppModule = __decorate([
     (0, common_1.Module)({
         imports: [
             config_1.ConfigModule.forRoot({
                 isGlobal: true,
             }),
-            typeorm_1.TypeOrmModule.forRoot(datasource_1.dataSourceOptions),
-            customer_module_1.CustomerModule,
-            payment_module_1.PaymentModule,
+            typeorm_1.TypeOrmModule.forRoot({
+                type: 'postgres',
+                host: process.env.DB_HOST,
+                port: parseInt(process.env.DB_PORT),
+                username: process.env.DB_USERNAME,
+                password: process.env.DB_PASSWORD,
+                database: process.env.DB_DATABASE,
+                entities: [__dirname + '/**/*.entity{.ts,.js}'],
+                namingStrategy: new typeorm_naming_strategies_1.SnakeNamingStrategy(),
+                synchronize: false,
+            }),
+            auth_module_2.GlobalAuthModule,
             auth_module_1.AuthModule,
-            dashboard_module_1.DashboardModule,
+            report_module_1.ReportModule,
             order_module_1.OrderModule,
+            customer_module_1.CustomerModule,
             service_module_1.ServiceModule,
-            service_category_module_1.ServiceCategoryModule
+            user_module_1.UserModule,
         ],
-        controllers: [],
-        providers: [],
     })
 ], AppModule);
-exports.AppModule = AppModule;
 //# sourceMappingURL=app.module.js.map

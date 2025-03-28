@@ -1,0 +1,57 @@
+[
+  {
+    "id": "1",
+    "username": "admin",
+    "password": "admin123",
+    "email": "admin@example.com",
+    "name": "Admin",
+    "role": "admin",
+    "isActive": true,
+    "createdAt": "2025-03-27T13:46:52.802Z",
+    "updatedAt": "2025-03-27T13:46:52.802Z"
+  },
+  {
+    "id": "2",
+    "username": "staff",
+    "password": "staff123",
+    "email": "staff@example.com",
+    "name": "Staff User",
+    "role": "staff",
+    "isActive": true,
+    "createdAt": "2025-03-27T13:46:52.802Z",
+    "updatedAt": "2025-03-27T13:46:52.803Z"
+  },
+  {
+    "id": "3",
+    "username": "fahmi",
+    "password": "gatauu",
+    "email": "fahmi@example.com",
+    "name": "Fahmi User",
+    "role": "staff",
+    "isActive": true,
+    "createdAt": "2025-03-27T13:46:52.803Z",
+    "updatedAt": "2025-03-27T13:46:52.803Z"
+  },
+  {
+    "id": "4",
+    "username": "testuser123",
+    "password": "password123",
+    "email": "test123@example.com",
+    "name": "Test User 123",
+    "role": "staff",
+    "isActive": true,
+    "createdAt": "2025-03-27T13:46:52.828Z",
+    "updatedAt": "2025-03-27T13:46:52.828Z"
+  },
+  {
+    "id": "5",
+    "username": "adminn",
+    "password": "gatauu",
+    "email": "gitomer881@fresec.com",
+    "name": "M Fahmi Hassan",
+    "role": "staff",
+    "isActive": true,
+    "createdAt": "2025-03-27T13:47:54.413Z",
+    "updatedAt": "2025-03-27T13:47:54.413Z"
+  }
+]

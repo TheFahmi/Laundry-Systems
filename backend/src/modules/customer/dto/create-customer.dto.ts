@@ -8,14 +8,14 @@ export class CreateCustomerDto {
   name: string;
 
   @ApiProperty({ description: 'Email pelanggan' })
-  @IsNotEmpty()
+  @IsOptional()
   @IsEmail()
-  email: string;
+  email?: string;
 
   @ApiProperty({ description: 'Nomor telepon pelanggan', required: false })
-  @IsOptional()
+  @IsNotEmpty()
   @IsString()
-  phone?: string;
+  phone: string;
 
   @ApiProperty({ description: 'Alamat pelanggan', required: false })
   @IsOptional()
