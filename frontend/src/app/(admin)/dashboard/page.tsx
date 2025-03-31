@@ -86,11 +86,15 @@ export default function DashboardPage() {
     error: null
   });
 
+  const generateCacheBuster = () => {
+    return `_cb=${Date.now()}`;
+  };
+
   // Fetch dashboard summary
   useEffect(() => {
     const fetchSummary = async () => {
       try {
-        const response = await fetch('/api/dashboard/summary');
+        const response = await fetch(`/api/dashboard/summary?${generateCacheBuster()}`);
         if (!response.ok) {
           throw new Error(`Error ${response.status}: ${response.statusText}`);
         }
@@ -129,7 +133,7 @@ export default function DashboardPage() {
   useEffect(() => {
     const fetchRecentActivities = async () => {
       try {
-        const response = await fetch('/api/dashboard/recent-activity?limit=5');
+        const response = await fetch(`/api/dashboard/recent-activity?limit=5&${generateCacheBuster()}`);
         if (!response.ok) {
           throw new Error(`Error ${response.status}: ${response.statusText}`);
         }
@@ -188,9 +192,11 @@ export default function DashboardPage() {
       <div className="flex items-center justify-between">
         <h2 className="text-3xl font-bold tracking-tight">Dashboard</h2>
         <div className="flex items-center gap-2">
-          <Button size="sm">
-            <Calendar className="mr-2 h-4 w-4" />
-            View Calendar
+          <Button size="sm" asChild>
+            <Link href="/calendar">
+              <Calendar className="mr-2 h-4 w-4" />
+              View Calendar
+            </Link>
           </Button>
         </div>
       </div>
@@ -343,8 +349,8 @@ export default function DashboardPage() {
             )}
           </CardContent>
           <CardFooter>
-            <Button variant="outline" size="sm" className="w-full">
-              View All Activity
+            <Button variant="outline" size="sm" className="w-full" asChild>
+              <Link href="/activities">View All Activity</Link>
             </Button>
           </CardFooter>
         </Card>

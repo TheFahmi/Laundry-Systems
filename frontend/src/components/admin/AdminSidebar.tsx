@@ -15,7 +15,8 @@ import {
   BarChart, 
   Settings, 
   Menu, 
-  X 
+  X,
+  ClipboardList
 } from "lucide-react"
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet"
 import { Button } from "@/components/ui/button"
@@ -30,6 +31,7 @@ interface MenuItem {
 const menuItems: MenuItem[] = [
   { name: "Dashboard", path: "/dashboard", icon: <LayoutDashboard className="h-5 w-5" /> },
   { name: "Orders", path: "/orders", icon: <ShoppingCart className="h-5 w-5" /> },
+  { name: "Job Queue", path: "/job-queue", icon: <ClipboardList className="h-5 w-5" /> },
   { name: "Customers", path: "/customers", icon: <Users className="h-5 w-5" /> },
   { name: "Payments", path: "/payments", icon: <CreditCard className="h-5 w-5" /> },
   { name: "Services", path: "/services", icon: <Package className="h-5 w-5" /> },

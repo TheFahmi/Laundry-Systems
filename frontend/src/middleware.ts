@@ -81,9 +81,9 @@ export async function middleware(request: NextRequest) {
       headers: responseHeaders,
     });
   } catch (error) {
-    console.error('API proxy error:', error);
+    // Return server error
     return NextResponse.json(
-      { error: 'Failed to proxy request to backend' },
+      { message: 'API proxy error' },
       { status: 500 }
     );
   }

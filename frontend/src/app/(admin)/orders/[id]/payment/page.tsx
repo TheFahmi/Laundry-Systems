@@ -66,31 +66,10 @@ export default function OrderPaymentPage() {
         setOrder(orderData.data);
         setCustomer(orderData.data.customer);
         
-        // Fetch payments for this order
-        const paymentsResponse = await fetch(`/api/payments/order/${orderId}?${cacheBuster}`, {
-          headers: {
-            ...headers,
-            'Cache-Control': 'no-cache, no-store, must-revalidate'
-          },
-          cache: 'no-store'
-        });
-
-        if (paymentsResponse.ok) {
-          const paymentsData = await paymentsResponse.json();
-          console.log('Payments data:', paymentsData);
-          
-          // Extract payments from response data structure
-          let payments = [];
-          if (paymentsData.data?.data) {
-            payments = paymentsData.data.data;
-          } else if (paymentsData.data) {
-            payments = paymentsData.data;
-          } else if (paymentsData.items) {
-            payments = paymentsData.items;
-          }
-          
-          setExistingPayments(payments);
-        }
+        // No longer fetching payments for this order
+        // Just set existingPayments to an empty array
+        setExistingPayments([]);
+        
       } catch (err: any) {
         console.error('Error fetching data:', err);
         setError(err.message || 'An error occurred while loading order details');
@@ -106,12 +85,35 @@ export default function OrderPaymentPage() {
     router.back();
   };
 
-  const handlePaymentComplete = (payment: any) => {
+  const handlePaymentComplete = async (payment: any) => {
     console.log('Payment completed:', payment);
     setPaymentComplete(true);
     toast.success('Pembayaran berhasil diproses!');
     
-    // Refresh the payments list
+    // Update order status to "tersedia" after payment
+    try {
+      const headers = createAuthHeaders();
+      const updateResponse = await fetch(`/api/orders/${orderId}`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          ...headers
+        },
+        body: JSON.stringify({
+          status: 'tersedia'
+        })
+      });
+      
+      if (updateResponse.ok) {
+        console.log('Order status updated to tersedia');
+      } else {
+        console.error('Failed to update order status');
+      }
+    } catch (error) {
+      console.error('Error updating order status:', error);
+    }
+    
+    // Redirect back to order details
     setTimeout(() => {
       router.push(`/orders/${orderId}`);
     }, 3000);

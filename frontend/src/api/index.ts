@@ -6,6 +6,7 @@ export * from './orders';
 export * from './customers';
 export * from './services';
 export * from './dashboard';
+export * from './job-queue';
 
 // Export API utility functions
 export { setupAxiosInterceptors } from './auth'; 

@@ -1,5 +1,12 @@
 import { useState, useEffect, useCallback } from 'react';
-import { authService } from '@/services/authService';
+import { 
+  getCurrentUser, 
+  validateToken, 
+  login as loginService, 
+  logout as logoutService, 
+  register as registerService,
+  forceLogout 
+} from '@/services/authService';
 import { useRouter } from 'next/navigation';
 import Cookies from 'js-cookie';
 
@@ -39,7 +46,7 @@ export default function useAuth(): UseAuthReturn {
         
         // Check if token exists in cookies
         const token = Cookies.get('token');
-        const currentUser = authService.getCurrentUser();
+        const currentUser = getCurrentUser();
         
         // Handle case where user exists in localStorage but token is missing in cookies
         if (currentUser && !token) {
@@ -61,7 +68,7 @@ export default function useAuth(): UseAuthReturn {
           if (shouldValidate) {
             console.log('[useAuth] Token validation needed');
             // Validate token with backend
-            const isValid = await authService.validateToken();
+            const isValid = await validateToken();
             if (isValid) {
               console.log('[useAuth] Token validated successfully');
               lastValidationTime = now; // Update last validation time
@@ -69,7 +76,7 @@ export default function useAuth(): UseAuthReturn {
             } else {
               console.log('[useAuth] Token validation failed, logging out');
               // If token is invalid, log out
-              await authService.forceLogout();
+              await forceLogout();
               setUser(null);
             }
           } else {
@@ -84,7 +91,7 @@ export default function useAuth(): UseAuthReturn {
         console.error('[useAuth] Authentication check failed:', err);
         setError('Authentication check failed');
         // Clean up on error
-        await authService.logout();
+        await logoutService();
         setUser(null);
       } finally {
         setLoading(false);
@@ -102,10 +109,10 @@ export default function useAuth(): UseAuthReturn {
     try {
       // Don't automatically logout here as it's causing a loop
       // Just make the login request directly
-      const response = await authService.login({ username, password });
+      const response = await loginService({ username, password });
       
       if (response && response.token) {
-        const user = authService.getCurrentUser();
+        const user = getCurrentUser();
         lastValidationTime = Date.now(); // Set validation time on successful login
         setUser(user);
         return true;
@@ -123,7 +130,7 @@ export default function useAuth(): UseAuthReturn {
 
   // Logout function
   const logout = useCallback(async () => {
-    await authService.logout();
+    await logoutService();
     setUser(null);
     lastValidationTime = 0; // Reset validation time on logout
     router.push('/login');
@@ -136,7 +143,7 @@ export default function useAuth(): UseAuthReturn {
     
     try {
       console.log('[useAuth] Registering user:', username);
-      const result = await authService.register(username, password, email, name);
+      const result = await registerService(username, password, email, name);
       
       console.log('[useAuth] Registration result:', {
         success: !!result,

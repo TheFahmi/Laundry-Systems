@@ -6,6 +6,9 @@ import OrderFlow from '@/components/orders/OrderFlow';
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { AlertCircle, CheckCircle2 } from "lucide-react";
 
+// Helper function to check if code is running in browser
+const isBrowser = typeof window !== 'undefined';
+
 export default function NewOrderPage() {
   const router = useRouter();
   const [success, setSuccess] = useState<boolean | null>(null);
@@ -40,6 +43,27 @@ export default function NewOrderPage() {
       <OrderFlow 
         onComplete={(orderId) => {
           setSuccess(true);
+          // Ensure all localStorage data is cleared when order is completed
+          if (isBrowser) {
+            localStorage.removeItem('orderActiveStep');
+            localStorage.removeItem('orderData');
+            localStorage.removeItem('orderPaymentData');
+            localStorage.removeItem('orderItems');
+            localStorage.removeItem('orderSkipPayment');
+            localStorage.removeItem('createdOrder');
+            
+            // Remove any other order-related items
+            const keysToRemove = [];
+            for (let i = 0; i < localStorage.length; i++) {
+              const key = localStorage.key(i);
+              if (key && key.startsWith('order')) {
+                keysToRemove.push(key);
+              }
+            }
+            
+            // Remove collected keys to avoid issues with changing localStorage during iteration
+            keysToRemove.forEach(key => localStorage.removeItem(key));
+          }
         }}
       />
     </div>

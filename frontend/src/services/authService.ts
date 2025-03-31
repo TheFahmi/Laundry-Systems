@@ -32,13 +32,11 @@ axios.interceptors.response.use(
       if (error.response?.data?.fixToken && error.response?.data?.username) {
         try {
           const username = error.response.data.username;
-          console.log(`[Auth] Token mismatch detected. Trying to fix token for user: ${username}`);
           
           // Use the fix-token endpoint to get a new token
           const result = await fixToken(username);
           
           if (result && result.success && error.config) {
-            console.log(`[Auth] Token fixed successfully for ${username}. Retrying request...`);
             // Update the token for this request
             const newToken = result.token;
             error.config.headers['Authorization'] = `Bearer ${newToken}`;
@@ -46,7 +44,6 @@ axios.interceptors.response.use(
             return axios(error.config);
           }
         } catch (fixError) {
-          console.error('[Auth] Failed to fix token:', fixError);
           // Force logout as fallback
           await forceLogout();
           return Promise.reject(new Error('Token fix failed. Please log in again.'));
@@ -100,7 +97,6 @@ const getCurrentUser = (): User | null => {
     const userStr = localStorage.getItem('user');
     return userStr ? JSON.parse(userStr) : null;
   } catch (error) {
-    console.error('Error getting current user:', error);
     return null;
   }
 };
@@ -111,25 +107,14 @@ const validateToken = async (): Promise<boolean> => {
     // Check for any available token
     const token = Cookies.get('token') || Cookies.get('js_token');
     if (!token) {
-      console.log('[Auth] No token found in cookies, validation failed');
       return false;
     }
-    
-    // Log that we're validating with available token
-    console.log('[Auth] Validating token (first 10 chars):', token.substring(0, 10) + '...');
     
     const response = await axios.get('/api/auth/validate');
     const isValid = response.data?.valid === true;
     
-    if (isValid) {
-      console.log('[Auth] Token validation succeeded');
-    } else {
-      console.log('[Auth] Token validation failed:', response.data?.message);
-    }
-    
     return isValid;
   } catch (error) {
-    console.error('[Auth] Error validating token:', error);
     return false;
   }
 };
@@ -151,7 +136,6 @@ const fixToken = async (username: string): Promise<any> => {
     
     return null;
   } catch (error) {
-    console.error('Error fixing token:', error);
     return null;
   }
 };
@@ -170,7 +154,6 @@ const refreshToken = async (): Promise<boolean> => {
     
     return !!result;
   } catch (error) {
-    console.error('Error refreshing token:', error);
     return false;
   }
 };
@@ -178,8 +161,6 @@ const refreshToken = async (): Promise<boolean> => {
 // Function to login
 const login = async (data: LoginRequest): Promise<LoginResponse | null> => {
   try {
-    console.log('[Auth] Sending login request for user:', data.username);
-    
     // Clear any existing tokens first
     await clearAuthData();
     
@@ -189,21 +170,16 @@ const login = async (data: LoginRequest): Promise<LoginResponse | null> => {
     });
     
     if (response.data && response.data.user) {
-      console.log('[Auth] Login successful for:', data.username);
-      
       // Store the token in js-cookie if needed (not set by API route)
       // This is a fallback in case HTTP-only cookies aren't working
       if (response.data.token) {
         // Check if js_token was already set by the API
         const jsToken = Cookies.get('js_token');
         if (!jsToken) {
-          console.log('[Auth] Setting token in js-cookie as fallback');
           Cookies.set('token', response.data.token, { 
             expires: 14, // 14 days
             path: '/' 
           });
-        } else {
-          console.log('[Auth] js_token already set by API, using that');
         }
       }
       
@@ -212,11 +188,9 @@ const login = async (data: LoginRequest): Promise<LoginResponse | null> => {
       
       return response.data;
     } else {
-      console.error('[Auth] Login response missing user data.');
       return null;
     }
   } catch (error: any) {
-    console.error('[Auth] Login error:', error);
     throw new Error(error.response?.data?.message || 'Login failed');
   }
 };
@@ -224,8 +198,6 @@ const login = async (data: LoginRequest): Promise<LoginResponse | null> => {
 // Function to register
 const register = async (username: string, password: string, email: string, name: string): Promise<any> => {
   try {
-    console.log('[Auth] Sending registration request for:', username);
-    
     const response = await axios.post('/api/auth/register', {
       username,
       password,
@@ -234,13 +206,11 @@ const register = async (username: string, password: string, email: string, name:
     });
     
     if (response.data) {
-      console.log('[Auth] Registration successful for:', username);
       return response.data;
     }
     
     return null;
   } catch (error: any) {
-    console.error('[Auth] Registration error:', error);
     throw new Error(error.response?.data?.message || 'Registration failed');
   }
 };
@@ -251,13 +221,10 @@ const clearAuthData = async (): Promise<void> => {
     // Only clear cookies via API if token exists - prevents unnecessary calls on page refresh
     const token = Cookies.get('token') || Cookies.get('js_token');
     if (token) {
-      console.log('[Auth] Clearing auth data via API call');
       await axios.post('/api/auth/clear-cookies');
-    } else {
-      console.log('[Auth] No token present, skipping API call for cookie clearing');
     }
   } catch (error) {
-    console.error('[Auth] Error clearing cookies via API:', error);
+    // Remove console.error
   }
   
   // Clear cookies on client-side too
@@ -275,27 +242,20 @@ const clearAuthData = async (): Promise<void> => {
 // Logout function
 const logout = async (): Promise<void> => {
   try {
-    console.log('[Auth] Logging out user');
-    
-    // Check if token exists before making logout API call
     const token = Cookies.get('token');
     if (token) {
-      // Call logout endpoint to clear server-side cookies
       await axios.post('/api/auth/logout');
-    } else {
-      console.log('[Auth] No token found, skipping logout API call');
     }
   } catch (error) {
-    console.error('[Auth] Logout API error:', error);
+    // Remove console.error
+  } finally {
+    // Clear local storage and cookies
+    await clearAuthData();
   }
-  
-  // Clear client-side data
-  await clearAuthData();
 };
 
 // Force logout without calling API
 const forceLogout = async (): Promise<void> => {
-  console.log('[Auth] Force logout executed');
   await clearAuthData();
   
   // Broadcast an auth error event
@@ -305,14 +265,40 @@ const forceLogout = async (): Promise<void> => {
   }
 };
 
-// Export functions
-export const authService = {
+// Export all auth-related functions
+export {
   login,
   register,
   logout,
   forceLogout,
   validateToken,
   getCurrentUser,
-  refreshToken,
-  clearAuthData
+  clearAuthData,
+  fixToken,
+  refreshToken
+};
+
+// Export a function for retrying requests with token fix
+export const retryWithTokenFix = async <T>(
+  username: string,
+  originalRequest: () => Promise<T>
+): Promise<T> => {
+  try {
+    await fixToken(username);
+    return await originalRequest();
+  } catch (fixError) {
+    throw fixError;
+  }
+};
+
+// Clear auth cookies via API
+export const clearAuthCookies = async (): Promise<void> => {
+  try {
+    const token = Cookies.get('token') || Cookies.get('js_token');
+    if (token) {
+      await axios.post('/api/auth/clear-cookies');
+    }
+  } catch (error) {
+    // Remove console.error
+  }
 }; 

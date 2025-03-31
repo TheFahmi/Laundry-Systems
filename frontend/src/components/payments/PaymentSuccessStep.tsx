@@ -46,10 +46,20 @@ export default function PaymentSuccessStep({
   };
 
   const formatDate = (dateString: string) => {
+    if (!dateString) return '-';
+    
     try {
-      return format(new Date(dateString), 'dd MMM yyyy, HH:mm', { locale: id });
+      const date = new Date(dateString);
+      
+      // Check if the date is valid
+      if (isNaN(date.getTime())) {
+        return 'Tanggal tidak valid';
+      }
+      
+      return format(date, 'dd MMM yyyy, HH:mm', { locale: id });
     } catch (e) {
-      return dateString;
+      console.error('Error formatting date:', e);
+      return 'Tanggal tidak valid';
     }
   };
 
@@ -80,8 +90,12 @@ export default function PaymentSuccessStep({
             <div className="text-muted-foreground">No. Referensi</div>
             <div>{payment.referenceNumber || payment.id}</div>
             
-            <div className="text-muted-foreground">Tanggal</div>
-            <div>{payment.createdAt ? formatDate(payment.createdAt) : '-'}</div>
+            <div className="text-muted-foreground">Tanggal & Waktu</div>
+            <div>
+              {payment.createdAt ? formatDate(payment.createdAt) : 
+               payment.date ? formatDate(payment.date) : 
+               formatDate(new Date().toISOString())}
+            </div>
             
             <div className="text-muted-foreground">Pesanan</div>
             <div>{orderNumber}</div>

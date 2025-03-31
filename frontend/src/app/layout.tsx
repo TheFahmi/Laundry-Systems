@@ -5,7 +5,6 @@ import { AuthProvider } from "@/providers/AuthProvider";
 import { Toaster } from "react-hot-toast";
 import { APP_NAME } from "@/config";
 import { ThemeProvider } from "@/components/ui/theme-provider";
-import AuthCleanupScript from "@/components/AuthCleanupScript";
 
 const inter = Inter({ subsets: ["latin"] });
 
@@ -32,7 +31,6 @@ export default function RootLayout({
           >
             {children}
             <Toaster position="top-right" />
-            <AuthCleanupScript />
           </ThemeProvider>
         </AuthProvider>
       </body>

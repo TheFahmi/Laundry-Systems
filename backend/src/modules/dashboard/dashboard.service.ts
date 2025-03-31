@@ -334,7 +334,7 @@ export class DashboardService {
    */
   async getRecentActivity(limit: number): Promise<RecentActivity[]> {
     try {
-      // Get recent orders
+      // Get recent orders - include status changes
       const recentOrders = await this.orderRepository
         .createQueryBuilder('order')
         .innerJoin('order.customer', 'customer')
@@ -346,13 +346,27 @@ export class DashboardService {
         .limit(limit)
         .getRawMany();
       
-      // Get recent payments
+      // Get status updates for orders (completed, delivered, etc.)
+      const orderStatusUpdates = await this.orderRepository
+        .createQueryBuilder('order')
+        .innerJoin('order.customer', 'customer')
+        .select('order.id', 'id')
+        .addSelect('\'order_status\'', 'type')
+        .addSelect(`CONCAT('Pesanan #', order.order_number, ' status berubah menjadi ', order.status)`, 'text')
+        .addSelect('order.updated_at', 'time')
+        .where('order.updated_at > order.created_at') // Only get orders that have been updated
+        .andWhere('order.status != :newStatus', { newStatus: 'new' }) // Exclude new status, since that's covered by order creation
+        .orderBy('order.updated_at', 'DESC')
+        .limit(limit)
+        .getRawMany();
+      
+      // Get recent payments - improved text formatting
       const recentPayments = await this.paymentRepository
         .createQueryBuilder('payment')
         .innerJoin('payment.order', 'order')
         .select('payment.id', 'id')
         .addSelect('\'payment\'', 'type')
-        .addSelect(`CONCAT('Pembayaran Rp', FORMAT(payment.amount, 0), ' diterima untuk pesanan #', order.order_number)`, 'text')
+        .addSelect(`CONCAT('Pembayaran Rp', payment.amount, ' diterima untuk pesanan #', order.order_number)`, 'text')
         .addSelect('payment.created_at', 'time')
         .orderBy('payment.created_at', 'DESC')
         .limit(limit)
@@ -377,6 +391,13 @@ export class DashboardService {
         time: item.time
       }));
       
+      const typedStatusUpdates = orderStatusUpdates.map(item => ({
+        id: Number(item.id),
+        type: 'order' as ActivityType,
+        text: item.text,
+        time: item.time
+      }));
+      
       const typedPayments = recentPayments.map(item => ({
         id: Number(item.id),
         type: 'payment' as ActivityType,
@@ -391,8 +412,16 @@ export class DashboardService {
         time: item.time
       }));
       
-      // Combine, sort and slice arrays
-      const allActivities = [...typedOrders, ...typedPayments, ...typedCustomers]
+      // Combine all activities
+      const allActivities = [
+        ...typedOrders, 
+        ...typedStatusUpdates, 
+        ...typedPayments, 
+        ...typedCustomers
+      ];
+      
+      // Sort by time (newest first) and limit results
+      const sortedActivities = allActivities
         .sort((a, b) => new Date(b.time).getTime() - new Date(a.time).getTime())
         .slice(0, limit)
         .map((activity, index) => ({
@@ -400,7 +429,10 @@ export class DashboardService {
           id: index + 1 // Reassign sequential IDs
         })) as RecentActivity[];
       
-      return allActivities;
+      // Debug log the number of activities found
+      this.logger.log(`Found ${sortedActivities.length} recent activities`);
+      
+      return sortedActivities;
     } catch (error) {
       this.logger.error(`Error getting recent activity: ${error.message}`);
       
@@ -409,8 +441,8 @@ export class DashboardService {
         { id: 1, type: 'order' as ActivityType, text: "Pesanan #12345 dibuat", time: new Date(Date.now() - 15 * 60 * 1000).toISOString() },
         { id: 2, type: 'payment' as ActivityType, text: "Pembayaran Rp500.000 diterima untuk pesanan #12340", time: new Date(Date.now() - 45 * 60 * 1000).toISOString() },
         { id: 3, type: 'customer' as ActivityType, text: "Pelanggan baru Budi Santoso terdaftar", time: new Date(Date.now() - 2 * 60 * 60 * 1000).toISOString() },
-        { id: 4, type: 'service' as ActivityType, text: "Layanan 'Express Laundry' diperbarui", time: new Date(Date.now() - 3 * 60 * 60 * 1000).toISOString() },
-        { id: 5, type: 'order' as ActivityType, text: "Pesanan #12339 selesai", time: new Date(Date.now() - 5 * 60 * 60 * 1000).toISOString() }
+        { id: 4, type: 'order' as ActivityType, text: "Pesanan #12339 status berubah menjadi TERSEDIA", time: new Date(Date.now() - 3 * 60 * 60 * 1000).toISOString() },
+        { id: 5, type: 'order' as ActivityType, text: "Pesanan #12339 status berubah menjadi SELESAI", time: new Date(Date.now() - 5 * 60 * 60 * 1000).toISOString() }
       ].slice(0, limit) as RecentActivity[];
       
       return fallbackData;

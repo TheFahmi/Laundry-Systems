@@ -65,24 +65,32 @@ interface OrderFlowProps {
   onComplete?: (orderId: string) => void;
 }
 
+// Add this helper function at the top
+const isBrowser = typeof window !== 'undefined';
+
 export default function OrderFlow({ onComplete }: OrderFlowProps) {
   const router = useRouter();
   const [activeStep, setActiveStep] = useState(() => {
     // Try to load saved step from localStorage
-    const savedStep = localStorage.getItem('orderActiveStep');
-    return savedStep ? parseInt(savedStep, 10) : 0;
+    if (isBrowser) {
+      const savedStep = localStorage.getItem('orderActiveStep');
+      return savedStep ? parseInt(savedStep, 10) : 0;
+    }
+    return 0;
   });
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [direction, setDirection] = useState<'forward' | 'backward'>('forward');
   const [orderData, setOrderData] = useState(() => {
     // Try to load saved order data from localStorage
-    const savedOrderData = localStorage.getItem('orderData');
-    if (savedOrderData) {
-      try {
-        return JSON.parse(savedOrderData);
-      } catch (e) {
-        console.error('Failed to parse saved order data:', e);
+    if (isBrowser) {
+      const savedOrderData = localStorage.getItem('orderData');
+      if (savedOrderData) {
+        try {
+          return JSON.parse(savedOrderData);
+        } catch (e) {
+          console.error('Failed to parse saved order data:', e);
+        }
       }
     }
     // Default initial state
@@ -96,12 +104,14 @@ export default function OrderFlow({ onComplete }: OrderFlowProps) {
   });
   const [paymentData, setPaymentData] = useState<PaymentData>(() => {
     // Try to load saved payment data from localStorage
-    const savedPaymentData = localStorage.getItem('orderPaymentData');
-    if (savedPaymentData) {
-      try {
-        return JSON.parse(savedPaymentData);
-      } catch (e) {
-        console.error('Failed to parse saved payment data:', e);
+    if (isBrowser) {
+      const savedPaymentData = localStorage.getItem('orderPaymentData');
+      if (savedPaymentData) {
+        try {
+          return JSON.parse(savedPaymentData);
+        } catch (e) {
+          console.error('Failed to parse saved payment data:', e);
+        }
       }
     }
     // Default initial state
@@ -118,20 +128,25 @@ export default function OrderFlow({ onComplete }: OrderFlowProps) {
     createdAt: string;
   } | null>(() => {
     // Try to load saved created order from localStorage
-    const savedCreatedOrder = localStorage.getItem('createdOrder');
-    if (savedCreatedOrder) {
-      try {
-        return JSON.parse(savedCreatedOrder);
-      } catch (e) {
-        console.error('Failed to parse saved created order:', e);
+    if (isBrowser) {
+      const savedCreatedOrder = localStorage.getItem('createdOrder');
+      if (savedCreatedOrder) {
+        try {
+          return JSON.parse(savedCreatedOrder);
+        } catch (e) {
+          console.error('Failed to parse saved created order:', e);
+        }
       }
     }
     return null;
   });
   const [skipPayment, setSkipPayment] = useState(() => {
     // Try to load saved skipPayment state from localStorage
-    const savedSkipPayment = localStorage.getItem('orderSkipPayment');
-    return savedSkipPayment === 'true';
+    if (isBrowser) {
+      const savedSkipPayment = localStorage.getItem('orderSkipPayment');
+      return savedSkipPayment === 'true';
+    }
+    return false;
   });
 
   const steps = ['Pilih Pelanggan', 'Pilih Layanan', 'Detail Pesanan', 'Konfirmasi', 'Pembayaran', 'Selesai'];
@@ -141,12 +156,14 @@ export default function OrderFlow({ onComplete }: OrderFlowProps) {
 
   // Save state to localStorage whenever it changes
   useEffect(() => {
-    localStorage.setItem('orderActiveStep', activeStep.toString());
-    localStorage.setItem('orderData', JSON.stringify(orderData));
-    localStorage.setItem('orderPaymentData', JSON.stringify(paymentData));
-    localStorage.setItem('orderSkipPayment', skipPayment.toString());
-    if (createdOrder) {
-      localStorage.setItem('createdOrder', JSON.stringify(createdOrder));
+    if (isBrowser) {
+      localStorage.setItem('orderActiveStep', activeStep.toString());
+      localStorage.setItem('orderData', JSON.stringify(orderData));
+      localStorage.setItem('orderPaymentData', JSON.stringify(paymentData));
+      localStorage.setItem('orderSkipPayment', skipPayment.toString());
+      if (createdOrder) {
+        localStorage.setItem('createdOrder', JSON.stringify(createdOrder));
+      }
     }
   }, [activeStep, orderData, paymentData, skipPayment, createdOrder]);
 
@@ -706,12 +723,28 @@ export default function OrderFlow({ onComplete }: OrderFlowProps) {
 
   // Function to clear all order state from localStorage
   const clearAllOrderState = () => {
-    localStorage.removeItem('orderActiveStep');
-    localStorage.removeItem('orderData');
-    localStorage.removeItem('orderPaymentData');
-    localStorage.removeItem('orderItems');
-    localStorage.removeItem('orderSkipPayment');
-    localStorage.removeItem('createdOrder');
+    if (isBrowser) {
+      localStorage.removeItem('orderActiveStep');
+      localStorage.removeItem('orderData');
+      localStorage.removeItem('orderPaymentData');
+      localStorage.removeItem('orderItems');
+      localStorage.removeItem('orderSkipPayment');
+      localStorage.removeItem('createdOrder');
+      
+      // Clear any other order-related data that might be in localStorage
+      const keysToRemove = [];
+      for (let i = 0; i < localStorage.length; i++) {
+        const key = localStorage.key(i);
+        if (key && key.startsWith('order')) {
+          keysToRemove.push(key);
+        }
+      }
+      
+      // Remove collected keys
+      keysToRemove.forEach(key => localStorage.removeItem(key));
+      
+      console.log('[OrderFlow] All order data cleared from localStorage');
+    }
   };
 
   return (
@@ -720,12 +753,6 @@ export default function OrderFlow({ onComplete }: OrderFlowProps) {
         <CardContent className="pt-6">
           {/* Horizontal step indicator */}
           <div className="mb-12 px-4 relative">
-            {/* Debug indicator for active step (only visible in development) */}
-            {process.env.NODE_ENV === 'development' && (
-              <div className="absolute top-[-16px] text-xs text-gray-500 w-full text-center">
-                Step: {activeStep + 1}/{steps.length} ({(activeStep / (steps.length - 1) * 100).toFixed(1)}%)
-              </div>
-            )}
             
             {/* Background connecting line */}
             <div 

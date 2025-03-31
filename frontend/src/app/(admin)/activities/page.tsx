@@ -1,353 +1,274 @@
-"use client";
+"use client"
 
-import React, { useState, useEffect } from 'react';
+import React, { useEffect, useState } from "react";
+import Link from "next/link";
 import { 
-  Box, 
-  Typography, 
-  Paper, 
-  List, 
-  ListItem, 
-  ListItemText, 
-  ListItemAvatar, 
-  Avatar, 
-  Divider, 
-  IconButton,
-  Chip,
-  InputBase,
-  Select,
-  MenuItem,
-  FormControl,
-  InputLabel,
-  Grid,
-  Card,
-  CardContent,
-  CircularProgress,
-  Alert
-} from '@mui/material';
+  ShoppingCart, 
+  Users, 
+  CreditCard, 
+  Package, 
+  ArrowLeft,
+  Loader2,
+  RefreshCw,
+  FilterIcon,
+  ChevronLeft,
+  ChevronRight,
+} from "lucide-react";
+import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
 import { 
-  Search as SearchIcon,
-  LocalLaundryService,
-  AttachMoney,
-  Person,
-  Receipt,
-  NotificationsActive,
-  MoreVert,
-  FilterList
-} from '@mui/icons-material';
-import { formatDistance } from 'date-fns';
-import { id } from 'date-fns/locale';
-import * as activityService from '@/services/activityService';
-import { ActivityItem } from '@/components/dashboard/RecentActivityCard';
+  Select, 
+  SelectContent, 
+  SelectItem, 
+  SelectTrigger, 
+  SelectValue 
+} from "@/components/ui/select";
+import { Alert, AlertDescription } from "@/components/ui/alert";
+import { Separator } from "@/components/ui/separator";
+import { formatShortDate, formatRupiah } from "@/lib/utils";
+import { Input } from "@/components/ui/input";
+
+interface RecentActivity {
+  id: number;
+  type: 'order' | 'payment' | 'customer' | 'service';
+  text: string;
+  time: string;
+}
 
 export default function ActivitiesPage() {
-  const [activities, setActivities] = useState<ActivityItem[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [searchQuery, setSearchQuery] = useState('');
-  const [typeFilter, setTypeFilter] = useState('all');
-  const [dateFilter, setDateFilter] = useState('all');
-  const [statusMessage, setStatusMessage] = useState<{ message: string; type: 'success' | 'error' | 'info' } | null>(null);
-  const [activityStats, setActivityStats] = useState({
-    today: 0,
-    thisWeek: 0,
-    thisMonth: 0,
-    total: 0
+  const [activities, setActivities] = useState<{
+    data: RecentActivity[];
+    isLoading: boolean;
+    error: string | null;
+  }>({
+    data: [],
+    isLoading: true,
+    error: null
   });
 
-  const fetchActivities = async () => {
-    setLoading(true);
-    try {
-      const data = await activityService.getRecentActivities();
-      setActivities(data);
-      
-      // Calculate stats
-      const now = new Date();
-      const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-      const startOfWeek = new Date(now);
-      startOfWeek.setDate(now.getDate() - now.getDay());
-      startOfWeek.setHours(0, 0, 0, 0);
-      const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
-      
-      setActivityStats({
-        today: data.filter(activity => new Date(activity.timestamp) >= today).length,
-        thisWeek: data.filter(activity => new Date(activity.timestamp) >= startOfWeek).length,
-        thisMonth: data.filter(activity => new Date(activity.timestamp) >= startOfMonth).length,
-        total: data.length
-      });
-    } catch (error) {
-      console.error('Error fetching activities:', error);
-      setStatusMessage({
-        message: 'Gagal memuat aktivitas terbaru',
-        type: 'error',
-      });
-    } finally {
-      setLoading(false);
-    }
+  const [filter, setFilter] = useState<string>("all");
+  const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState(20);
+  const [isRefreshing, setIsRefreshing] = useState(false);
+
+  // Generate random cache buster
+  const generateCacheBuster = () => {
+    return `_cb=${Date.now()}`;
   };
 
+  // Fetch all activities
+  const fetchActivities = async (refresh = false) => {
+    if (refresh) {
+      setIsRefreshing(true);
+    } else if (!refresh && activities.isLoading === false) {
+      setActivities(prev => ({ ...prev, isLoading: true }));
+    }
+
+    try {
+      // Use a higher limit for viewing all activities
+      const response = await fetch(`/api/dashboard/recent-activity?limit=100&${generateCacheBuster()}`);
+      if (!response.ok) {
+        throw new Error(`Error ${response.status}: ${response.statusText}`);
+      }
+      
+      const responseData = await response.json();
+      console.log('Activities data received:', responseData);
+      
+      // Extract data from property data if it exists
+      const activitiesData = responseData.data || responseData;
+      
+      // Ensure data is an array
+      let activitiesArray = Array.isArray(activitiesData) ? activitiesData : [];
+      
+      setActivities({
+        data: activitiesArray,
+        isLoading: false,
+        error: null
+      });
+    } catch (error: any) {
+      console.error('Error fetching activities:', error);
+      setActivities({
+        data: [],
+        isLoading: false,
+        error: error.message || "Failed to load activities"
+      });
+    } finally {
+      if (refresh) {
+        setIsRefreshing(false);
+      }
+    }
+  };
+  
   useEffect(() => {
     fetchActivities();
   }, []);
 
-  const handleSearchChange = (event: React.ChangeEvent<HTMLInputElement>) => {
-    setSearchQuery(event.target.value);
-  };
+  // Filter activities based on type
+  const filteredActivities = activities.data.filter(activity => {
+    if (filter === "all") return true;
+    return activity.type === filter;
+  });
 
-  const handleTypeFilterChange = (event: any) => {
-    setTypeFilter(event.target.value);
-  };
+  // Paginate the activities
+  const paginatedActivities = filteredActivities.slice(
+    (page - 1) * pageSize,
+    page * pageSize
+  );
 
-  const handleDateFilterChange = (event: any) => {
-    setDateFilter(event.target.value);
-  };
+  // Calculate total pages
+  const totalPages = Math.max(1, Math.ceil(filteredActivities.length / pageSize));
 
-  const getActivityIcon = (type: string) => {
-    switch (type) {
-      case 'order':
-        return <LocalLaundryService sx={{ color: '#4338ca' }} />;
-      case 'payment':
-        return <AttachMoney sx={{ color: '#047857' }} />;
-      case 'customer':
-        return <Person sx={{ color: '#0369a1' }} />;
-      case 'service':
-        return <Receipt sx={{ color: '#7c3aed' }} />;
-      case 'notification':
-        return <NotificationsActive sx={{ color: '#d97706' }} />;
-      default:
-        return <MoreVert sx={{ color: '#6b7280' }} />;
+  // Handle page change
+  const handlePreviousPage = () => {
+    if (page > 1) {
+      setPage(page - 1);
     }
   };
 
-  const filterActivities = (activities: ActivityItem[]) => {
-    return activities.filter(activity => {
-      // Search filter
-      const matchesSearch = 
-        activity.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        activity.description.toLowerCase().includes(searchQuery.toLowerCase());
-      
-      // Type filter
-      const matchesType = typeFilter === 'all' || activity.type === typeFilter;
-      
-      // Date filter
-      let matchesDate = true;
-      const activityDate = new Date(activity.timestamp);
-      const now = new Date();
-      
-      if (dateFilter === 'today') {
-        const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-        matchesDate = activityDate >= today;
-      } else if (dateFilter === 'thisWeek') {
-        const startOfWeek = new Date(now);
-        startOfWeek.setDate(now.getDate() - now.getDay());
-        startOfWeek.setHours(0, 0, 0, 0);
-        matchesDate = activityDate >= startOfWeek;
-      } else if (dateFilter === 'thisMonth') {
-        const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
-        matchesDate = activityDate >= startOfMonth;
-      }
-      
-      return matchesSearch && matchesType && matchesDate;
-    });
-  };
-
-  const filteredActivities = filterActivities(activities);
-
-  const getTypeLabel = (type: string) => {
-    switch (type) {
-      case 'order': return 'Pesanan';
-      case 'payment': return 'Pembayaran';
-      case 'customer': return 'Pelanggan';
-      case 'service': return 'Layanan';
-      case 'notification': return 'Notifikasi';
-      default: return 'Sistem';
+  const handleNextPage = () => {
+    if (page < totalPages) {
+      setPage(page + 1);
     }
-  };
-
-  const getTypeColor = (type: string) => {
-    switch (type) {
-      case 'order': return 'primary';
-      case 'payment': return 'success';
-      case 'customer': return 'info';
-      case 'service': return 'secondary';
-      case 'notification': return 'warning';
-      default: return 'default';
-    }
-  };
-
-  const handleActivityClick = (activity: ActivityItem) => {
-    // No action for now since ActivityItem doesn't have a link property
   };
 
   return (
-    <Box sx={{ p: 3 }}>
-      <Typography variant="h4" sx={{ mb: 3 }}>Aktivitas Terbaru</Typography>
-      
-      {statusMessage && (
-        <Alert 
-          severity={statusMessage.type} 
-          sx={{ mb: 2 }}
-          onClose={() => setStatusMessage(null)}
+    <div className="space-y-6">
+      <div className="flex items-center justify-between">
+        <div className="flex items-center space-x-2">
+          <Button variant="outline" size="icon" asChild>
+            <Link href="/dashboard">
+              <ArrowLeft className="h-4 w-4" />
+            </Link>
+          </Button>
+          <h2 className="text-2xl font-bold">Recent Activities</h2>
+        </div>
+        <Button 
+          variant="outline" 
+          size="sm" 
+          onClick={() => fetchActivities(true)}
+          disabled={isRefreshing}
         >
-          {statusMessage.message}
-        </Alert>
-      )}
+          {isRefreshing ? (
+            <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+          ) : (
+            <RefreshCw className="mr-2 h-4 w-4" />
+          )}
+          Refresh
+        </Button>
+      </div>
 
-      <Grid container spacing={3} sx={{ mb: 3 }}>
-        <Grid item xs={12} sm={6} md={3}>
-          <Card>
-            <CardContent>
-              <Typography variant="h6" color="text.secondary" gutterBottom>
-                Hari Ini
-              </Typography>
-              <Typography variant="h4">{activityStats.today}</Typography>
-            </CardContent>
-          </Card>
-        </Grid>
-        <Grid item xs={12} sm={6} md={3}>
-          <Card>
-            <CardContent>
-              <Typography variant="h6" color="text.secondary" gutterBottom>
-                Minggu Ini
-              </Typography>
-              <Typography variant="h4">{activityStats.thisWeek}</Typography>
-            </CardContent>
-          </Card>
-        </Grid>
-        <Grid item xs={12} sm={6} md={3}>
-          <Card>
-            <CardContent>
-              <Typography variant="h6" color="text.secondary" gutterBottom>
-                Bulan Ini
-              </Typography>
-              <Typography variant="h4">{activityStats.thisMonth}</Typography>
-            </CardContent>
-          </Card>
-        </Grid>
-        <Grid item xs={12} sm={6} md={3}>
-          <Card>
-            <CardContent>
-              <Typography variant="h6" color="text.secondary" gutterBottom>
-                Total Aktivitas
-              </Typography>
-              <Typography variant="h4">{activityStats.total}</Typography>
-            </CardContent>
-          </Card>
-        </Grid>
-      </Grid>
+      <div className="flex flex-col md:flex-row gap-4 justify-between items-start md:items-center">
+        <div className="flex flex-col sm:flex-row gap-2 sm:items-center">
+          <div className="flex items-center space-x-2">
+            <FilterIcon className="h-4 w-4 text-muted-foreground" />
+            <span className="text-sm font-medium">Filter:</span>
+          </div>
+          <Select value={filter} onValueChange={setFilter}>
+            <SelectTrigger className="w-[150px]">
+              <SelectValue placeholder="Filter by type" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All Activities</SelectItem>
+              <SelectItem value="order">Orders</SelectItem>
+              <SelectItem value="payment">Payments</SelectItem>
+              <SelectItem value="customer">Customers</SelectItem>
+              <SelectItem value="service">Services</SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
 
-      <Paper sx={{ mb: 3, p: 2 }}>
-        <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2, flexWrap: 'wrap', gap: 2 }}>
-          <Box sx={{ display: 'flex', alignItems: 'center', bgcolor: 'background.paper', px: 2, py: 0.5, borderRadius: 1, border: '1px solid', borderColor: 'divider', width: { xs: '100%', sm: '300px' } }}>
-            <SearchIcon sx={{ mr: 1, color: 'text.secondary' }} />
-            <InputBase
-              placeholder="Cari aktivitas..."
-              value={searchQuery}
-              onChange={handleSearchChange}
-              fullWidth
-            />
-          </Box>
-          
-          <Box sx={{ display: 'flex', gap: 2, flexWrap: 'wrap' }}>
-            <FormControl size="small" sx={{ minWidth: 120 }}>
-              <InputLabel id="type-filter-label">Tipe</InputLabel>
-              <Select
-                labelId="type-filter-label"
-                value={typeFilter}
-                label="Tipe"
-                onChange={handleTypeFilterChange}
-                startAdornment={<FilterList fontSize="small" sx={{ mr: 1 }} />}
-              >
-                <MenuItem value="all">Semua</MenuItem>
-                <MenuItem value="order">Pesanan</MenuItem>
-                <MenuItem value="payment">Pembayaran</MenuItem>
-                <MenuItem value="customer">Pelanggan</MenuItem>
-                <MenuItem value="service">Layanan</MenuItem>
-                <MenuItem value="notification">Notifikasi</MenuItem>
-              </Select>
-            </FormControl>
-            
-            <FormControl size="small" sx={{ minWidth: 120 }}>
-              <InputLabel id="date-filter-label">Tanggal</InputLabel>
-              <Select
-                labelId="date-filter-label"
-                value={dateFilter}
-                label="Tanggal"
-                onChange={handleDateFilterChange}
-                startAdornment={<FilterList fontSize="small" sx={{ mr: 1 }} />}
-              >
-                <MenuItem value="all">Semua</MenuItem>
-                <MenuItem value="today">Hari Ini</MenuItem>
-                <MenuItem value="thisWeek">Minggu Ini</MenuItem>
-                <MenuItem value="thisMonth">Bulan Ini</MenuItem>
-              </Select>
-            </FormControl>
-          </Box>
-        </Box>
-        
-        {loading ? (
-          <Box sx={{ display: 'flex', justifyContent: 'center', p: 4 }}>
-            <CircularProgress />
-          </Box>
-        ) : filteredActivities.length === 0 ? (
-          <Box sx={{ p: 4, textAlign: 'center' }}>
-            <Typography variant="body1" color="text.secondary">
-              Tidak ada aktivitas yang tersedia
-            </Typography>
-          </Box>
-        ) : (
-          <List sx={{ p: 0 }}>
-            {filteredActivities.map((activity, index) => (
-              <React.Fragment key={activity.id}>
-                <ListItem
-                  onClick={() => handleActivityClick(activity)}
-                  sx={{ 
-                    py: 2,
-                    cursor: 'default'
-                  }}
-                >
-                  <ListItemAvatar>
-                    <Avatar>
-                      {getActivityIcon(activity.type)}
-                    </Avatar>
-                  </ListItemAvatar>
-                  <ListItemText
-                    primary={
-                      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 1 }}>
-                        <Typography variant="subtitle1" component="div">
-                          {activity.title}
-                        </Typography>
-                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                          <Chip 
-                            label={getTypeLabel(activity.type)} 
-                            size="small"
-                            color={getTypeColor(activity.type) as any}
-                          />
-                          <Typography variant="caption" color="text.secondary">
-                            {formatDistance(new Date(activity.timestamp), new Date(), { 
-                              addSuffix: true,
-                              locale: id
-                            })}
-                          </Typography>
-                        </Box>
-                      </Box>
-                    }
-                    secondary={
-                      <Typography 
-                        variant="body2" 
-                        color="text.primary"
-                        component="div"
-                        sx={{ mt: 0.5 }}
-                      >
-                        {activity.description}
-                      </Typography>
-                    }
-                  />
-                </ListItem>
-                {index < filteredActivities.length - 1 && <Divider variant="inset" component="li" />}
-              </React.Fragment>
-            ))}
-          </List>
-        )}
-      </Paper>
-    </Box>
+        <div className="flex flex-col sm:flex-row gap-2 sm:items-center">
+          <span className="text-sm text-muted-foreground">
+            Showing {filteredActivities.length > 0 ? (page - 1) * pageSize + 1 : 0} to {Math.min(page * pageSize, filteredActivities.length)} of {filteredActivities.length} activities
+          </span>
+          <div className="flex items-center space-x-2">
+            <Button
+              variant="outline"
+              size="icon"
+              onClick={handlePreviousPage}
+              disabled={page === 1}
+            >
+              <ChevronLeft className="h-4 w-4" />
+            </Button>
+            <Button
+              variant="outline"
+              size="icon"
+              onClick={handleNextPage}
+              disabled={page >= totalPages}
+            >
+              <ChevronRight className="h-4 w-4" />
+            </Button>
+          </div>
+        </div>
+      </div>
+
+      <Card>
+        <CardHeader>
+          <CardTitle>Activity Log</CardTitle>
+          <CardDescription>
+            Complete history of all system activities
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          {activities.isLoading ? (
+            <div className="flex items-center justify-center py-8">
+              <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+            </div>
+          ) : activities.error ? (
+            <Alert variant="destructive">
+              <AlertDescription>
+                Failed to load activities: {activities.error}
+              </AlertDescription>
+            </Alert>
+          ) : paginatedActivities.length === 0 ? (
+            <div className="text-center py-8 text-muted-foreground">
+              No activities found
+            </div>
+          ) : (
+            <div className="space-y-4">
+              {paginatedActivities.map((activity) => (
+                <div key={activity.id} className="flex items-start gap-4 p-3 rounded-lg hover:bg-muted/50 transition-colors">
+                  <div className="rounded-full bg-primary/10 p-2">
+                    {activity.type === "order" && <ShoppingCart className="h-4 w-4 text-primary" />}
+                    {activity.type === "payment" && <CreditCard className="h-4 w-4 text-primary" />}
+                    {activity.type === "customer" && <Users className="h-4 w-4 text-primary" />}
+                    {activity.type === "service" && <Package className="h-4 w-4 text-primary" />}
+                  </div>
+                  <div className="flex-1">
+                    <p className="text-sm">{activity.text}</p>
+                    <p className="text-xs text-muted-foreground">
+                      {formatShortDate(new Date(activity.time))}
+                    </p>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </CardContent>
+        <CardFooter className="flex justify-between">
+          <div className="text-sm text-muted-foreground">
+            Page {page} of {totalPages}
+          </div>
+          <div className="flex items-center space-x-2">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={handlePreviousPage}
+              disabled={page === 1}
+            >
+              Previous
+            </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={handleNextPage}
+              disabled={page >= totalPages}
+            >
+              Next
+            </Button>
+          </div>
+        </CardFooter>
+      </Card>
+    </div>
   );
-} 
+}

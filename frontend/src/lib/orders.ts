@@ -82,7 +82,6 @@ export async function getOrders(params: {
     const response = await api.get('/orders', { params });
     return response.data;
   } catch (error) {
-    console.error('Error fetching orders:', error);
     throw error;
   }
 }
@@ -96,7 +95,6 @@ export async function getOrder(id: string): Promise<AnyData> {
     const response = await api.get(`/orders/${id}`);
     return response.data;
   } catch (error) {
-    console.error(`Error fetching order ${id}:`, error);
     throw error;
   }
 }
@@ -109,7 +107,6 @@ export async function createOrder(orderData: any): Promise<SingleOrderResponse> 
     const response = await api.post('/orders', orderData);
     return response.data;
   } catch (error) {
-    console.error('Error creating order:', error);
     throw error;
   }
 }
@@ -122,7 +119,6 @@ export async function updateOrder(id: string, updateData: any): Promise<SingleOr
     const response = await api.patch(`/orders/${id}`, updateData);
     return response.data;
   } catch (error) {
-    console.error(`Error updating order ${id}:`, error);
     throw error;
   }
 }
@@ -136,7 +132,6 @@ export async function updateOrderStatus(id: string, status: OrderStatus): Promis
     const response = await api.patch(`/orders/${id}/status`, { status });
     return response.data;
   } catch (error) {
-    console.error(`Error updating order status ${id}:`, error);
     throw error;
   }
 }
@@ -149,7 +144,6 @@ export async function deleteOrder(id: string): Promise<void> {
     await api.delete(`/orders/${id}`);
     return;
   } catch (error) {
-    console.error(`Error deleting order ${id}:`, error);
     throw error;
   }
 }
@@ -163,7 +157,6 @@ export async function getOrderByOrderNumber(orderNumber: string): Promise<AnyDat
     const response = await api.get(`/api/orders/by-number/${orderNumber}`);
     return response.data;
   } catch (error) {
-    console.error(`Error fetching order by number ${orderNumber}:`, error);
     throw error;
   }
 } 

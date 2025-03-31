@@ -185,34 +185,70 @@ export default function PaymentFlow({
     try {
       setIsProcessing(true);
       
+      // Map frontend payment method names to backend names
+      let backendPaymentMethod = 'other';
+      switch (paymentData.paymentMethod) {
+        case PaymentMethod.CASH:
+          backendPaymentMethod = 'cash';
+          break;
+        case PaymentMethod.TRANSFER:
+          backendPaymentMethod = 'bank_transfer';
+          break;
+        case PaymentMethod.CREDIT_CARD:
+        case PaymentMethod.DEBIT_CARD:
+          backendPaymentMethod = 'card';
+          break;
+        case PaymentMethod.EWALLET:
+          backendPaymentMethod = 'ewallet';
+          break;
+        default:
+          backendPaymentMethod = 'other';
+      }
+      
       // Prepare payment data for submission
       const paymentSubmission = {
-        orderId: orderNumber,
+        orderId: orderId, // Use the actual orderId, not orderNumber
         amount: paymentData.amount,
-        paymentMethod: paymentData.paymentMethod,
+        paymentMethod: backendPaymentMethod,
+        referenceNumber: generateReferenceNumber(orderId),
         notes: paymentData.notes || '',
-        transactionId: paymentData.transactionId || ''
+        status: 'completed',
+        createdAt: new Date().toISOString() // Add current date
       };
       
-      // Simulating API call with a timeout
-      setTimeout(() => {
-        const mockResponse = {
-          id: Math.random().toString(36).substr(2, 9),
-          ...paymentSubmission,
-          status: "success",
-          date: new Date().toISOString()
-        };
-        
-        setProcessedPayment(mockResponse);
-        setPaymentState('success');
-        setIsProcessing(false);
-        
-        toast.success(`Pembayaran sebesar ${formatRupiah(paymentData.amount)} telah diterima`);
-        
-        // In a real implementation, this would be:
-        // const response = await axios.post('/api/payments', paymentSubmission);
-        // setProcessedPayment(response.data);
-      }, 1500);
+      console.log('Submitting payment with payload:', paymentSubmission);
+      
+      // Make actual API call to process payment
+      const response = await fetch('/api/payments', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          ...createAuthHeaders()
+        },
+        body: JSON.stringify(paymentSubmission),
+      });
+      
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.message || `Error processing payment: ${response.status}`);
+      }
+      
+      const responseData = await response.json();
+      console.log('Payment API response:', responseData);
+      
+      // Extract actual payment data from response
+      const paymentResult = responseData.data || responseData;
+      
+      setProcessedPayment(paymentResult);
+      setPaymentState('success');
+      setIsProcessing(false);
+      
+      toast.success(`Pembayaran sebesar ${formatRupiah(paymentData.amount)} telah diterima`);
+      
+      // Call the completion callback
+      if (onComplete) {
+        onComplete(paymentResult);
+      }
     } catch (error) {
       setIsProcessing(false);
       toast.error("Terjadi kesalahan saat memproses pembayaran. Silakan coba lagi.");
@@ -470,7 +506,11 @@ const PaymentSuccessStep = ({
         </div>
         <div className="flex justify-between">
           <span className="text-muted-foreground">Tanggal & Waktu:</span>
-          <span className="font-medium">{new Date(payment.date).toLocaleString('id-ID')}</span>
+          <span className="font-medium">
+            {payment.createdAt ? new Date(payment.createdAt).toLocaleString('id-ID') : 
+             payment.date ? new Date(payment.date).toLocaleString('id-ID') : 
+             new Date().toLocaleString('id-ID')}
+          </span>
         </div>
         {payment.transactionId && (
           <div className="flex justify-between">

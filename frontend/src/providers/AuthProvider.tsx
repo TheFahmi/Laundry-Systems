@@ -2,7 +2,7 @@
 
 import React, { createContext, ReactNode, useContext, useEffect } from 'react';
 import useAuthHook, { User, UseAuthReturn } from '@/hooks/useAuth';
-import { authService } from '@/services/authService';
+import { validateToken } from '@/services/authService';
 
 // Create a context with default values
 const AuthContext = createContext<UseAuthReturn | undefined>(undefined);
@@ -19,19 +19,17 @@ export function AuthProvider({ children }: AuthProviderProps) {
     if (typeof window !== 'undefined') {
       // Create a global auth error handler
       window.addEventListener('auth:error', () => {
-        console.log('[AuthProvider] Global auth error event detected, forcing logout');
         auth.logout();
       });
       
       // Track network status to validate auth on reconnect
-      const handleOnline = () => {
-        console.log('[AuthProvider] Network reconnected, validating auth state');
-        // Validate auth state when coming back online
+      const handleOnline = async () => {
         if (auth.user && !auth.loading) {
-          authService.validateToken().catch(() => {
-            console.log('[AuthProvider] Auth invalid after reconnect, logging out');
+          const isValid = await validateToken();
+          
+          if (!isValid) {
             auth.logout();
-          });
+          }
         }
       };
       

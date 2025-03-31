@@ -36,7 +36,6 @@ export async function verifyJwt(token: string): Promise<{ valid: boolean; payloa
     
     return { valid: true, payload };
   } catch (error) {
-    console.error('JWT verification error:', error);
     return { valid: false, payload: null };
   }
 }
@@ -230,9 +229,35 @@ export async function proxyToBackend(
     });
     
   } catch (error: any) {
-    console.error('Proxy to backend error:', error);
     return NextResponse.json(
       { message: 'Failed to proxy to backend', error: error.message },
+      { status: 500 }
+    );
+  }
+}
+
+export async function verifyToken(token: string): Promise<JwtPayload | null> {
+  try {
+    const { payload } = await jwtVerify(
+      token,
+      new TextEncoder().encode(JWT_SECRET)
+    );
+    
+    return payload;
+  } catch (error) {
+    return null;
+  }
+}
+
+export async function handleAuthApi(
+  req: NextRequest,
+  handler: () => Promise<Response>
+): Promise<Response> {
+  try {
+    // ... existing code ...
+  } catch (error) {
+    return NextResponse.json(
+      { message: 'Internal server error' },
       { status: 500 }
     );
   }

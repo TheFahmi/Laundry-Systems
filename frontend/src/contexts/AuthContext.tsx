@@ -33,15 +33,17 @@ export const useAuth = () => useContext(AuthContext);
 export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
   const [user, setUser] = useState<AuthUser | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const [isAuthenticated, setIsAuthenticated] = useState(false);
 
   // Load user from local storage on mount
   useEffect(() => {
-    const loadUser = () => {
+    const loadUser = async () => {
       try {
         // Check for token in cookies
         const token = Cookies.get('token');
         if (!token) {
           setIsLoading(false);
+          setIsAuthenticated(false);
           return;
         }
 
@@ -49,10 +51,11 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         const savedUser = localStorage.getItem('user');
         if (savedUser) {
           setUser(JSON.parse(savedUser));
+          setIsAuthenticated(true);
         }
       } catch (error) {
-        console.error('Failed to load user:', error);
-      } finally {
+        setUser(null);
+        setIsAuthenticated(false);
         setIsLoading(false);
       }
     };
@@ -74,6 +77,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     
     // Update state
     setUser(userData);
+    setIsAuthenticated(true);
   };
 
   // Logout function - clear all auth data
@@ -82,14 +86,13 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     localStorage.removeItem('user');
     sessionStorage.removeItem('csrfToken');
     setUser(null);
+    setIsAuthenticated(false);
   };
 
   // Get token function
   const getToken = () => {
     return Cookies.get('token') || null;
   };
-
-  const isAuthenticated = !!user;
 
   return (
     <AuthContext.Provider
