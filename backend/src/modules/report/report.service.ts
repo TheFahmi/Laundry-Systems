@@ -1,4 +1,4 @@
-import { Injectable, BadRequestException, InternalServerErrorException } from '@nestjs/common';
+import { Injectable, BadRequestException, InternalServerErrorException, Logger } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, Between } from 'typeorm';
 import { Order } from '../order/entities/order.entity';
@@ -36,6 +36,8 @@ export interface ReportResponse {
 
 @Injectable()
 export class ReportService {
+  private readonly logger = new Logger(ReportService.name);
+  
   constructor(
     @InjectRepository(Order)
     private readonly orderRepository: Repository<Order>,
@@ -47,15 +49,21 @@ export class ReportService {
 
   async generateReport(dto: GenerateReportDto): Promise<ReportResponse> {
     try {
+      this.logger.log(`Generating report with params: ${JSON.stringify(dto)}`);
       const { startDate, endDate, reportType = ReportType.DAILY } = dto;
       const dateRange = this.getDateRange(startDate, endDate, reportType);
+      
+      this.logger.debug(`Date range: ${dateRange.start.toISOString()} to ${dateRange.end.toISOString()}`);
 
+      // Find orders in date range with items and related services
       const orders = await this.orderRepository.find({
         where: {
           createdAt: Between(dateRange.start, dateRange.end),
         },
         relations: ['items', 'items.service'],
       });
+      
+      this.logger.debug(`Found ${orders.length} orders in the date range`);
 
       if (!orders.length) {
         return {
@@ -73,26 +81,56 @@ export class ReportService {
       }
 
       const totalOrders = orders.length;
-      const totalRevenue = orders.reduce((sum, order) => sum + this.calculateOrderTotal(order), 0);
-      const totalWeight = orders.reduce((sum, order) => sum + this.calculateOrderWeight(order), 0);
-      const averageOrderValue = Math.round(totalRevenue / totalOrders);
+      
+      // Calculate totals safely
+      let totalRevenue = 0;
+      let totalWeight = 0;
+      
+      // Process each order
+      orders.forEach(order => {
+        const orderTotal = this.calculateOrderTotal(order);
+        const orderWeight = this.calculateOrderWeight(order);
+        
+        // Add to totals, ensuring valid numbers
+        totalRevenue += isNaN(orderTotal) ? 0 : orderTotal;
+        totalWeight += isNaN(orderWeight) ? 0 : orderWeight;
+      });
+      
+      this.logger.debug(`Calculated totals: Orders=${totalOrders}, Revenue=${totalRevenue}, Weight=${totalWeight}`);
+      
+      // Calculate average order value, avoiding division by zero
+      const averageOrderValue = totalOrders > 0 ? Number((totalRevenue / totalOrders).toFixed(2)) : 0;
 
       const topServices = await this.getTopServices(orders);
       const dailyRevenue = await this.getDailyRevenue(orders, dateRange.start, dateRange.end);
 
+      this.logger.debug('Report data preparation completed successfully');
+      
+      // Ensure all values are numbers, not strings
       return {
         period: {
           start: dateRange.start,
           end: dateRange.end,
         },
-        totalOrders,
-        totalRevenue,
-        totalWeight,
-        averageOrderValue,
-        topServices,
-        dailyRevenue,
+        totalOrders: Number(totalOrders),
+        totalRevenue: Number(totalRevenue.toFixed(2)),
+        totalWeight: Number(totalWeight.toFixed(2)),
+        averageOrderValue: Number(averageOrderValue),
+        topServices: topServices.map(service => ({
+          serviceName: service.serviceName,
+          totalOrders: Number(service.totalOrders),
+          totalRevenue: Number(service.totalRevenue.toFixed(2)),
+          totalWeight: Number(service.totalWeight.toFixed(2))
+        })),
+        dailyRevenue: dailyRevenue.map(day => ({
+          date: day.date,
+          revenue: Number(day.revenue.toFixed(2)),
+          orders: Number(day.orders),
+          weight: Number(day.weight.toFixed(2))
+        })),
       };
     } catch (error) {
+      this.logger.error(`Error generating report: ${error.message}`, error.stack);
       if (error instanceof BadRequestException) {
         throw error;
       }
@@ -147,83 +185,132 @@ export class ReportService {
   }
 
   private calculateOrderTotal(order: Order): number {
-    return order.items.reduce((sum, item) => {
-      return sum + (item.subtotal || 0);
-    }, 0);
+    try {
+      if (!order.items || !Array.isArray(order.items)) {
+        this.logger.warn(`Order ${order.id} has no items or items is not an array`);
+        return 0;
+      }
+      
+      return order.items.reduce((sum, item) => {
+        // Handle possible undefined or null values
+        if (!item) return sum;
+        
+        // Use subtotal if available (already calculated), otherwise calculate from price * quantity
+        const itemValue = item.subtotal || (item.price * item.quantity) || 0;
+        return sum + Number(itemValue);
+      }, 0);
+    } catch (error) {
+      this.logger.warn(`Error calculating order total for order ${order.id}: ${error.message}`);
+      return 0;
+    }
   }
 
   private calculateOrderWeight(order: Order): number {
-    return order.items.reduce((sum, item) => {
-      if (item.service?.priceModel === 'per_kg') {
-        return sum + (item.weight || 0);
+    try {
+      if (!order.items || !Array.isArray(order.items)) {
+        return 0;
       }
-      return sum;
-    }, 0);
+      
+      return order.items.reduce((sum, item) => {
+        // Handle possible undefined or null values
+        if (!item) return sum;
+        
+        const itemWeight = item.weight || 0;
+        return sum + Number(itemWeight);
+      }, 0);
+    } catch (error) {
+      this.logger.warn(`Error calculating order weight for order ${order.id}: ${error.message}`);
+      return 0;
+    }
   }
 
   private async getTopServices(orders: Order[]): Promise<TopService[]> {
     try {
-      const serviceMap = new Map<string, { orders: number; revenue: number; weight: number }>();
-
+      const serviceMap = new Map<string, TopService>();
+  
       orders.forEach(order => {
+        if (!order.items || !Array.isArray(order.items)) return;
+        
         order.items.forEach(item => {
-          const serviceName = item.service?.name || 'Unknown Service';
-          const current = serviceMap.get(serviceName) || { orders: 0, revenue: 0, weight: 0 };
+          if (!item) return;
           
-          serviceMap.set(serviceName, {
-            orders: current.orders + 1,
-            revenue: current.revenue + (item.subtotal || 0),
-            weight: current.weight + (item.service?.priceModel === 'per_kg' ? (item.weight || 0) : 0),
-          });
+          // Get service name, with fallback for null/undefined service
+          const serviceName = item.service?.name || item.serviceName || 'Unknown Service';
+          
+          if (!serviceMap.has(serviceName)) {
+            serviceMap.set(serviceName, {
+              serviceName,
+              totalOrders: 0,
+              totalRevenue: 0,
+              totalWeight: 0,
+            });
+          }
+  
+          const stat = serviceMap.get(serviceName);
+          stat.totalOrders += 1;
+          
+          // Use subtotal if available, otherwise calculate
+          const itemRevenue = item.subtotal || (item.price * item.quantity) || 0;
+          stat.totalRevenue += Number(itemRevenue);
+          
+          const itemWeight = item.weight || 0;
+          stat.totalWeight += Number(itemWeight);
         });
       });
-
-      return Array.from(serviceMap.entries())
-        .map(([serviceName, stats]) => ({
-          serviceName,
-          totalOrders: stats.orders,
-          totalRevenue: stats.revenue,
-          totalWeight: stats.weight,
-        }))
+  
+      this.logger.debug(`Found ${serviceMap.size} unique services for the report`);
+      
+      return Array.from(serviceMap.values())
         .sort((a, b) => b.totalRevenue - a.totalRevenue)
-        .slice(0, 5);
+        .slice(0, 5); // Top 5 services
     } catch (error) {
-      throw new InternalServerErrorException('Failed to calculate top services');
+      this.logger.error(`Error getting top services: ${error.message}`, error.stack);
+      return [];
     }
   }
 
   private async getDailyRevenue(orders: Order[], startDate: Date, endDate: Date): Promise<DailyRevenue[]> {
     try {
-      const dailyStatsMap = new Map<string, { revenue: number; orders: number; weight: number }>();
-      let currentDate = startDate;
-
+      const days: DailyRevenue[] = [];
+      
+      // Create array of all dates in range
+      let currentDate = new Date(startDate);
       while (currentDate <= endDate) {
-        const dateKey = currentDate.toISOString().split('T')[0];
-        dailyStatsMap.set(dateKey, { revenue: 0, orders: 0, weight: 0 });
-        currentDate = new Date(currentDate.setDate(currentDate.getDate() + 1));
-      }
-
-      orders.forEach(order => {
-        const dateKey = order.createdAt.toISOString().split('T')[0];
-        const currentStats = dailyStatsMap.get(dateKey) || { revenue: 0, orders: 0, weight: 0 };
-        
-        dailyStatsMap.set(dateKey, {
-          revenue: currentStats.revenue + this.calculateOrderTotal(order),
-          orders: currentStats.orders + 1,
-          weight: currentStats.weight + this.calculateOrderWeight(order),
+        days.push({
+          date: currentDate.toISOString().split('T')[0],
+          revenue: 0,
+          orders: 0,
+          weight: 0,
         });
+        
+        currentDate = new Date(currentDate);
+        currentDate.setDate(currentDate.getDate() + 1);
+      }
+      
+      // Fill in data for days with orders
+      orders.forEach(order => {
+        if (!order.createdAt) return;
+        
+        const orderDate = new Date(order.createdAt);
+        const dateString = orderDate.toISOString().split('T')[0];
+        
+        const dayData = days.find(day => day.date === dateString);
+        if (dayData) {
+          dayData.orders += 1;
+          
+          const orderRevenue = this.calculateOrderTotal(order);
+          const orderWeight = this.calculateOrderWeight(order);
+          
+          dayData.revenue += isNaN(orderRevenue) ? 0 : orderRevenue;
+          dayData.weight += isNaN(orderWeight) ? 0 : orderWeight;
+        }
       });
-
-      return Array.from(dailyStatsMap.entries())
-        .map(([date, stats]) => ({
-          date,
-          revenue: stats.revenue,
-          orders: stats.orders,
-          weight: stats.weight,
-        }))
-        .sort((a, b) => a.date.localeCompare(b.date));
+      
+      this.logger.debug(`Prepared daily revenue data for ${days.length} days`);
+      return days;
     } catch (error) {
-      throw new InternalServerErrorException('Failed to calculate daily revenue');
+      this.logger.error(`Error getting daily revenue: ${error.message}`, error.stack);
+      return [];
     }
   }
 } 

@@ -1,4 +1,4 @@
-import { Controller, Get, Query, UseGuards } from '@nestjs/common';
+import { Controller, Get, Query, UseGuards, Logger } from '@nestjs/common';
 import { ReportService } from './report.service';
 import { GenerateReportDto, ReportType } from './dto/generate-report.dto';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
@@ -9,6 +9,8 @@ import { ApiTags, ApiOperation, ApiResponse, ApiBearerAuth, ApiQuery } from '@ne
 @Controller('reports')
 @UseGuards(JwtAuthGuard)
 export class ReportController {
+  private readonly logger = new Logger(ReportController.name);
+  
   constructor(private readonly reportService: ReportService) {}
 
   @Get()
@@ -83,19 +85,26 @@ export class ReportController {
   })
   @ApiResponse({
     status: 400,
-    description: 'Invalid input parameters',
+    description: 'Bad request',
     schema: {
       type: 'object',
       properties: {
         statusCode: { type: 'number', example: 400 },
-        message: { type: 'string', example: 'Invalid date range provided' },
+        message: { type: 'string', example: 'Start date and end date are required for custom reports' },
         error: { type: 'string', example: 'Bad Request' },
       },
     },
   })
   @ApiResponse({
     status: 401,
-    description: 'Unauthorized - Invalid or missing authentication token',
+    description: 'Unauthorized',
+    schema: {
+      type: 'object',
+      properties: {
+        statusCode: { type: 'number', example: 401 },
+        message: { type: 'string', example: 'Unauthorized' },
+      },
+    },
   })
   @ApiResponse({
     status: 500,
@@ -109,6 +118,21 @@ export class ReportController {
     },
   })
   async generateReport(@Query() generateReportDto: GenerateReportDto) {
-    return this.reportService.generateReport(generateReportDto);
+    try {
+      this.logger.log(`Generating report with params: ${JSON.stringify(generateReportDto)}`);
+      const reportData = await this.reportService.generateReport(generateReportDto);
+      this.logger.debug('Report data generated successfully');
+      
+      // Return data in a consistent format
+      return {
+        data: reportData,
+        statusCode: 200,
+        message: 'Success',
+        timestamp: new Date().toISOString()
+      };
+    } catch (error) {
+      this.logger.error(`Error generating report: ${error.message}`, error.stack);
+      throw error;
+    }
   }
 } 
