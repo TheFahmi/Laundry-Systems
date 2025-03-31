@@ -17,14 +17,41 @@ export class ServiceController {
   @ApiResponse({ status: 200, description: 'Return all services' })
   @ApiQuery({ name: 'page', required: false, type: Number })
   @ApiQuery({ name: 'limit', required: false, type: Number })
+  @ApiQuery({ name: 'search', required: false, type: String })
+  @ApiQuery({ name: 'category', required: false, type: String })
+  @ApiQuery({ name: 'isActive', required: false, type: Boolean })
   @UseGuards(JwtAuthGuard)
   async findAll(
     @Query('page') page?: number,
     @Query('limit') limit?: number,
+    @Query('search') search?: string,
+    @Query('category') category?: string,
+    @Query('isActive') isActive?: string,
   ) {
     page = page ? parseInt(page.toString()) : 1;
     limit = limit ? parseInt(limit.toString()) : 10;
-    return this.serviceService.findAll({ page, limit });
+    
+    // Convert string to boolean properly
+    let isActiveBoolean: boolean | undefined = undefined;
+    if (isActive !== undefined) {
+      isActiveBoolean = isActive === 'true';
+    }
+    
+    return this.serviceService.findAll({ 
+      page, 
+      limit, 
+      search,
+      category,
+      isActive: isActiveBoolean
+    });
+  }
+
+  @Get('categories')
+  @ApiOperation({ summary: 'Get all service categories' })
+  @ApiResponse({ status: 200, description: 'Return all service categories' })
+  @UseGuards(JwtAuthGuard)
+  async getCategories() {
+    return this.serviceService.getCategories();
   }
 
   @Get(':id')

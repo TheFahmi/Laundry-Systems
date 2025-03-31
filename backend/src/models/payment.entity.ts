@@ -24,9 +24,6 @@ export class Payment {
   @PrimaryGeneratedColumn('uuid')
   id: string;
 
-  @Column({ type: 'int', generated: 'increment' })
-  paymentId: number;
-
   @Column({ unique: true })
   referenceNumber: string;
 

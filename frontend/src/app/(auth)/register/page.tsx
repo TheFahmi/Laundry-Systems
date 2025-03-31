@@ -2,24 +2,16 @@
 
 import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
-import {
-  Container,
-  Box,
-  Typography,
-  TextField,
-  Button,
-  Paper,
-  InputAdornment,
-  IconButton,
-  Alert,
-  Stack,
-  Stepper,
-  Step,
-  StepLabel
-} from '@mui/material';
-import { Visibility, VisibilityOff } from '@mui/icons-material';
+import { useRouter } from 'next/navigation';
 import { useAuth } from '@/providers/AuthProvider';
 import { APP_NAME } from '@/config';
+import { Eye, EyeOff, User, ArrowLeft, ArrowRight, Check } from 'lucide-react';
+
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
+import { Alert, AlertDescription } from '@/components/ui/alert';
 
 // Interface untuk data form
 interface RegisterFormData {
@@ -34,6 +26,7 @@ const steps = ['Buat Akun', 'Informasi Kontak', 'Selesai'];
 
 export default function RegisterPage() {
   const { register } = useAuth();
+  const router = useRouter();
   
   // State untuk mengetahui apakah komponen sudah di-mount
   const [mounted, setMounted] = useState(false);
@@ -58,10 +51,10 @@ export default function RegisterPage() {
   // Handle perubahan input form
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target;
-    setFormData({
-      ...formData,
+    setFormData(prev => ({
+      ...prev,
       [name]: value
-    });
+    }));
   };
 
   // Handle langkah selanjutnya
@@ -88,7 +81,7 @@ export default function RegisterPage() {
       }
     }
     
-    setError('');
+    setError(null);
     setActiveStep((prevActiveStep) => prevActiveStep + 1);
   };
 
@@ -104,10 +97,8 @@ export default function RegisterPage() {
     setError(null);
 
     try {
-      // Use the React state formData instead of trying to extract from form elements
       const { username, password, email, name } = formData;
 
-      // Front-end validation
       if (!username || !email || !password || !name) {
         throw new Error('Semua field harus diisi: username, email, password, dan nama');
       }
@@ -120,17 +111,21 @@ export default function RegisterPage() {
         throw new Error('Format email tidak valid');
       }
 
-      console.log('Submitting registration with data:', { username, email, password, name });
-      
-      // Register using the complete data
-      await register(username, password, email, name);
-      // Redirect handled in register function
-    } catch (err: unknown) {
-      if (err instanceof Error) {
-        setError(err.message || 'Registrasi gagal. Silakan coba lagi.');
+      const success = await register(username, password, email, name);
+      if (success) {
+        // Show success message before redirecting
+        setActiveStep(2); // Move to "success" step if you have one
+        
+        // Redirect to login page after a slight delay
+        setTimeout(() => {
+          router.push('/login?registered=true');
+        }, 1500);
       } else {
-        setError('Registrasi gagal. Silakan coba lagi.');
+        throw new Error('Registrasi gagal. Silakan coba lagi.');
       }
+    } catch (err: any) {
+      setError(err.message || 'Registrasi gagal. Silakan coba lagi.');
+      setActiveStep(0); // Return to first step on error
     } finally {
       setLoading(false);
     }
@@ -139,200 +134,248 @@ export default function RegisterPage() {
   // Jika belum dimount (masih di server), tampilkan layout minimal
   if (!mounted) {
     return (
-      <Container maxWidth="sm">
-        <Box
-          sx={{
-            mt: 4,
-            mb: 4,
-            display: 'flex',
-            flexDirection: 'column',
-            alignItems: 'center',
-          }}
-        >
-          <Paper 
-            elevation={3} 
-            sx={{ 
-              p: 4, 
-              width: '100%',
-              borderRadius: 2
-            }}
-          >
-            <Typography component="h1" variant="h5" align="center" gutterBottom>
-              Daftar Akun {APP_NAME}
-            </Typography>
-            <Box sx={{ pt: 3, pb: 5 }}></Box>
-          </Paper>
-        </Box>
-      </Container>
+      <div className="container max-w-screen-lg mx-auto px-4">
+        <div className="min-h-screen flex items-center">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6 w-full">
+            <div className="p-4">
+              <h1 className="text-3xl font-bold mb-2">{APP_NAME}</h1>
+              <h2 className="text-xl text-muted-foreground">
+                Sistem Manajemen Laundry Modern
+              </h2>
+            </div>
+            <div>
+              <Card>
+                <CardHeader className="text-center">
+                  <div className="w-10 h-10 rounded-full bg-secondary flex items-center justify-center mx-auto mb-2">
+                    <User className="h-5 w-5 text-secondary-foreground" />
+                  </div>
+                  <CardTitle>Daftar</CardTitle>
+                </CardHeader>
+                <CardContent className="flex justify-center">
+                  <div className="h-8 w-8 animate-spin rounded-full border-b-2 border-primary"></div>
+                </CardContent>
+              </Card>
+            </div>
+          </div>
+        </div>
+      </div>
     );
   }
   
   return (
-    <Container maxWidth="sm">
-      <Box
-        sx={{
-          mt: 4,
-          mb: 4,
-          display: 'flex',
-          flexDirection: 'column',
-          alignItems: 'center',
-        }}
-      >
-        <Paper 
-          elevation={3} 
-          sx={{ 
-            p: 4, 
-            width: '100%',
-            borderRadius: 2
-          }}
-        >
-          <Typography component="h1" variant="h5" align="center" gutterBottom>
-            Daftar Akun {APP_NAME}
-          </Typography>
+    <div className="container max-w-screen-lg mx-auto px-4">
+      <div className="min-h-screen flex items-center">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 w-full">
+          <div className="p-4">
+            <h1 className="text-3xl font-bold mb-2">{APP_NAME}</h1>
+            <h2 className="text-xl text-muted-foreground mb-4">
+              Sistem Manajemen Laundry Modern
+            </h2>
+            <p className="text-muted-foreground mb-4">
+              Bergabunglah dengan platform manajemen laundry terbaik. 
+              Kelola bisnis Anda dengan lebih efisien dan profesional.
+            </p>
+          </div>
           
-          <Stepper activeStep={activeStep} sx={{ pt: 3, pb: 5 }} alternativeLabel>
-            {steps.map((label) => (
-              <Step key={label}>
-                <StepLabel>{label}</StepLabel>
-              </Step>
-            ))}
-          </Stepper>
-          
-          {error && (
-            <Alert severity="error" sx={{ mb: 3 }}>
-              <Typography variant="body1" fontWeight="bold">Error:</Typography>
-              <Typography variant="body2">{error}</Typography>
-              <Typography variant="caption" sx={{ mt: 1, display: 'block' }}>
-                Data form: username={formData.username}, 
-                email={formData.email}, 
-                name={formData.name}, 
-                password={formData.password ? '[PROVIDED]' : '[EMPTY]'}
-              </Typography>
-            </Alert>
-          )}
-          
-          <Box component="form" onSubmit={handleSubmit}>
-            {activeStep === 0 && (
-              <React.Fragment>
-                <TextField
-                  margin="normal"
-                  required
-                  fullWidth
-                  id="username"
-                  label="Username"
-                  name="username"
-                  autoComplete="username"
-                  value={formData.username}
-                  onChange={handleChange}
-                  autoFocus
-                  disabled={loading}
-                />
-                <TextField
-                  margin="normal"
-                  required
-                  fullWidth
-                  name="password"
-                  label="Password"
-                  type={showPassword ? 'text' : 'password'}
-                  id="password"
-                  autoComplete="new-password"
-                  value={formData.password}
-                  onChange={handleChange}
-                  disabled={loading}
-                  InputProps={{
-                    endAdornment: (
-                      <InputAdornment position="end">
-                        <IconButton
-                          aria-label="toggle password visibility"
-                          onClick={() => setShowPassword(!showPassword)}
-                          edge="end"
-                        >
-                          {showPassword ? <VisibilityOff /> : <Visibility />}
-                        </IconButton>
-                      </InputAdornment>
-                    ),
-                  }}
-                />
-              </React.Fragment>
-            )}
-            
-            {activeStep === 1 && (
-              <React.Fragment>
-                <TextField
-                  margin="normal"
-                  required
-                  fullWidth
-                  id="email"
-                  label="Email"
-                  name="email"
-                  autoComplete="email"
-                  value={formData.email}
-                  onChange={handleChange}
-                  autoFocus
-                  disabled={loading}
-                />
-                <TextField
-                  margin="normal"
-                  required
-                  fullWidth
-                  id="name"
-                  label="Nama Lengkap"
-                  name="name"
-                  autoComplete="name"
-                  value={formData.name}
-                  onChange={handleChange}
-                  disabled={loading}
-                />
-              </React.Fragment>
-            )}
-            
-            {activeStep === 2 && (
-              <Box sx={{ mb: 2 }}>
-                <Typography variant="h6" gutterBottom>
-                  Konfirmasi Data
-                </Typography>
-                <Typography variant="body1">
-                  Username: {formData.username}
-                </Typography>
-                <Typography variant="body1">
-                  Email: {formData.email}
-                </Typography>
-                <Typography variant="body1">
-                  Nama: {formData.name}
-                </Typography>
-              </Box>
-            )}
-            
-            <Box sx={{ display: 'flex', justifyContent: 'space-between', mt: 3 }}>
-              {activeStep > 0 && (
-                <Button onClick={handleBack} disabled={loading}>
-                  Kembali
-                </Button>
-              )}
-              {activeStep < steps.length - 1 ? (
-                <Button variant="contained" onClick={handleNext} disabled={loading}>
-                  Lanjut
-                </Button>
-              ) : (
-                <Button type="submit" variant="contained" disabled={loading}>
-                  {loading ? 'Memproses...' : 'Daftar'}
-                </Button>
-              )}
-            </Box>
-            
-            <Stack direction="row" justifyContent="center" spacing={1} sx={{ mt: 3 }}>
-              <Typography variant="body2">
-                Sudah punya akun?
-              </Typography>
-              <Link href="/login" passHref>
-                <Typography variant="body2" component="span" sx={{ color: 'primary.main', textDecoration: 'none' }}>
-                  Masuk
-                </Typography>
-              </Link>
-            </Stack>
-          </Box>
-        </Paper>
-      </Box>
-    </Container>
+          <div>
+            <Card>
+              <CardHeader className="text-center">
+                <div className="w-10 h-10 rounded-full bg-secondary flex items-center justify-center mx-auto mb-2">
+                  <User className="h-5 w-5 text-secondary-foreground" />
+                </div>
+                <CardTitle className="text-xl">Daftar ke {APP_NAME}</CardTitle>
+              </CardHeader>
+              
+              <CardContent>
+                {error && (
+                  <Alert variant="destructive" className="mb-4">
+                    <AlertDescription>{error}</AlertDescription>
+                  </Alert>
+                )}
+
+                <div className="mb-8">
+                  <div className="flex justify-between relative">
+                    {steps.map((label, index) => (
+                      <div key={index} className="flex flex-col items-center">
+                        <div className={`
+                          w-8 h-8 rounded-full flex items-center justify-center text-sm font-medium
+                          ${activeStep > index ? 'bg-primary text-primary-foreground' : 
+                            activeStep === index ? 'bg-primary text-primary-foreground' : 
+                            'bg-muted text-muted-foreground'}
+                        `}>
+                          {activeStep > index ? <Check className="h-4 w-4" /> : index + 1}
+                        </div>
+                        <div className="text-xs mt-1">{label}</div>
+                      </div>
+                    ))}
+                    <div className="absolute top-4 left-0 right-0 h-[2px] -z-10 bg-muted">
+                      <div 
+                        className="h-full bg-primary" 
+                        style={{ 
+                          width: `${activeStep * 50}%`,
+                          transition: 'width 0.3s ease'
+                        }} 
+                      />
+                    </div>
+                  </div>
+                </div>
+                
+                <form onSubmit={activeStep === 2 ? handleSubmit : (e) => { e.preventDefault(); handleNext(); }}>
+                  {/* Langkah 1: Akun */}
+                  {activeStep === 0 && (
+                    <div className="space-y-4">
+                      <div className="space-y-2">
+                        <Label htmlFor="username">Username</Label>
+                        <Input
+                          id="username"
+                          name="username"
+                          placeholder="Masukkan username Anda"
+                          autoComplete="username"
+                          autoFocus
+                          value={formData.username}
+                          onChange={handleChange}
+                          disabled={loading}
+                          required
+                        />
+                      </div>
+                      
+                      <div className="space-y-2">
+                        <Label htmlFor="password">Password</Label>
+                        <div className="relative">
+                          <Input
+                            id="password"
+                            name="password"
+                            type={showPassword ? "text" : "password"}
+                            placeholder="Masukkan password Anda"
+                            autoComplete="new-password"
+                            value={formData.password}
+                            onChange={handleChange}
+                            disabled={loading}
+                            required
+                          />
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            size="sm"
+                            className="absolute right-0 top-0 h-full px-3"
+                            onClick={() => setShowPassword(!showPassword)}
+                          >
+                            {showPassword ? (
+                              <EyeOff className="h-4 w-4" />
+                            ) : (
+                              <Eye className="h-4 w-4" />
+                            )}
+                            <span className="sr-only">
+                              {showPassword ? "Sembunyikan password" : "Tampilkan password"}
+                            </span>
+                          </Button>
+                        </div>
+                        <p className="text-xs text-muted-foreground">
+                          Password minimal 6 karakter
+                        </p>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Langkah 2: Informasi Pribadi */}
+                  {activeStep === 1 && (
+                    <div className="space-y-4">
+                      <div className="space-y-2">
+                        <Label htmlFor="name">Nama Lengkap</Label>
+                        <Input
+                          id="name"
+                          name="name"
+                          placeholder="Masukkan nama lengkap Anda"
+                          autoComplete="name"
+                          value={formData.name}
+                          onChange={handleChange}
+                          disabled={loading}
+                          required
+                        />
+                      </div>
+                      
+                      <div className="space-y-2">
+                        <Label htmlFor="email">Email</Label>
+                        <Input
+                          id="email"
+                          name="email"
+                          type="email"
+                          placeholder="Masukkan email Anda"
+                          autoComplete="email"
+                          value={formData.email}
+                          onChange={handleChange}
+                          disabled={loading}
+                          required
+                        />
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Langkah 3: Konfirmasi */}
+                  {activeStep === 2 && (
+                    <div className="space-y-4">
+                      <div className="rounded-lg border p-4">
+                        <h3 className="font-medium mb-2">Ringkasan Informasi</h3>
+                        <div className="grid grid-cols-2 gap-2 text-sm">
+                          <div className="text-muted-foreground">Username:</div>
+                          <div>{formData.username}</div>
+                          <div className="text-muted-foreground">Nama:</div>
+                          <div>{formData.name}</div>
+                          <div className="text-muted-foreground">Email:</div>
+                          <div>{formData.email}</div>
+                        </div>
+                      </div>
+                      <p className="text-sm text-muted-foreground">
+                        Dengan melanjutkan, Anda menyetujui syarat dan ketentuan kami.
+                      </p>
+                    </div>
+                  )}
+
+                  <div className="flex justify-between mt-6">
+                    <Button
+                      type="button"
+                      variant="outline"
+                      onClick={handleBack}
+                      disabled={activeStep === 0 || loading}
+                    >
+                      <ArrowLeft className="mr-2 h-4 w-4" />
+                      Kembali
+                    </Button>
+
+                    <Button
+                      type="submit"
+                      disabled={loading}
+                    >
+                      {loading ? (
+                        <>
+                          <div className="mr-2 h-4 w-4 animate-spin rounded-full border-b-2 border-current"></div>
+                          <span>Memproses...</span>
+                        </>
+                      ) : activeStep === steps.length - 1 ? (
+                        "Daftar"
+                      ) : (
+                        <>
+                          Lanjut
+                          <ArrowRight className="ml-2 h-4 w-4" />
+                        </>
+                      )}
+                    </Button>
+                  </div>
+                </form>
+              </CardContent>
+              
+              <CardFooter className="flex justify-center">
+                <div className="text-sm text-muted-foreground">
+                  Sudah punya akun? {' '}
+                  <Link href="/login" className="text-primary hover:underline">
+                    Login
+                  </Link>
+                </div>
+              </CardFooter>
+            </Card>
+          </div>
+        </div>
+      </div>
+    </div>
   );
 } 

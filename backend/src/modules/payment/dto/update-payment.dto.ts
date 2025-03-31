@@ -1,6 +1,6 @@
+import { IsOptional, IsString, IsNumber, IsEnum } from 'class-validator';
 import { PartialType } from '@nestjs/mapped-types';
 import { CreatePaymentDto } from './create-payment.dto';
-import { IsEnum, IsOptional, IsNumber, IsString } from 'class-validator';
 import { ApiProperty } from '@nestjs/swagger';
 import { PaymentMethod, PaymentStatus } from '../entities/payment.entity';
 
@@ -13,7 +13,7 @@ export class UpdatePaymentDto extends PartialType(CreatePaymentDto) {
   @IsOptional()
   @IsEnum(PaymentMethod)
   @ApiProperty({ enum: PaymentMethod, description: 'Payment method', required: false })
-  method?: PaymentMethod;
+  paymentMethod?: PaymentMethod;
 
   @IsOptional()
   @IsNumber()
@@ -24,11 +24,6 @@ export class UpdatePaymentDto extends PartialType(CreatePaymentDto) {
   @IsString()
   @ApiProperty({ description: 'Transaction ID from payment provider', required: false })
   transactionId?: string;
-  
-  @IsOptional()
-  @IsString()
-  @ApiProperty({ description: 'Reference number', required: false })
-  referenceNumber?: string;
 
   @IsOptional()
   @IsString()

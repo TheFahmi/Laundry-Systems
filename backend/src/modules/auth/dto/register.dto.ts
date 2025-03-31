@@ -3,7 +3,7 @@ import { IsEmail, IsNotEmpty, IsOptional, IsString, MinLength } from 'class-vali
 
 export class RegisterDto {
   @ApiProperty({
-    example: 'admin',
+    example: 'johndoe',
     description: 'Username untuk akun baru',
     required: true,
   })
@@ -12,7 +12,16 @@ export class RegisterDto {
   username: string;
 
   @ApiProperty({
-    example: 'admin123',
+    example: 'john@example.com',
+    description: 'Email untuk akun baru',
+    required: true,
+  })
+  @IsNotEmpty({ message: 'Email harus diisi' })
+  @IsEmail({}, { message: 'Format email tidak valid' })
+  email: string;
+
+  @ApiProperty({
+    example: 'password123',
     description: 'Password untuk akun baru',
     required: true,
   })
@@ -22,16 +31,7 @@ export class RegisterDto {
   password: string;
 
   @ApiProperty({
-    example: 'admin@example.com',
-    description: 'Email untuk akun baru',
-    required: true,
-  })
-  @IsNotEmpty({ message: 'Email harus diisi' })
-  @IsEmail({}, { message: 'Format email tidak valid' })
-  email: string;
-
-  @ApiProperty({
-    example: 'Admin User',
+    example: 'John Doe',
     description: 'Nama lengkap pengguna',
     required: true,
   })

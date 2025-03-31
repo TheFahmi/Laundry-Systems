@@ -1,81 +1,44 @@
 import { DataSource } from 'typeorm';
-import { PriceModel, Service } from '../../modules/service/entities/service.entity';
-import { ServiceCategory } from '../../modules/service-category/entities/service-category.entity';
 
 export const seedServices = async (dataSource: DataSource) => {
-  const serviceRepository = dataSource.getRepository(Service);
-  const categoryRepository = dataSource.getRepository(ServiceCategory);
+  try {
+    // Update categories
+    await dataSource.query(`
+      UPDATE service_categories 
+      SET name = 'Cuci', description = 'Layanan cuci pakaian'
+      WHERE name = 'Wash & Fold';
+      
+      UPDATE service_categories 
+      SET name = 'Setrika', description = 'Layanan setrika pakaian'
+      WHERE name = 'Dry Cleaning';
+      
+      UPDATE service_categories 
+      SET name = 'Premium', description = 'Layanan premium dan express'
+      WHERE name = 'Express Service';
+    `);
 
-  // Get categories
-  const washCategory = await categoryRepository.findOne({ where: { name: 'Wash' } });
-  const ironingCategory = await categoryRepository.findOne({ where: { name: 'Ironing' } });
-  const premiumCategory = await categoryRepository.findOne({ where: { name: 'Premium' } });
+    // Delete existing services
+    await dataSource.query(`DELETE FROM services`);
 
-  if (!washCategory || !ironingCategory || !premiumCategory) {
-    throw new Error('Categories not found. Please run category seeds first.');
+    // Insert new services
+    await dataSource.query(`
+      INSERT INTO services (name, description, price, pricemodel, processing_time_hours, category, is_active)
+      VALUES 
+        ('Cuci Reguler', 'Layanan cuci standar dengan pengeringan', 7000, 'per_kg', 24, 'Cuci', true),
+        ('Cuci Express', 'Layanan cuci cepat, selesai dalam 6 jam', 12000, 'per_kg', 6, 'Premium', true),
+        ('Setrika', 'Layanan setrika untuk pakaian', 5000, 'per_kg', 24, 'Setrika', true),
+        ('Cuci Setrika', 'Layanan cuci dan setrika lengkap', 10000, 'per_kg', 48, 'Cuci', true),
+        ('Dry Cleaning', 'Layanan cuci kering untuk pakaian khusus', 20000, 'per_piece', 72, 'Premium', true),
+        ('Cuci Sepatu', 'Layanan cuci khusus untuk sepatu', 35000, 'per_piece', 24, 'Premium', true),
+        ('Cuci Tas', 'Layanan cuci khusus untuk tas', 50000, 'per_piece', 48, 'Premium', true),
+        ('Cuci Karpet', 'Layanan cuci untuk karpet dan permadani', 25000, 'per_kg', 72, 'Premium', true),
+        ('Cuci Gordyn', 'Layanan cuci untuk gordyn dan vitrage', 15000, 'per_kg', 72, 'Premium', true),
+        ('Cuci Bed Cover', 'Layanan cuci untuk bed cover dan sprei', 12000, 'per_kg', 48, 'Cuci', true);
+    `);
+
+    console.log('Services updated successfully!');
+  } catch (error) {
+    console.error('Error updating services:', error);
+    throw error;
   }
-
-  // Create services
-  const services: Partial<Service>[] = [
-    {
-      name: 'Regular Wash',
-      description: 'Standard washing service',
-      price: 15000,
-      priceModel: PriceModel.PER_KG,
-      processingTimeHours: 2,
-      isActive: true,
-      category: washCategory.name
-    },
-    {
-      name: 'Express Wash',
-      description: 'Fast washing service (3-hour completion)',
-      price: 25000,
-      priceModel: PriceModel.PER_KG,
-      processingTimeHours: 1,
-      isActive: true,
-      category: washCategory.name
-    },
-    {
-      name: 'Regular Ironing',
-      description: 'Standard ironing service',
-      price: 10000,
-      priceModel: PriceModel.PER_PIECE,
-      processingTimeHours: 1,
-      isActive: true,
-      category: ironingCategory.name
-    },
-    {
-      name: 'Premium Wash',
-      description: 'Premium washing with special treatment',
-      price: 35000,
-      priceModel: PriceModel.PER_KG,
-      processingTimeHours: 3,
-      isActive: true,
-      category: premiumCategory.name
-    },
-    {
-      name: 'Premium Dry Clean',
-      description: 'Premium dry cleaning service',
-      price: 45000,
-      priceModel: PriceModel.PER_PIECE,
-      processingTimeHours: 4,
-      isActive: true,
-      category: premiumCategory.name
-    },
-    {
-      name: 'Quick Wash',
-      description: 'Quick washing service (2-hour completion)',
-      price: 20000,
-      priceModel: PriceModel.PER_KG,
-      processingTimeHours: 1,
-      isActive: true,
-      category: washCategory.name
-    }
-  ];
-
-  // Create service entities
-  const serviceEntities = services.map(service => serviceRepository.create(service));
-
-  // Save all services
-  await serviceRepository.save(serviceEntities);
 }; 

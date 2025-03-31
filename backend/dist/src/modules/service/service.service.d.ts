@@ -9,6 +9,9 @@ export declare class ServiceService {
     findAll(options?: {
         page?: number;
         limit?: number;
+        search?: string;
+        category?: string;
+        isActive?: boolean;
     }): Promise<{
         items: Service[];
         total: number;
@@ -18,5 +21,6 @@ export declare class ServiceService {
     findOne(id: string): Promise<Service>;
     update(id: string, updateServiceDto: UpdateServiceDto): Promise<Service>;
     remove(id: string): Promise<void>;
+    getCategories(): Promise<string[]>;
     save(serviceData: Partial<Service>): Promise<Service>;
 }

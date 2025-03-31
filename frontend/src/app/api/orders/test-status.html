@@ -1,0 +1,109 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Test Order Status Update</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      max-width: 800px;
+      margin: 0 auto;
+      padding: 20px;
+    }
+    .form-group {
+      margin-bottom: 15px;
+    }
+    label {
+      display: block;
+      margin-bottom: 5px;
+    }
+    input, select, textarea, button {
+      width: 100%;
+      padding: 8px;
+      box-sizing: border-box;
+    }
+    button {
+      background-color: #4CAF50;
+      color: white;
+      border: none;
+      cursor: pointer;
+      margin-top: 10px;
+    }
+    button:hover {
+      background-color: #45a049;
+    }
+    #result {
+      margin-top: 20px;
+      padding: 10px;
+      border: 1px solid #ddd;
+      border-radius: 4px;
+      background-color: #f9f9f9;
+      white-space: pre-wrap;
+    }
+  </style>
+</head>
+<body>
+  <h1>Test Order Status Update</h1>
+  
+  <div class="form-group">
+    <label for="orderId">Order ID:</label>
+    <input type="text" id="orderId" value="b65a7121-6d18-4c00-8fab-0c450110022f">
+  </div>
+  
+  <div class="form-group">
+    <label for="status">Status:</label>
+    <select id="status">
+      <option value="new">New</option>
+      <option value="processing" selected>Processing</option>
+      <option value="washing">Washing</option>
+      <option value="drying">Drying</option>
+      <option value="folding">Folding</option>
+      <option value="ready">Ready</option>
+      <option value="delivered">Delivered</option>
+      <option value="cancelled">Cancelled</option>
+    </select>
+  </div>
+  
+  <div class="form-group">
+    <button id="directUpdateBtn">Update Status (Direct API)</button>
+  </div>
+  
+  <div id="result">Results will appear here...</div>
+  
+  <script>
+    document.getElementById('directUpdateBtn').addEventListener('click', async () => {
+      const orderId = document.getElementById('orderId').value;
+      const status = document.getElementById('status').value;
+      const resultDiv = document.getElementById('result');
+      
+      resultDiv.innerHTML = 'Sending request...';
+      
+      try {
+        const response = await fetch('/api/orders/direct-status', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({
+            id: orderId,
+            status: status
+          })
+        });
+        
+        const responseText = await response.text();
+        let resultText = `Status: ${response.status}\n\n`;
+        
+        try {
+          const data = JSON.parse(responseText);
+          resultText += JSON.stringify(data, null, 2);
+        } catch (e) {
+          resultText += responseText;
+        }
+        
+        resultDiv.innerHTML = resultText;
+      } catch (error) {
+        resultDiv.innerHTML = `Error: ${error.message}`;
+      }
+    });
+  </script>
+</body>
+</html> 

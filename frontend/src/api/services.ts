@@ -6,7 +6,9 @@ export interface LaundryService {
   name: string;
   description?: string;
   price: number;
-  estimatedTime: number; // dalam jam
+  priceModel: string; // per_kg, per_piece, flat_rate
+  processingTimeHours: number;
+  estimatedTime?: number; // alias for processingTimeHours in the frontend
   category: string;
   isActive: boolean;
   imageUrl?: string;
@@ -43,10 +45,22 @@ export interface ServiceFilters {
 }
 
 export interface ServiceListResponse {
-  items: LaundryService[];
-  total: number;
-  page: number;
-  limit: number;
+  statusCode: number;
+  message: string;
+  timestamp: string;
+  data: {
+    items: LaundryService[];
+    total: number;
+    page: number;
+    limit: number;
+  };
+}
+
+export interface ServiceCategoriesResponse {
+  statusCode: number;
+  message: string;
+  timestamp: string;
+  data: string[];
 }
 
 // Fungsi untuk mendapatkan semua layanan
@@ -220,7 +234,7 @@ export const deleteService = async (id: string): Promise<void> => {
 };
 
 // Fungsi untuk mendapatkan kategori layanan
-export const getServiceCategories = async (): Promise<string[]> => {
+export const getServiceCategories = async (): Promise<ServiceCategoriesResponse> => {
   try {
     // Try to get CSRF token from sessionStorage
     const csrfToken = typeof window !== 'undefined' ? sessionStorage.getItem('csrfToken') : null;

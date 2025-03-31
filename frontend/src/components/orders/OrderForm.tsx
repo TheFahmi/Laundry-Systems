@@ -8,6 +8,7 @@ import {
   InputLabel, FormHelperText, FormControlLabel, Checkbox
 } from '@mui/material';
 import { toast } from 'react-toastify';
+import { createAuthHeaders } from '@/lib/api-utils';
 
 export interface OrderItem {
   id?: string;
@@ -80,36 +81,45 @@ export default function OrderForm({ initialData, onSubmit, onCancel, isLoading }
     const fetchCustomers = async () => {
       setLoadingCustomers(true);
       try {
-        const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
-        console.log('Fetching customers from:', `${apiUrl}/customers?limit=100&page=1`);
+        // Use the Next.js API proxy
+        const apiUrl = '/api/customers';
+        console.log('OrderForm: Fetching customers from:', apiUrl);
         
-        const response = await fetch(`${apiUrl}/customers?limit=100&page=1`);
+        const response = await fetch(apiUrl, {
+          headers: createAuthHeaders()
+        });
         
         if (!response.ok) {
           const errorText = await response.text();
-          console.error('Failed to fetch customers:', response.status, response.statusText, errorText);
+          console.error('OrderForm: Failed to fetch customers:', response.status, response.statusText, errorText);
           throw new Error(`Failed to fetch customers: ${response.status} ${response.statusText}`);
         }
         
-        const data = await response.json();
-        console.log('Customers response data:', data);
+        const responseData = await response.json();
+        console.log('OrderForm: Customers response data:', responseData);
 
-        // Handle different response formats
-        if (data.data && Array.isArray(data.data)) {
-          setCustomers(data.data);
-          console.log(`Loaded ${data.data.length} customers from data property`);
-        } else if (data.items && Array.isArray(data.items)) {
-          setCustomers(data.items);
-          console.log(`Loaded ${data.items.length} customers from items property`);
-        } else if (Array.isArray(data)) {
-          setCustomers(data);
-          console.log(`Loaded ${data.length} customers from array response`);
+        // Handle nested response format: { data: { items: [] }, statusCode, message }
+        let customersArray = [];
+        if (responseData.data && responseData.data.items && Array.isArray(responseData.data.items)) {
+          customersArray = responseData.data.items;
+          console.log(`OrderForm: Loaded ${customersArray.length} customers from data.items`);
+        } else if (responseData.items && Array.isArray(responseData.items)) {
+          customersArray = responseData.items;
+          console.log(`OrderForm: Loaded ${customersArray.length} customers from items property`);
+        } else if (responseData.data && Array.isArray(responseData.data)) {
+          customersArray = responseData.data;
+          console.log(`OrderForm: Loaded ${customersArray.length} customers from data property`);
+        } else if (Array.isArray(responseData)) {
+          customersArray = responseData;
+          console.log(`OrderForm: Loaded ${customersArray.length} customers from array response`);
         } else {
-          console.error('Unexpected customers response format:', data);
-          setCustomers([]);
+          console.error('OrderForm: Unexpected customers response format:', responseData);
+          customersArray = [];
         }
+        
+        setCustomers(customersArray);
       } catch (error) {
-        console.error('Error fetching customers:', error);
+        console.error('OrderForm: Error fetching customers:', error);
         // Show error in UI
         toast.error('Failed to load customers. Please try again.');
       } finally {
@@ -121,27 +131,40 @@ export default function OrderForm({ initialData, onSubmit, onCancel, isLoading }
     const fetchServices = async () => {
       setLoadingServices(true);
       try {
-        const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
-        const response = await fetch(`${apiUrl}/services?limit=100&page=1`);
+        // Use the Next.js API proxy
+        const apiUrl = '/api/services';
+        const response = await fetch(apiUrl, {
+          headers: createAuthHeaders()
+        });
+        
         if (!response.ok) {
           throw new Error('Failed to fetch services');
         }
-        const data = await response.json();
-        console.log('Services response data:', data);
+        const responseData = await response.json();
+        console.log('OrderForm: Services response data:', responseData);
         
-        // Handle different response formats
-        if (data.data && Array.isArray(data.data)) {
-          setServices(data.data);
-        } else if (data.items && Array.isArray(data.items)) {
-          setServices(data.items);
-        } else if (Array.isArray(data)) {
-          setServices(data);
+        // Handle nested response format: { data: { items: [] }, statusCode, message }
+        let servicesArray = [];
+        if (responseData.data && responseData.data.items && Array.isArray(responseData.data.items)) {
+          servicesArray = responseData.data.items;
+          console.log(`OrderForm: Loaded ${servicesArray.length} services from data.items`);
+        } else if (responseData.items && Array.isArray(responseData.items)) {
+          servicesArray = responseData.items;
+          console.log(`OrderForm: Loaded ${servicesArray.length} services from items property`);
+        } else if (responseData.data && Array.isArray(responseData.data)) {
+          servicesArray = responseData.data;
+          console.log(`OrderForm: Loaded ${servicesArray.length} services from data property`);
+        } else if (Array.isArray(responseData)) {
+          servicesArray = responseData;
+          console.log(`OrderForm: Loaded ${servicesArray.length} services from array response`);
         } else {
-          console.error('Unexpected services response format:', data);
-          setServices([]);
+          console.error('OrderForm: Unexpected services response format:', responseData);
+          servicesArray = [];
         }
+        
+        setServices(servicesArray);
       } catch (error) {
-        console.error('Error fetching services:', error);
+        console.error('OrderForm: Error fetching services:', error);
       } finally {
         setLoadingServices(false);
       }

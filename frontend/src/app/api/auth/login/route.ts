@@ -1,99 +1,93 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { userService } from '../users';
-import { generateToken } from '../jwt';
 
-// Add base URL 
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
-
-export async function POST(request: NextRequest) {
+/**
+ * POST handler for login requests
+ */
+export async function POST(req: NextRequest) {
+  console.log('[API] Login request received');
+  
   try {
-    console.log('Login API route called');
+    // Get API URL from environment variable with fallback
+    const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
     
-    // Extract the CSRF token from the request headers
-    const csrfToken = request.headers.get('x-csrf-token');
+    // Extract login data from the request
+    const loginData = await req.json();
+    console.log('[API] Login attempt for user:', loginData.username);
     
-    // Get request body
-    const body = await request.json();
-    console.log('Login data:', { username: body.username, password: '***' });
-
-    const { username, password } = body;
-
-    // Basic validation
-    if (!username || !password) {
-      return NextResponse.json(
-        { success: false, message: 'Username dan password diperlukan' },
-        { status: 400 }
-      );
-    }
-
-    try {
-      // Forward the request to the backend using fetch
-      const response = await fetch(`${API_BASE_URL}/auth/login`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          ...(csrfToken && { 'X-CSRF-Token': csrfToken }),
-        },
-        body: JSON.stringify({ username, password }),
-        cache: 'no-store'
-      });
-
-      if (!response.ok) {
-        const errorData = await response.json().catch(() => ({ message: 'Unknown error' }));
-        console.error(`Login failed (${response.status}):`, errorData);
-        
-        return NextResponse.json({ 
-          success: false, 
-          message: errorData.message || 'Login gagal', 
-        }, { status: response.status });
-      }
-
-      // Get response data from backend
-      const data = await response.json();
-      console.log('Login successful via backend');
-      
-      return NextResponse.json(data);
-    } catch (error) {
-      console.error('Error during backend login:', error);
-      
-      // Fallback to local mock authentication if backend is unavailable
-      console.log('Falling back to local authentication');
-      
-      // Check if the user exists and password matches using userService
-      const user = userService.findUser(username, password);
-
-      if (!user) {
-        console.log(`Login failed for username: ${username}`);
-        const availableUsers = userService.getUsers().map(u => u.username);
-        console.log('Available users:', availableUsers);
-        return NextResponse.json(
-          { success: false, message: 'Username atau password salah' },
-          { status: 401 }
-        );
-      }
-
-      console.log(`Login successful for user: ${username} (local fallback)`);
-
-      // Generate JWT token with user information
-      const token = generateToken({
-        userId: user.id,
-        username: user.username,
-        role: user.role
-      });
-
-      // Don't include password in the response
-      const { password: _, ...userWithoutPassword } = user;
-
-      // Return successful response with user data and token
-      return NextResponse.json({
-        user: userWithoutPassword,
-        token,
+    // Create a new request to the backend
+    const loginResponse = await fetch(`${API_URL}/auth/login`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json'
+      },
+      credentials: 'include',
+      body: JSON.stringify(loginData)
+    });
+    
+    // Get the response data
+    const responseData = await loginResponse.json();
+    
+    if (!loginResponse.ok) {
+      console.log('[API] Login failed with status:', loginResponse.status);
+      return NextResponse.json(responseData, {
+        status: loginResponse.status
       });
     }
+    
+    // Create the Next.js response
+    const response = NextResponse.json(responseData, {
+      status: 200
+    });
+    
+    // If login was successful and we have a token, set our own cookie with 14-day expiry
+    if (responseData.token) {
+      // Calculate expiry date - 14 days from now
+      const expiryDate = new Date();
+      expiryDate.setDate(expiryDate.getDate() + 14);
+      
+      console.log('[API] Setting token cookie with 14-day expiry');
+      
+      // Set the token cookie with 14-day expiry
+      response.cookies.set({
+        name: 'token',
+        value: responseData.token,
+        expires: expiryDate,
+        path: '/',
+        httpOnly: false, // Allow JavaScript access
+        sameSite: 'lax'
+      });
+      
+      // Also send a non-HttpOnly copy for js-cookie to access
+      response.cookies.set({
+        name: 'js_token',
+        value: responseData.token,
+        expires: expiryDate,
+        path: '/',
+        httpOnly: false,
+        sameSite: 'lax'
+      });
+      
+      console.log('[API] Token cookies set successfully');
+    } else {
+      console.log('[API] No token in response, unable to set cookies');
+    }
+    
+    // Still forward any cookies from the backend
+    const backendCookies = loginResponse.headers.getSetCookie();
+    if (backendCookies && backendCookies.length) {
+      backendCookies.forEach(cookie => {
+        // Only add cookies that aren't the token we already set
+        if (!cookie.startsWith('token=')) {
+          response.headers.append('Set-Cookie', cookie);
+        }
+      });
+    }
+    
+    return response;
   } catch (error) {
-    console.error('Login error:', error);
+    console.error('[API] Login error:', error);
     return NextResponse.json(
-      { success: false, message: 'Terjadi kesalahan saat login' },
+      { message: 'Login failed. Please try again.' },
       { status: 500 }
     );
   }

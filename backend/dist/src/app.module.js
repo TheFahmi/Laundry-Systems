@@ -16,13 +16,13 @@ const order_module_1 = require("./modules/order/order.module");
 const customer_module_1 = require("./modules/customer/customer.module");
 const service_module_1 = require("./modules/service/service.module");
 const user_module_1 = require("./modules/user/user.module");
-const csrf_middleware_1 = require("./middleware/csrf.middleware");
+const payment_module_1 = require("./modules/payment/payment.module");
+const dashboard_module_1 = require("./modules/dashboard/dashboard.module");
 const validation_middleware_1 = require("./middleware/validation.middleware");
 const auth_module_2 = require("./guards/auth.module");
 const typeorm_naming_strategies_1 = require("typeorm-naming-strategies");
 let AppModule = class AppModule {
     configure(consumer) {
-        consumer.apply(csrf_middleware_1.CsrfMiddleware).forRoutes('*');
         consumer.apply(validation_middleware_1.ValidationMiddleware).forRoutes('auth/*');
     }
 };
@@ -51,6 +51,8 @@ exports.AppModule = AppModule = __decorate([
             customer_module_1.CustomerModule,
             service_module_1.ServiceModule,
             user_module_1.UserModule,
+            payment_module_1.PaymentModule,
+            dashboard_module_1.DashboardModule,
         ],
     })
 ], AppModule);

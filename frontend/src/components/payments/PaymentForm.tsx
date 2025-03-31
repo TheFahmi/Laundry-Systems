@@ -2,12 +2,30 @@
 
 import { useState, useEffect } from 'react';
 import {
-  Box, Paper, Button, CircularProgress, 
-  TextField, Grid, Typography, 
-  MenuItem, Select, FormControl, 
-  InputLabel, FormHelperText,
-  Card, CardContent
-} from '@mui/material';
+  Card, 
+  CardContent,
+  CardHeader,
+  CardTitle,
+  CardDescription,
+  CardFooter
+} from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { Separator } from "@/components/ui/separator";
+import { Label } from "@/components/ui/label";
+import {
+  Input
+} from "@/components/ui/input";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue
+} from "@/components/ui/select";
+import {
+  Textarea
+} from "@/components/ui/textarea";
+import { Loader2 } from 'lucide-react';
 
 export enum PaymentMethod {
   CASH = 'cash',
@@ -53,10 +71,9 @@ export default function PaymentForm({
 }: PaymentFormProps) {
   const [formValues, setFormValues] = useState({
     orderId: orderId,
-    customerId: customerId,
     amount: initialData?.amount || orderAmount,
-    method: initialData?.method || PaymentMethod.CASH,
-    status: initialData?.status || PaymentStatus.PENDING,
+    paymentMethod: initialData?.method || PaymentMethod.CASH,
+    status: initialData?.status || PaymentStatus.COMPLETED,
     notes: initialData?.notes || '',
     transactionId: '',
     referenceNumber: `PAY-${Date.now().toString().substring(0, 10)}`
@@ -65,7 +82,7 @@ export default function PaymentForm({
   const [formErrors, setFormErrors] = useState<Record<string, string>>({});
 
   // Handle input change
-  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
     const { name, value } = e.target;
     setFormValues(prev => ({
       ...prev,
@@ -83,8 +100,7 @@ export default function PaymentForm({
   };
 
   // Handle select change for payment method and status
-  const handleSelectChange = (e: any) => {
-    const { name, value } = e.target;
+  const handleSelectChange = (name: string, value: string) => {
     setFormValues(prev => ({
       ...prev,
       [name]: value
@@ -108,8 +124,8 @@ export default function PaymentForm({
       errors.amount = 'Jumlah pembayaran harus lebih dari 0';
     }
     
-    if (!formValues.method) {
-      errors.method = 'Metode pembayaran wajib dipilih';
+    if (!formValues.paymentMethod) {
+      errors.paymentMethod = 'Metode pembayaran wajib dipilih';
     }
     
     if (!formValues.status) {
@@ -126,173 +142,168 @@ export default function PaymentForm({
     
     if (!validateForm()) return;
     
-    // Prepare data for submission
+    // Prepare data for submission - only include fields needed for payment DTO
     const submitData = {
-      ...formValues,
-      amount: Number(formValues.amount)
+      orderId: formValues.orderId,
+      amount: Number(formValues.amount),
+      paymentMethod: formValues.paymentMethod,
+      status: formValues.status,
+      notes: formValues.notes,
+      transactionId: formValues.transactionId,
+      referenceNumber: formValues.referenceNumber
     };
     
     onSubmit(submitData);
   };
 
   return (
-    <Paper component="form" onSubmit={handleSubmit} sx={{ p: 3 }}>
-      <Grid container spacing={3}>
-        <Grid item xs={12}>
-          <Typography variant="h6" gutterBottom>
-            Informasi Pembayaran
-          </Typography>
-        </Grid>
+    <Card>
+      <form onSubmit={handleSubmit}>
+        <CardHeader>
+          <CardTitle>Informasi Pembayaran</CardTitle>
+        </CardHeader>
         
-        {/* Order Summary */}
-        <Grid item xs={12}>
-          <Card variant="outlined">
-            <CardContent>
-              <Typography variant="subtitle1" color="text.secondary" gutterBottom>
+        <CardContent className="space-y-6">
+          {/* Order Summary */}
+          <Card className="border">
+            <CardContent className="p-4">
+              <h4 className="text-sm font-medium text-muted-foreground mb-2">
                 Detail Pesanan
-              </Typography>
-              <Typography variant="body2">
-                Order ID: {orderId}
-              </Typography>
-              <Typography variant="body2">
-                Total: Rp {orderAmount.toLocaleString()}
-              </Typography>
+              </h4>
+              <div className="space-y-1">
+                <p className="text-sm">
+                  Order ID: {orderId}
+                </p>
+                <p className="text-sm">
+                  Total: Rp {orderAmount.toLocaleString('id-ID')}
+                </p>
+              </div>
             </CardContent>
           </Card>
-        </Grid>
-        
-        {/* Payment Amount */}
-        <Grid item xs={12} sm={6}>
-          <TextField
-            label="Jumlah Pembayaran *"
-            name="amount"
-            type="number"
-            fullWidth
-            value={formValues.amount}
-            onChange={handleInputChange}
-            error={!!formErrors.amount}
-            helperText={formErrors.amount}
-            disabled={isLoading}
-            InputProps={{ inputProps: { min: 1 } }}
-            required
-          />
-        </Grid>
-        
-        {/* Payment Method */}
-        <Grid item xs={12} sm={6}>
-          <FormControl fullWidth error={!!formErrors.method}>
-            <InputLabel id="method-select-label">Metode Pembayaran *</InputLabel>
-            <Select
-              labelId="method-select-label"
-              id="method-select"
-              name="method"
-              value={formValues.method}
-              onChange={handleSelectChange}
-              label="Metode Pembayaran *"
-              disabled={isLoading}
-            >
-              <MenuItem value={PaymentMethod.CASH}>Tunai</MenuItem>
-              <MenuItem value={PaymentMethod.CREDIT_CARD}>Kartu Kredit</MenuItem>
-              <MenuItem value={PaymentMethod.DEBIT_CARD}>Kartu Debit</MenuItem>
-              <MenuItem value={PaymentMethod.TRANSFER}>Transfer Bank</MenuItem>
-              <MenuItem value={PaymentMethod.EWALLET}>E-Wallet</MenuItem>
-              <MenuItem value={PaymentMethod.OTHER}>Lainnya</MenuItem>
-            </Select>
-            {formErrors.method && (
-              <FormHelperText>{formErrors.method}</FormHelperText>
+          
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
+            {/* Payment Amount */}
+            <div className="space-y-2">
+              <Label htmlFor="amount">Jumlah Pembayaran *</Label>
+              <Input
+                id="amount"
+                name="amount"
+                type="number"
+                value={formValues.amount}
+                onChange={handleInputChange}
+                min={1}
+                disabled={isLoading}
+                required
+              />
+              {formErrors.amount && (
+                <p className="text-destructive text-sm">{formErrors.amount}</p>
+              )}
+            </div>
+            
+            {/* Payment Method */}
+            <div className="space-y-2">
+              <Label htmlFor="paymentMethod">Metode Pembayaran *</Label>
+              <Select 
+                name="paymentMethod"
+                value={formValues.paymentMethod} 
+                onValueChange={(value) => handleSelectChange('paymentMethod', value)}
+                disabled={isLoading}
+              >
+                <SelectTrigger id="paymentMethod">
+                  <SelectValue placeholder="Pilih metode pembayaran" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value={PaymentMethod.CASH}>Tunai</SelectItem>
+                  <SelectItem value={PaymentMethod.CREDIT_CARD}>Kartu Kredit</SelectItem>
+                  <SelectItem value={PaymentMethod.DEBIT_CARD}>Kartu Debit</SelectItem>
+                  <SelectItem value={PaymentMethod.TRANSFER}>Transfer Bank</SelectItem>
+                  <SelectItem value={PaymentMethod.EWALLET}>E-Wallet</SelectItem>
+                  <SelectItem value={PaymentMethod.OTHER}>Lainnya</SelectItem>
+                </SelectContent>
+              </Select>
+              {formErrors.paymentMethod && (
+                <p className="text-destructive text-sm">{formErrors.paymentMethod}</p>
+              )}
+            </div>
+            
+            {/* Payment Status */}
+            <div className="space-y-2">
+              <Label htmlFor="status">Status Pembayaran *</Label>
+              <Select 
+                name="status"
+                value={formValues.status} 
+                onValueChange={(value) => handleSelectChange('status', value)}
+                disabled={isLoading}
+              >
+                <SelectTrigger id="status">
+                  <SelectValue placeholder="Pilih status pembayaran" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value={PaymentStatus.PENDING}>Menunggu</SelectItem>
+                  <SelectItem value={PaymentStatus.COMPLETED}>Selesai</SelectItem>
+                  <SelectItem value={PaymentStatus.FAILED}>Gagal</SelectItem>
+                  <SelectItem value={PaymentStatus.REFUNDED}>Dikembalikan</SelectItem>
+                  <SelectItem value={PaymentStatus.CANCELLED}>Dibatalkan</SelectItem>
+                </SelectContent>
+              </Select>
+              {formErrors.status && (
+                <p className="text-destructive text-sm">{formErrors.status}</p>
+              )}
+            </div>
+            
+            {/* Transaction ID (for non-cash payments) */}
+            {formValues.paymentMethod !== PaymentMethod.CASH && (
+              <div className="space-y-2">
+                <Label htmlFor="transactionId">ID Transaksi</Label>
+                <Input
+                  id="transactionId"
+                  name="transactionId"
+                  value={formValues.transactionId}
+                  onChange={handleInputChange}
+                  placeholder="ID transaksi dari payment gateway"
+                  disabled={isLoading}
+                />
+              </div>
             )}
-          </FormControl>
-        </Grid>
+            
+            {/* Notes */}
+            <div className="space-y-2 sm:col-span-2">
+              <Label htmlFor="notes">Catatan</Label>
+              <Textarea
+                id="notes"
+                name="notes"
+                placeholder="Catatan tambahan (opsional)"
+                value={formValues.notes}
+                onChange={handleInputChange}
+                disabled={isLoading}
+                rows={3}
+              />
+            </div>
+          </div>
+        </CardContent>
         
-        {/* Payment Status */}
-        <Grid item xs={12} sm={6}>
-          <FormControl fullWidth error={!!formErrors.status}>
-            <InputLabel id="status-select-label">Status Pembayaran *</InputLabel>
-            <Select
-              labelId="status-select-label"
-              id="status-select"
-              name="status"
-              value={formValues.status}
-              onChange={handleSelectChange}
-              label="Status Pembayaran *"
-              disabled={isLoading}
-            >
-              <MenuItem value={PaymentStatus.PENDING}>Pending</MenuItem>
-              <MenuItem value={PaymentStatus.COMPLETED}>Completed</MenuItem>
-              <MenuItem value={PaymentStatus.FAILED}>Failed</MenuItem>
-              <MenuItem value={PaymentStatus.REFUNDED}>Refunded</MenuItem>
-              <MenuItem value={PaymentStatus.CANCELLED}>Cancelled</MenuItem>
-            </Select>
-            {formErrors.status && (
-              <FormHelperText>{formErrors.status}</FormHelperText>
-            )}
-          </FormControl>
-        </Grid>
-        
-        {/* Transaction ID (for non-cash payments) */}
-        {formValues.method !== PaymentMethod.CASH && (
-          <Grid item xs={12} sm={6}>
-            <TextField
-              label="ID Transaksi"
-              name="transactionId"
-              fullWidth
-              value={formValues.transactionId}
-              onChange={handleInputChange}
-              disabled={isLoading}
-              placeholder="ID transaksi dari payment gateway"
-            />
-          </Grid>
-        )}
-        
-        {/* Reference Number - Required field */}
-        <Grid item xs={12} sm={6}>
-          <TextField
-            label="Nomor Referensi *"
-            name="referenceNumber"
-            fullWidth
-            value={formValues.referenceNumber}
-            onChange={handleInputChange}
+        <CardFooter className="flex justify-between">
+          <Button
+            type="button"
+            variant="outline"
+            onClick={onCancel}
             disabled={isLoading}
-            placeholder="Nomor referensi pembayaran"
-            required
-          />
-        </Grid>
-        
-        {/* Notes */}
-        <Grid item xs={12}>
-          <TextField
-            name="notes"
-            label="Catatan"
-            fullWidth
-            value={formValues.notes}
-            onChange={handleInputChange}
+          >
+            Batal
+          </Button>
+          <Button
+            type="submit"
             disabled={isLoading}
-            multiline
-            rows={3}
-            placeholder="Informasi tambahan tentang pembayaran"
-          />
-        </Grid>
-      </Grid>
-      
-      {/* Buttons */}
-      <Box sx={{ mt: 4, display: 'flex', justifyContent: 'flex-end', gap: 2 }}>
-        <Button
-          variant="outlined"
-          onClick={onCancel}
-          disabled={isLoading}
-        >
-          Batal
-        </Button>
-        <Button
-          type="submit"
-          variant="contained"
-          color="primary"
-          disabled={isLoading}
-          startIcon={isLoading ? <CircularProgress size={20} color="inherit" /> : null}
-        >
-          {initialData?.id ? 'Update Pembayaran' : 'Proses Pembayaran'}
-        </Button>
-      </Box>
-    </Paper>
+          >
+            {isLoading ? (
+              <>
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                Memproses...
+              </>
+            ) : 'Simpan Pembayaran'}
+          </Button>
+        </CardFooter>
+      </form>
+    </Card>
   );
 } 

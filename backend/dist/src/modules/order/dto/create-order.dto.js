@@ -19,23 +19,26 @@ class OrderItemDto {
 }
 exports.OrderItemDto = OrderItemDto;
 __decorate([
-    (0, class_validator_1.IsNumber)(),
-    (0, swagger_1.ApiProperty)({ description: 'Service ID', example: 1 }),
-    __metadata("design:type", Number)
+    (0, class_validator_1.IsUUID)(),
+    (0, swagger_1.ApiProperty)({ description: 'Service ID (UUID)', example: '123e4567-e89b-12d3-a456-426614174000' }),
+    __metadata("design:type", String)
 ], OrderItemDto.prototype, "serviceId", void 0);
 __decorate([
+    (0, class_transformer_1.Transform)(({ value }) => typeof value === 'string' ? parseFloat(value) : value),
     (0, class_validator_1.IsNumber)(),
     (0, swagger_1.ApiProperty)({ description: 'Quantity (for piece-based) or 1 for weight-based items', example: 2 }),
     __metadata("design:type", Number)
 ], OrderItemDto.prototype, "quantity", void 0);
 __decorate([
     (0, class_validator_1.IsOptional)(),
+    (0, class_transformer_1.Transform)(({ value }) => typeof value === 'string' ? parseFloat(value) : value),
     (0, class_validator_1.IsNumber)(),
     (0, swagger_1.ApiProperty)({ description: 'Weight in kg (for weight-based items)', example: 0.5, required: false }),
     __metadata("design:type", Number)
 ], OrderItemDto.prototype, "weight", void 0);
 __decorate([
     (0, class_validator_1.IsOptional)(),
+    (0, class_transformer_1.Transform)(({ value }) => typeof value === 'string' ? parseFloat(value) : value),
     (0, class_validator_1.IsNumber)(),
     (0, swagger_1.ApiProperty)({ description: 'Price per unit', example: 15000, required: false }),
     __metadata("design:type", Number)
@@ -56,11 +59,13 @@ class PaymentInfoDto {
 }
 exports.PaymentInfoDto = PaymentInfoDto;
 __decorate([
+    (0, class_transformer_1.Transform)(({ value }) => typeof value === 'string' ? parseFloat(value) : value),
     (0, class_validator_1.IsNumber)(),
     (0, swagger_1.ApiProperty)({ description: 'Payment amount', example: 100000 }),
     __metadata("design:type", Number)
 ], PaymentInfoDto.prototype, "amount", void 0);
 __decorate([
+    (0, class_transformer_1.Transform)(({ value }) => typeof value === 'string' ? parseFloat(value) : value),
     (0, class_validator_1.IsNumber)(),
     (0, swagger_1.ApiProperty)({ description: 'Change amount', example: 50000 }),
     __metadata("design:type", Number)
@@ -98,18 +103,21 @@ __decorate([
 ], CreateOrderDto.prototype, "specialRequirements", void 0);
 __decorate([
     (0, class_validator_1.IsOptional)(),
+    (0, class_transformer_1.Transform)(({ value }) => typeof value === 'string' ? parseFloat(value) : value),
     (0, class_validator_1.IsNumber)(),
     (0, swagger_1.ApiProperty)({ description: 'Total amount for the order', required: false }),
     __metadata("design:type", Number)
 ], CreateOrderDto.prototype, "totalAmount", void 0);
 __decorate([
     (0, class_validator_1.IsOptional)(),
+    (0, class_transformer_1.Transform)(({ value }) => typeof value === 'string' ? parseFloat(value) : value),
     (0, class_validator_1.IsNumber)(),
     (0, swagger_1.ApiProperty)({ description: 'Total amount for the order (alternative)', required: false }),
     __metadata("design:type", Number)
 ], CreateOrderDto.prototype, "total", void 0);
 __decorate([
     (0, class_validator_1.IsOptional)(),
+    (0, class_transformer_1.Transform)(({ value }) => typeof value === 'string' ? parseFloat(value) : value),
     (0, class_validator_1.IsNumber)(),
     (0, swagger_1.ApiProperty)({ description: 'Total weight of the laundry', required: false }),
     __metadata("design:type", Number)

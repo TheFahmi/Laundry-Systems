@@ -7,7 +7,8 @@ import { OrderModule } from './modules/order/order.module';
 import { CustomerModule } from './modules/customer/customer.module';
 import { ServiceModule } from './modules/service/service.module';
 import { UserModule } from './modules/user/user.module';
-import { CsrfMiddleware } from './middleware/csrf.middleware';
+import { PaymentModule } from './modules/payment/payment.module';
+import { DashboardModule } from './modules/dashboard/dashboard.module';
 import { ValidationMiddleware } from './middleware/validation.middleware';
 import { GlobalAuthModule } from './guards/auth.module';
 import { SnakeNamingStrategy } from 'typeorm-naming-strategies';
@@ -35,13 +36,12 @@ import { SnakeNamingStrategy } from 'typeorm-naming-strategies';
     CustomerModule,
     ServiceModule,
     UserModule,
+    PaymentModule,
+    DashboardModule,
   ],
 })
 export class AppModule implements NestModule {
   configure(consumer: MiddlewareConsumer) {
-    // Apply CSRF middleware to all routes
-    consumer.apply(CsrfMiddleware).forRoutes('*');
-    
     // Apply validation middleware to auth routes
     consumer.apply(ValidationMiddleware).forRoutes('auth/*');
   }

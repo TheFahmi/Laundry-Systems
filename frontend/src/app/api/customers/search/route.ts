@@ -29,7 +29,7 @@ export async function GET(request: NextRequest) {
   
   try {
     // Make request to backend
-    const response = await fetch(`${API_BASE_URL}/customers/search?q=${query}`, {
+    const response = await fetch(`${API_BASE_URL}/customers/search?q=${encodeURIComponent(query)}`, {
       headers: {
         'Authorization': `Bearer ${token}`,
         'Content-Type': 'application/json',
@@ -66,13 +66,21 @@ export async function GET(request: NextRequest) {
     const data = await response.json();
     console.log('[API Route] /api/customers/search: Response received from backend');
     
-    // Return formatted response
-    return NextResponse.json({
+    // Return formatted response with no-cache headers
+    const responseWithHeaders = NextResponse.json({
+      data: data,
       statusCode: 200,
       message: 'Success',
-      timestamp: new Date().toISOString(),
-      data: data
+      timestamp: new Date().toISOString()
     });
+    
+    // Add cache control headers
+    responseWithHeaders.headers.set('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
+    responseWithHeaders.headers.set('Pragma', 'no-cache');
+    responseWithHeaders.headers.set('Expires', '0');
+    responseWithHeaders.headers.set('Surrogate-Control', 'no-store');
+    
+    return responseWithHeaders;
   } catch (error: any) {
     console.error('[API Route] /api/customers/search: Exception occurred:', error.message);
     return NextResponse.json({ 

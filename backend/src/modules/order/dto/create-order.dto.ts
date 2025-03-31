@@ -1,24 +1,27 @@
 import { IsString, IsUUID, IsOptional, IsNumber, IsEnum, IsArray, ValidateNested, IsDate, IsBoolean } from 'class-validator';
 import { ApiProperty } from '@nestjs/swagger';
-import { Type } from 'class-transformer';
+import { Type, Transform } from 'class-transformer';
 import { OrderStatus } from '../entities/order.entity';
 import { PaymentMethod } from '../../payment/entities/payment.entity';
 
 export class OrderItemDto {
-  @IsNumber()
-  @ApiProperty({ description: 'Service ID', example: 1 })
-  serviceId: number;
+  @IsUUID()
+  @ApiProperty({ description: 'Service ID (UUID)', example: '123e4567-e89b-12d3-a456-426614174000' })
+  serviceId: string;
 
+  @Transform(({ value }) => typeof value === 'string' ? parseFloat(value) : value)
   @IsNumber()
   @ApiProperty({ description: 'Quantity (for piece-based) or 1 for weight-based items', example: 2 })
   quantity: number;
   
   @IsOptional()
+  @Transform(({ value }) => typeof value === 'string' ? parseFloat(value) : value)
   @IsNumber()
   @ApiProperty({ description: 'Weight in kg (for weight-based items)', example: 0.5, required: false })
   weight?: number;
 
   @IsOptional()
+  @Transform(({ value }) => typeof value === 'string' ? parseFloat(value) : value)
   @IsNumber()
   @ApiProperty({ description: 'Price per unit', example: 15000, required: false })
   price?: number;
@@ -35,10 +38,12 @@ export class OrderItemDto {
 }
 
 export class PaymentInfoDto {
+  @Transform(({ value }) => typeof value === 'string' ? parseFloat(value) : value)
   @IsNumber()
   @ApiProperty({ description: 'Payment amount', example: 100000 })
   amount: number;
 
+  @Transform(({ value }) => typeof value === 'string' ? parseFloat(value) : value)
   @IsNumber()
   @ApiProperty({ description: 'Change amount', example: 50000 })
   change: number;
@@ -69,16 +74,19 @@ export class CreateOrderDto {
   specialRequirements?: string;
 
   @IsOptional()
+  @Transform(({ value }) => typeof value === 'string' ? parseFloat(value) : value)
   @IsNumber()
   @ApiProperty({ description: 'Total amount for the order', required: false })
   totalAmount?: number;
 
   @IsOptional()
+  @Transform(({ value }) => typeof value === 'string' ? parseFloat(value) : value)
   @IsNumber()
   @ApiProperty({ description: 'Total amount for the order (alternative)', required: false })
   total?: number;
 
   @IsOptional()
+  @Transform(({ value }) => typeof value === 'string' ? parseFloat(value) : value)
   @IsNumber()
   @ApiProperty({ description: 'Total weight of the laundry', required: false })
   totalWeight?: number;

@@ -1,164 +1,125 @@
 'use client';
 
-import { useState, useEffect } from 'react';
-import { useRouter } from 'next/navigation';
+import React, { useState, useEffect } from 'react';
+import { useParams, useRouter } from 'next/navigation';
+import {
+  Box, Typography, Paper, Button, CircularProgress, Alert,
+  Grid, Divider, Breadcrumbs
+} from '@mui/material';
+import Link from 'next/link';
+import ArrowBackIcon from '@mui/icons-material/ArrowBack';
+import PaymentFlow from '@/components/payments/PaymentFlow';
+import { createAuthHeaders } from '@/lib/api-utils';
 import { toast } from 'react-toastify';
-import PaymentForm, { PaymentMethod, PaymentStatus } from '@/components/payments/PaymentForm';
-import PaymentConfirmation from '@/components/payments/PaymentConfirmation';
-import { Box, CircularProgress, Typography, Button } from '@mui/material';
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
+import { Table, TableBody, TableCell, TableRow } from "@/components/ui/table";
 
-interface OrderItem {
-  serviceId: string;
-  name: string;
-  quantity: number;
-  price: number;
-}
-
-interface Order {
-  id: string;
-  customerId: string;
-  customerName?: string;
-  items: OrderItem[];
-  total?: number;
-  status: string;
-  created_at: string;
-}
-
-interface Payment {
-  id: string;
-  orderId: string;
-  customerId: string;
-  amount: number;
-  method: PaymentMethod;
-  status: PaymentStatus;
-  notes?: string;
-  transactionId?: string;
-  created_at: string;
-  updated_at: string;
-}
-
-export default function OrderPaymentPage({ params }: { params: { id: string } }) {
+export default function OrderPaymentPage() {
+  const params = useParams();
   const router = useRouter();
-  const [isLoading, setIsLoading] = useState(false);
-  const [isProcessing, setIsProcessing] = useState(false);
-  const [order, setOrder] = useState<Order | null>(null);
-  const [existingPayments, setExistingPayments] = useState<Payment[]>([]);
+  const orderId = params.id as string;
+  
+  const [loading, setLoading] = useState(true);
+  const [order, setOrder] = useState<any>(null);
   const [customer, setCustomer] = useState<any>(null);
-  const [processedPayment, setProcessedPayment] = useState<Payment | null>(null);
+  const [existingPayments, setExistingPayments] = useState<any[]>([]);
   const [error, setError] = useState<string | null>(null);
+  const [paymentComplete, setPaymentComplete] = useState(false);
+
+  // Generate random cache buster
+  const generateCacheBuster = () => {
+    return `_cb=${Date.now()}`;
+  };
 
   useEffect(() => {
-    const fetchOrderAndPayments = async () => {
-      setIsLoading(true);
+    const fetchOrderDetails = async () => {
+      setLoading(true);
       setError(null);
       
       try {
-        const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
+        const cacheBuster = generateCacheBuster();
+        const headers = createAuthHeaders();
         
         // Fetch order details
-        const orderResponse = await fetch(`${apiUrl}/orders/${params.id}`);
+        const orderResponse = await fetch(`/api/orders/${orderId}?${cacheBuster}`, {
+          headers: {
+            ...headers,
+            'Cache-Control': 'no-cache, no-store, must-revalidate',
+            'Pragma': 'no-cache',
+            'Expires': '0'
+          },
+          cache: 'no-store'
+        });
+
         if (!orderResponse.ok) {
-          throw new Error('Failed to fetch order');
+          const errorData = await orderResponse.json().catch(() => ({ message: 'Unknown error' }));
+          throw new Error(errorData.message || 'Failed to fetch order details');
         }
+
         const orderData = await orderResponse.json();
-        setOrder(orderData);
         
-        // Fetch customer details
-        if (orderData.customerId) {
-          const customerResponse = await fetch(`${apiUrl}/customers/${orderData.customerId}`);
-          if (customerResponse.ok) {
-            const customerData = await customerResponse.json();
-            setCustomer(customerData);
-            
-            // Add customer name to order data
-            orderData.customerName = customerData.name;
-          }
+        if (!orderData || !orderData.data) {
+          throw new Error('Received invalid order data format');
         }
         
-        // Fetch existing payments for this order
-        const paymentsResponse = await fetch(`${apiUrl}/payments/order/${params.id}`);
+        setOrder(orderData.data);
+        setCustomer(orderData.data.customer);
+        
+        // Fetch payments for this order
+        const paymentsResponse = await fetch(`/api/payments/order/${orderId}?${cacheBuster}`, {
+          headers: {
+            ...headers,
+            'Cache-Control': 'no-cache, no-store, must-revalidate'
+          },
+          cache: 'no-store'
+        });
+
         if (paymentsResponse.ok) {
           const paymentsData = await paymentsResponse.json();
+          console.log('Payments data:', paymentsData);
           
-          // Convert API response to ensure enum types are correct
-          const typedPayments = paymentsData.map((payment: any) => ({
-            ...payment,
-            method: payment.method as PaymentMethod,
-            status: payment.status as PaymentStatus
-          }));
-          
-          setExistingPayments(typedPayments);
-          
-          // If there are completed payments, show the most recent one
-          const completedPayments = typedPayments.filter((p: Payment) => p.status === PaymentStatus.COMPLETED);
-          if (completedPayments.length > 0) {
-            setProcessedPayment(completedPayments[completedPayments.length - 1]);
+          // Extract payments from response data structure
+          let payments = [];
+          if (paymentsData.data?.data) {
+            payments = paymentsData.data.data;
+          } else if (paymentsData.data) {
+            payments = paymentsData.data;
+          } else if (paymentsData.items) {
+            payments = paymentsData.items;
           }
+          
+          setExistingPayments(payments);
         }
-      } catch (error: any) {
-        console.error('Error fetching data:', error);
-        setError(error.message || 'Error fetching order details');
+      } catch (err: any) {
+        console.error('Error fetching data:', err);
+        setError(err.message || 'An error occurred while loading order details');
       } finally {
-        setIsLoading(false);
+        setLoading(false);
       }
     };
-    
-    fetchOrderAndPayments();
-  }, [params.id]);
 
-  const calculateOrderTotal = (items: OrderItem[]) => {
-    return items.reduce((total, item) => total + (item.price * item.quantity), 0);
-  };
+    fetchOrderDetails();
+  }, [orderId]);
 
-  const handleSubmit = async (formData: any) => {
-    setIsProcessing(true);
-    try {
-      const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
-      const response = await fetch(`${apiUrl}/payments`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          ...formData,
-          orderId: params.id,
-          customerId: order?.customerId,
-        }),
-      });
-
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.message || 'Failed to process payment');
-      }
-
-      const data = await response.json();
-      toast.success('Payment processed successfully');
-      
-      // Ensure correct enum types
-      setProcessedPayment({
-        ...data,
-        method: data.method as PaymentMethod,
-        status: data.status as PaymentStatus
-      });
-    } catch (error: any) {
-      console.error('Error processing payment:', error);
-      toast.error(error.message || 'Failed to process payment');
-    } finally {
-      setIsProcessing(false);
-    }
-  };
-
-  const handleCancel = () => {
+  const handleBack = () => {
     router.back();
   };
 
-  const handleBackToForm = () => {
-    setProcessedPayment(null);
+  const handlePaymentComplete = (payment: any) => {
+    console.log('Payment completed:', payment);
+    setPaymentComplete(true);
+    toast.success('Pembayaran berhasil diproses!');
+    
+    // Refresh the payments list
+    setTimeout(() => {
+      router.push(`/orders/${orderId}`);
+    }, 3000);
   };
 
-  if (isLoading) {
+  if (loading) {
     return (
-      <Box display="flex" justifyContent="center" alignItems="center" minHeight="50vh">
+      <Box sx={{ display: 'flex', justifyContent: 'center', mt: 4 }}>
         <CircularProgress />
       </Box>
     );
@@ -166,12 +127,14 @@ export default function OrderPaymentPage({ params }: { params: { id: string } })
 
   if (error) {
     return (
-      <Box textAlign="center" p={4}>
-        <Typography color="error" variant="h6" gutterBottom>
-          {error}
-        </Typography>
-        <Button variant="contained" onClick={() => router.push('/orders')}>
-          Back to Orders
+      <Box sx={{ mt: 2 }}>
+        <Alert severity="error">{error}</Alert>
+        <Button
+          startIcon={<ArrowBackIcon />}
+          onClick={handleBack}
+          sx={{ mt: 2 }}
+        >
+          Kembali
         </Button>
       </Box>
     );
@@ -179,67 +142,120 @@ export default function OrderPaymentPage({ params }: { params: { id: string } })
 
   if (!order) {
     return (
-      <Box textAlign="center" p={4}>
-        <Typography variant="h6" gutterBottom>
-          Order not found
-        </Typography>
-        <Button variant="contained" onClick={() => router.push('/orders')}>
-          Back to Orders
+      <Box sx={{ mt: 2 }}>
+        <Alert severity="warning">Pesanan tidak ditemukan</Alert>
+        <Button
+          startIcon={<ArrowBackIcon />}
+          onClick={handleBack}
+          sx={{ mt: 2 }}
+        >
+          Kembali
         </Button>
       </Box>
     );
   }
 
-  // Calculate total if not provided
-  const orderTotal = order.total || calculateOrderTotal(order.items);
+  // Calculate order total
+  const orderTotal = Number(order.totalAmount) || 
+    order.items?.reduce((total: number, item: any) => total + (Number(item.subtotal) || 0), 0) || 0;
 
-  if (processedPayment) {
-    return (
-      <Box className="container mx-auto p-4">
-        <Typography variant="h4" gutterBottom>
-          Payment Receipt
-        </Typography>
-        
-        <PaymentConfirmation 
-          payment={processedPayment}
-          orderDetails={{
-            orderNumber: order.id.substring(0, 8).toUpperCase(),
-            customerName: customer?.name,
-            total: orderTotal
-          }}
-        />
-        
-        <Box textAlign="center" mt={4}>
-          <Button variant="outlined" onClick={handleBackToForm}>
-            Process Another Payment
-          </Button>
-        </Box>
-      </Box>
-    );
-  }
+  // Get order status badge variant
+  const getStatusVariant = (status: string) => {
+    const statusMap: Record<string, "default" | "destructive" | "outline" | "secondary" | "success" | "warning"> = {
+      'new': 'default',
+      'processing': 'secondary',
+      'ready': 'secondary',
+      'completed': 'success',
+      'cancelled': 'destructive',
+      'pending': 'warning',
+      'washing': 'secondary',
+      'drying': 'secondary',
+      'folding': 'secondary',
+      'delivered': 'success'
+    };
+    return statusMap[status?.toLowerCase()] || 'default';
+  };
 
   return (
-    <Box className="container mx-auto p-4">
-      <Typography variant="h4" gutterBottom>
-        Process Payment
-      </Typography>
-      
-      {existingPayments.length > 0 && (
-        <Box mb={4}>
-          <Typography variant="subtitle1" gutterBottom>
-            This order has {existingPayments.length} existing payment(s)
-          </Typography>
-        </Box>
-      )}
-      
-      <PaymentForm 
-        orderId={params.id}
-        orderAmount={orderTotal}
-        customerId={order.customerId}
-        onSubmit={handleSubmit} 
-        onCancel={handleCancel} 
-        isLoading={isProcessing}
+    <Box>
+      {/* Breadcrumbs */}
+      <Breadcrumbs sx={{ mb: 2 }}>
+        <Link href="/orders" passHref>
+          <Typography color="inherit">Pesanan</Typography>
+        </Link>
+        <Link href={`/orders/${orderId}`} passHref>
+          <Typography color="inherit">Detail Pesanan #{order?.orderNumber || orderId}</Typography>
+        </Link>
+        <Typography color="text.primary">Pembayaran</Typography>
+      </Breadcrumbs>
+
+      <Box sx={{ mb: 4, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+        <Typography variant="h4">
+          Proses Pembayaran
+        </Typography>
+        <Button
+          startIcon={<ArrowBackIcon />}
+          onClick={handleBack}
+          variant="outlined"
+        >
+          Kembali ke Detail Pesanan
+        </Button>
+      </Box>
+
+      {/* Order Summary - Shadcn UI Version */}
+      <Card className="mb-6">
+        <CardHeader className="pb-2">
+          <CardTitle className="text-lg">Ringkasan Pesanan</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <Table>
+            <TableBody>
+              <TableRow>
+                <TableCell className="font-medium">ID Pesanan</TableCell>
+                <TableCell>{order.orderNumber || order.id}</TableCell>
+                <TableCell className="font-medium">Pelanggan</TableCell>
+                <TableCell>{customer?.name}</TableCell>
+              </TableRow>
+              <TableRow>
+                <TableCell className="font-medium">Status</TableCell>
+                <TableCell>
+                  <Badge variant={getStatusVariant(order.status)}>
+                    {order.status}
+                  </Badge>
+                </TableCell>
+                <TableCell className="font-medium">Telepon</TableCell>
+                <TableCell>{customer?.phone || '-'}</TableCell>
+              </TableRow>
+              <TableRow>
+                <TableCell className="font-medium">Total Pesanan</TableCell>
+                <TableCell className="font-semibold">
+                  Rp {new Intl.NumberFormat('id-ID').format(orderTotal)}
+                </TableCell>
+                <TableCell className="font-medium">Email</TableCell>
+                <TableCell>{customer?.email || '-'}</TableCell>
+              </TableRow>
+            </TableBody>
+          </Table>
+        </CardContent>
+      </Card>
+
+      {/* Payment Flow */}
+      <PaymentFlow
+        orderId={order.id}
+        orderNumber={order.id}
+        orderTotal={orderTotal}
+        customerName={customer?.name || 'Pelanggan'}
+        onComplete={handlePaymentComplete}
+        onCancel={handleBack}
+        existingPayments={existingPayments}
       />
+
+      {/* Success message when payment is completed */}
+      {paymentComplete && (
+        <Alert severity="success" sx={{ mt: 3 }}>
+          Pembayaran berhasil diproses! Mengalihkan kembali ke halaman pesanan...
+        </Alert>
+      )}
     </Box>
   );
 } 

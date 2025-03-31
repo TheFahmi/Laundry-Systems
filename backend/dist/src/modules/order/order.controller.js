@@ -31,6 +31,9 @@ let OrderController = class OrderController {
     async getCreateForm() {
         return { message: 'Order creation form data' };
     }
+    findByOrderNumber(orderNumber) {
+        return this.orderService.findByOrderNumber(orderNumber);
+    }
     findAll(page, limit, status) {
         return this.orderService.findAll({ page, limit, status });
     }
@@ -67,6 +70,18 @@ __decorate([
     __metadata("design:paramtypes", []),
     __metadata("design:returntype", Promise)
 ], OrderController.prototype, "getCreateForm", null);
+__decorate([
+    (0, common_1.Get)('by-number/:orderNumber'),
+    (0, swagger_1.ApiOperation)({ summary: 'Get an order by order number' }),
+    (0, swagger_1.ApiResponse)({ status: 200, description: 'Return the order.', type: order_entity_1.Order }),
+    (0, swagger_1.ApiResponse)({ status: 404, description: 'Order not found.' }),
+    (0, swagger_1.ApiParam)({ name: 'orderNumber', description: 'Order Number (e.g. ORD-000001)' }),
+    (0, common_1.UseGuards)(jwt_auth_guard_1.JwtAuthGuard),
+    __param(0, (0, common_1.Param)('orderNumber')),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [String]),
+    __metadata("design:returntype", void 0)
+], OrderController.prototype, "findByOrderNumber", null);
 __decorate([
     (0, common_1.Get)(),
     (0, swagger_1.ApiOperation)({ summary: 'Get all orders' }),

@@ -4,13 +4,13 @@ import React from 'react';
 import {
   Box,
   Typography,
-  Card,
-  CardContent,
+  Card as MuiCard,
+  CardContent as MuiCardContent,
   Paper,
   Grid,
   Divider,
   Chip,
-  Button,
+  Button as MuiButton,
   Stack,
   Stepper,
   Step,
@@ -33,6 +33,19 @@ import {
   Phone as PhoneIcon
 } from '@mui/icons-material';
 import Link from 'next/link';
+import { 
+  Card,
+  CardContent
+} from "@/components/ui/card";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableFooter,
+  TableHead,
+  TableHeader,
+  TableRow
+} from "@/components/ui/table";
 
 // Data dummy status pesanan
 const OrderStatus = {
@@ -209,20 +222,20 @@ export default function OrderDetailPage() {
             </Box>
             
             <Stack direction="row" spacing={1}>
-              <Button 
+              <MuiButton 
                 startIcon={<PrintIcon />} 
                 variant="outlined" 
                 size="small"
               >
                 Cetak
-              </Button>
-              <Button 
+              </MuiButton>
+              <MuiButton 
                 startIcon={<EditIcon />} 
                 variant="outlined" 
                 size="small"
               >
                 Edit
-              </Button>
+              </MuiButton>
             </Stack>
           </Box>
         </Box>
@@ -239,83 +252,79 @@ export default function OrderDetailPage() {
         
         <Grid container spacing={3}>
           <Grid item xs={12} md={8}>
-            <Paper sx={{ p: 2, mb: 3 }}>
-              <Typography variant="h6" gutterBottom>
-                Detail Item
-              </Typography>
-              <Box sx={{ overflowX: 'auto' }}>
-                <List dense>
-                  {order.items.map((item, index) => (
-                    <React.Fragment key={item.id}>
-                      {index > 0 && <Divider component="li" />}
-                      <ListItem
-                        secondaryAction={
-                          <Typography variant="body2">
-                            Rp {item.total.toLocaleString()}
-                          </Typography>
-                        }
-                      >
-                        <ListItemText
-                          primary={item.name}
-                          secondary={`${item.quantity} ${item.name.includes('Sepatu') || item.name.includes('Selimut') ? 'pcs' : 'kg'} × Rp ${item.pricePerUnit.toLocaleString()}`}
-                        />
-                      </ListItem>
-                    </React.Fragment>
-                  ))}
-                  <Divider sx={{ my: 2 }} />
-                  <ListItem
-                    secondaryAction={
-                      <Typography variant="body2">
-                        Rp {order.subtotal.toLocaleString()}
-                      </Typography>
-                    }
-                  >
-                    <ListItemText primary="Subtotal" />
-                  </ListItem>
-                  <ListItem
-                    secondaryAction={
-                      <Typography variant="body2">
-                        Rp {order.deliveryFee.toLocaleString()}
-                      </Typography>
-                    }
-                  >
-                    <ListItemText primary="Biaya Pengiriman" />
-                  </ListItem>
-                  {order.discount > 0 && (
-                    <ListItem
-                      secondaryAction={
-                        <Typography variant="body2" color="error">
-                          -Rp {order.discount.toLocaleString()}
-                        </Typography>
-                      }
-                    >
-                      <ListItemText primary="Diskon" />
-                    </ListItem>
-                  )}
-                  <ListItem
-                    secondaryAction={
-                      <Typography variant="body2">
-                        Rp {order.tax.toLocaleString()}
-                      </Typography>
-                    }
-                  >
-                    <ListItemText primary="Pajak (10%)" />
-                  </ListItem>
-                  <Divider sx={{ my: 1 }} />
-                  <ListItem
-                    secondaryAction={
-                      <Typography variant="subtitle1" fontWeight="bold">
-                        Rp {order.total.toLocaleString()}
-                      </Typography>
-                    }
-                  >
-                    <ListItemText 
-                      primary={<Typography variant="subtitle1" fontWeight="bold">Total</Typography>} 
-                    />
-                  </ListItem>
-                </List>
-              </Box>
-            </Paper>
+            <Card className="mb-4">
+              <CardContent className="p-6">
+                <h2 className="text-lg font-semibold mb-4">
+                  Detail Item
+                </h2>
+                <div className="overflow-x-auto">
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead>Item</TableHead>
+                        <TableHead className="text-right">Jumlah</TableHead>
+                        <TableHead className="text-right">Harga</TableHead>
+                        <TableHead className="text-right">Total</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {order.items.map((item) => (
+                        <TableRow key={item.id}>
+                          <TableCell>{item.name}</TableCell>
+                          <TableCell className="text-right">
+                            {item.quantity} {item.name.toLowerCase().includes('kg') ? 'kg' : 'pcs'}
+                          </TableCell>
+                          <TableCell className="text-right">
+                            Rp {item.pricePerUnit.toLocaleString('id-ID')}
+                          </TableCell>
+                          <TableCell className="text-right">
+                            Rp {item.total.toLocaleString('id-ID')}
+                          </TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                    <TableFooter>
+                      <TableRow>
+                        <TableCell colSpan={3} className="text-right font-medium">Subtotal</TableCell>
+                        <TableCell className="text-right font-medium">
+                          Rp {order.subtotal.toLocaleString('id-ID')}
+                        </TableCell>
+                      </TableRow>
+                      {order.deliveryFee > 0 && (
+                        <TableRow>
+                          <TableCell colSpan={3} className="text-right">Biaya Pengiriman</TableCell>
+                          <TableCell className="text-right">
+                            Rp {order.deliveryFee.toLocaleString('id-ID')}
+                          </TableCell>
+                        </TableRow>
+                      )}
+                      {order.discount > 0 && (
+                        <TableRow>
+                          <TableCell colSpan={3} className="text-right">Diskon</TableCell>
+                          <TableCell className="text-right text-green-600">
+                            -Rp {order.discount.toLocaleString('id-ID')}
+                          </TableCell>
+                        </TableRow>
+                      )}
+                      {order.tax > 0 && (
+                        <TableRow>
+                          <TableCell colSpan={3} className="text-right">Pajak</TableCell>
+                          <TableCell className="text-right">
+                            Rp {order.tax.toLocaleString('id-ID')}
+                          </TableCell>
+                        </TableRow>
+                      )}
+                      <TableRow>
+                        <TableCell colSpan={3} className="text-right font-bold text-lg">Total</TableCell>
+                        <TableCell className="text-right font-bold text-lg">
+                          Rp {order.total.toLocaleString('id-ID')}
+                        </TableCell>
+                      </TableRow>
+                    </TableFooter>
+                  </Table>
+                </div>
+              </CardContent>
+            </Card>
             
             <Paper sx={{ p: 2 }}>
               <Typography variant="h6" gutterBottom>
@@ -495,7 +504,7 @@ export default function OrderDetailPage() {
         )}
         
         <Box sx={{ mt: 3, display: 'flex', justifyContent: 'space-between' }}>
-          <Button 
+          <MuiButton 
             variant="outlined" 
             color="primary"
             startIcon={<ArrowBackIcon />}
@@ -503,26 +512,26 @@ export default function OrderDetailPage() {
             href="/orders"
           >
             Kembali ke Daftar
-          </Button>
+          </MuiButton>
           
           {order.status === OrderStatus.READY && (
-            <Button 
+            <MuiButton 
               variant="contained" 
               color="primary"
               startIcon={<ShippingIcon />}
             >
               Tandai Sebagai Terkirim
-            </Button>
+            </MuiButton>
           )}
           
           {order.status !== OrderStatus.CANCELLED && order.status !== OrderStatus.DELIVERED && (
-            <Button 
+            <MuiButton 
               variant="outlined" 
               color="error"
               startIcon={<DeleteIcon />}
             >
               Batalkan Pesanan
-            </Button>
+            </MuiButton>
           )}
         </Box>
       </CardContent>

@@ -14,6 +14,7 @@ import { CompressionInterceptor } from './interceptors/compression.interceptor';
 import { HelmetInterceptor } from './interceptors/helmet.interceptor';
 import { CorsInterceptor } from './interceptors/cors.interceptor';
 import { GlobalAuthGuard } from './guards/global-auth.guard';
+import * as cookieParser from 'cookie-parser';
 
 // Load environment variables
 dotenv.config();
@@ -21,6 +22,9 @@ dotenv.config();
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
   const configService = app.get(ConfigService);
+  
+  // Use cookie-parser middleware globally
+  app.use(cookieParser());
   
   // Setup validasi global
   app.useGlobalPipes(new ValidationPipe({

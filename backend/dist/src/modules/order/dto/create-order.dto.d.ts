@@ -1,7 +1,7 @@
 import { OrderStatus } from '../entities/order.entity';
 import { PaymentMethod } from '../../payment/entities/payment.entity';
 export declare class OrderItemDto {
-    serviceId: number;
+    serviceId: string;
     quantity: number;
     weight?: number;
     price?: number;

@@ -1,14 +1,16 @@
-import React, { useRef } from 'react';
+'use client';
+
+import React, { useRef, useCallback, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import {
-  Box, Typography, Paper, Grid, Button, Divider,
-  Table, TableBody, TableCell, TableContainer, TableHead, TableRow
-} from '@mui/material';
-import PrintIcon from '@mui/icons-material/Print';
-import VisibilityIcon from '@mui/icons-material/Visibility';
-import CheckCircleIcon from '@mui/icons-material/CheckCircle';
 import { format } from 'date-fns';
 import { id } from 'date-fns/locale';
+import { Button } from '@/components/ui/button';
+import { Card, CardContent } from '@/components/ui/card';
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import { Separator } from '@/components/ui/separator';
+import { Switch } from '@/components/ui/switch';
+import { Printer, ExternalLink, CheckCircle2 } from 'lucide-react';
+import { Label } from '@/components/ui/label';
 
 interface Service {
   id: string;
@@ -17,39 +19,65 @@ interface Service {
   priceModel?: 'per_kg' | 'per_piece' | 'flat_rate';
 }
 
+interface OrderItem {
+  serviceId?: string;
+  serviceName: string;
+  quantity: number;
+  price: number;
+  weightBased?: boolean;
+  weight?: number;
+  subtotal: number;
+  service?: Service;
+}
+
 interface OrderConfirmationProps {
-  orderId: string;
-  orderNumber: string;
-  customerName: string;
-  totalAmount: number;
-  items: Array<{
-    serviceName: string;
-    quantity: number;
-    price: number;
-    subtotal?: number;
-    weightBased?: boolean;
-    weight?: number;
-    service?: Service;
-  }>;
-  paymentMethod: string;
-  paymentAmount: number;
-  change: number;
-  createdAt: string;
+  orderData: {
+    customerId: string;
+    customerName: string;
+    items: OrderItem[];
+    notes: string;
+    total: number;
+  };
+  onConfirm: () => void;
+  onBack: () => void;
+  isLoading: boolean;
+  onSkipPayment: (skip: boolean) => void;
+  confirmButtonText?: string;
 }
 
 export default function OrderConfirmation({
-  orderId,
-  orderNumber,
-  customerName,
-  totalAmount,
-  items,
-  paymentMethod,
-  paymentAmount,
-  change,
-  createdAt
+  orderData,
+  onConfirm,
+  onBack,
+  isLoading,
+  onSkipPayment,
+  confirmButtonText
 }: OrderConfirmationProps) {
   const router = useRouter();
-  const printRef = useRef<HTMLDivElement>(null);
+  // Set initial state but don't trigger effects immediately
+  const [skipPayment, setSkipPayment] = React.useState(false);
+  const initialRenderRef = React.useRef(true);
+  // Add ref to track if we're processing a state change
+  const isProcessingRef = React.useRef(false);
+
+  // Only notify parent when skipPayment changes after initial render
+  useEffect(() => {
+    if (initialRenderRef.current) {
+      initialRenderRef.current = false;
+      return;
+    }
+    
+    // Prevent unnecessary updates by adding this check
+    if (!isProcessingRef.current) {
+      isProcessingRef.current = true;
+      // Simply notify parent of the change, but don't trigger automatic transitions
+      onSkipPayment(skipPayment);
+      // Reset processing flag after a short delay to allow state to settle
+      setTimeout(() => {
+        isProcessingRef.current = false;
+      }, 0);
+    }
+  }, [skipPayment, onSkipPayment]);
 
   const formatCurrency = (amount: number) => {
     return new Intl.NumberFormat('id-ID', {
@@ -59,280 +87,129 @@ export default function OrderConfirmation({
     }).format(amount);
   };
 
-  const handlePrint = () => {
-    const content = printRef.current;
-    if (!content) return;
-
-    const printWindow = window.open('', '_blank');
-    if (!printWindow) {
-      alert('Mohon izinkan popup untuk mencetak struk');
-      return;
+  const handleSkipPaymentChange = useCallback((checked: boolean) => {
+    // Only update if the value has actually changed and we're not already processing
+    if (checked !== skipPayment && !isProcessingRef.current) {
+      setSkipPayment(checked);
     }
-
-    // Create print styles and content
-    printWindow.document.write(`
-      <html>
-        <head>
-          <title>Struk Pesanan #${orderNumber}</title>
-          <style>
-            body {
-              font-family: 'Arial', sans-serif;
-              padding: 20px;
-              max-width: 80mm;
-              margin: 0 auto;
-            }
-            .header {
-              text-align: center;
-              margin-bottom: 20px;
-            }
-            .logo {
-              font-size: 18px;
-              font-weight: bold;
-              margin-bottom: 5px;
-            }
-            .details {
-              margin-bottom: 15px;
-            }
-            .details-row {
-              display: flex;
-              justify-content: space-between;
-              margin-bottom: 5px;
-            }
-            table {
-              width: 100%;
-              border-collapse: collapse;
-              margin-bottom: 15px;
-            }
-            th, td {
-              text-align: left;
-              padding: 5px 2px;
-              border-bottom: 1px dashed #ddd;
-            }
-            .amount-row {
-              display: flex;
-              justify-content: space-between;
-              font-weight: bold;
-              margin-top: 10px;
-            }
-            .footer {
-              text-align: center;
-              margin-top: 20px;
-              font-size: 12px;
-            }
-            @media print {
-              body {
-                width: 80mm;
-              }
-            }
-          </style>
-        </head>
-        <body>
-          <div class="header">
-            <div class="logo">LAUNDRY APP</div>
-            <div>Struk Pesanan</div>
-          </div>
-          
-          <div class="details">
-            <div class="details-row">
-              <span>No. Pesanan:</span>
-              <span>${orderNumber}</span>
-            </div>
-            <div class="details-row">
-              <span>Tanggal:</span>
-              <span>${format(new Date(createdAt), 'dd MMM yyyy HH:mm', { locale: id })}</span>
-            </div>
-            <div class="details-row">
-              <span>Pelanggan:</span>
-              <span>${customerName}</span>
-            </div>
-          </div>
-          
-          <table>
-            <thead>
-              <tr>
-                <th>Item</th>
-                <th>Qty</th>
-                <th>Harga</th>
-                <th>Total</th>
-              </tr>
-            </thead>
-            <tbody>
-              ${items.map(item => {
-                // Determine if this is a weight-based item
-                const isWeightBased = 
-                  // First priority: Check by service.priceModel
-                  (item.service?.priceModel === 'per_kg') ||
-                  // Then check by explicit weightBased flag
-                  item.weightBased;
-                
-                const displayQty = isWeightBased ? `${item.weight || 0.5} kg` : item.quantity;
-                const subtotal = item.subtotal || (isWeightBased && item.weight 
-                  ? item.price * item.weight 
-                  : item.price * item.quantity);
-                
-                return `
-                  <tr>
-                    <td>${item.serviceName}</td>
-                    <td>${displayQty}</td>
-                    <td>${formatCurrency(item.price)}</td>
-                    <td>${formatCurrency(subtotal)}</td>
-                  </tr>
-                `;
-              }).join('')}
-            </tbody>
-          </table>
-          
-          <div class="amount-row">
-            <span>TOTAL:</span>
-            <span>Rp ${formatCurrency(totalAmount)}</span>
-          </div>
-          
-          <div class="details">
-            <div class="details-row">
-              <span>Metode Pembayaran:</span>
-              <span>${paymentMethod === 'cash' ? 'Tunai' : 
-                     paymentMethod === 'transfer' ? 'Transfer' : 
-                     paymentMethod === 'qris' ? 'QRIS' : paymentMethod}</span>
-            </div>
-            <div class="details-row">
-              <span>Dibayar:</span>
-              <span>Rp ${formatCurrency(paymentAmount)}</span>
-            </div>
-            ${paymentMethod === 'cash' ? `
-              <div class="details-row">
-                <span>Kembalian:</span>
-                <span>Rp ${formatCurrency(change)}</span>
-              </div>
-            ` : ''}
-          </div>
-          
-          <div class="footer">
-            <p>Terima kasih telah menggunakan jasa laundry kami!</p>
-            <p>Pesanan dapat diambil dengan menunjukkan struk ini.</p>
-          </div>
-        </body>
-      </html>
-    `);
-    
-    printWindow.document.close();
-    printWindow.focus();
-    printWindow.print();
-    printWindow.onafterprint = () => printWindow.close();
-  };
-
-  const viewOrderDetails = () => {
-    // Only navigate when user clicks the button
-    router.push(`/orders/${orderId}`);
-  };
+  }, [skipPayment]);
 
   return (
-    <Box>
-      <Paper sx={{ p: 3, mb: 3, textAlign: 'center' }}>
-        <CheckCircleIcon color="success" sx={{ fontSize: 60, mb: 2 }} />
-        <Typography variant="h5" gutterBottom>
-          Pesanan Berhasil Dibuat!
-        </Typography>
-        <Typography variant="body1" gutterBottom>
-          Pesanan #{orderNumber} telah berhasil dibuat dan pembayaran telah diterima.
-        </Typography>
-        
-        <Box sx={{ mt: 3, display: 'flex', justifyContent: 'center', gap: 2 }}>
-          <Button 
-            variant="outlined" 
-            startIcon={<PrintIcon />}
-            onClick={handlePrint}
-          >
-            Cetak Struk
-          </Button>
-          <Button 
-            variant="contained" 
-            startIcon={<VisibilityIcon />}
-            onClick={viewOrderDetails}
-          >
-            Lihat Detail
-          </Button>
-        </Box>
-      </Paper>
+    <div className="space-y-6">
+      <div className="flex items-center justify-center">
+        <div className="border border-green-200 rounded-full bg-green-50 p-3">
+          <CheckCircle2 className="h-6 w-6 text-green-500" />
+        </div>
+      </div>
       
-      <Paper sx={{ p: 3, mb: 3 }} ref={printRef}>
-        <Typography variant="h6" gutterBottom>
-          Detail Pesanan #{orderNumber}
-        </Typography>
+      <div className="space-y-5">
+        <h3 className="text-lg font-medium">Detail Pesanan</h3>
         
-        <Grid container spacing={2} sx={{ mb: 2 }}>
-          <Grid item xs={12} sm={6}>
-            <Typography variant="body2">
-              <strong>Tanggal:</strong> {format(new Date(createdAt), 'dd MMMM yyyy HH:mm', { locale: id })}
-            </Typography>
-            <Typography variant="body2">
-              <strong>Pelanggan:</strong> {customerName}
-            </Typography>
-          </Grid>
-        </Grid>
+        <div className="grid grid-cols-2 gap-4">
+          <div>
+            <p className="text-sm text-muted-foreground">Pelanggan</p>
+            <p className="font-medium">{orderData.customerName}</p>
+          </div>
+          <div>
+            <p className="text-sm text-muted-foreground">Jumlah Item</p>
+            <p className="font-medium">{orderData.items.length}</p>
+          </div>
+        </div>
         
-        <Divider sx={{ mb: 2 }} />
+        <Separator />
         
-        <TableContainer>
+        <div className="rounded-md border">
           <Table>
-            <TableHead>
+            <TableHeader>
               <TableRow>
-                <TableCell>Layanan</TableCell>
-                <TableCell align="right">Jumlah</TableCell>
-                <TableCell align="right">Harga</TableCell>
-                <TableCell align="right">Subtotal</TableCell>
+                <TableHead>Layanan</TableHead>
+                <TableHead className="text-right">Jumlah/Berat</TableHead>
+                <TableHead className="text-right">Harga</TableHead>
+                <TableHead className="text-right">Subtotal</TableHead>
               </TableRow>
-            </TableHead>
+            </TableHeader>
             <TableBody>
-              {items.map((item, index) => {
-                // Determine if this is a weight-based item
-                const isWeightBased = 
-                  // First priority: Check by service.priceModel
-                  (item.service?.priceModel === 'per_kg') ||
-                  // Then check by explicit weightBased flag
-                  item.weightBased;
-                
-                const displayQty = isWeightBased ? `${item.weight || 0.5} kg` : item.quantity;
-                const subtotal = item.subtotal || (isWeightBased && item.weight 
-                  ? item.price * item.weight 
-                  : item.price * item.quantity);
-                
-                return (
-                  <TableRow key={index}>
-                    <TableCell>{item.serviceName}</TableCell>
-                    <TableCell align="right">{displayQty}</TableCell>
-                    <TableCell align="right">Rp {formatCurrency(item.price)}</TableCell>
-                    <TableCell align="right">Rp {formatCurrency(subtotal)}</TableCell>
-                  </TableRow>
-                );
-              })}
-              <TableRow>
-                <TableCell colSpan={3} align="right" sx={{ fontWeight: 'bold' }}>Total</TableCell>
-                <TableCell align="right" sx={{ fontWeight: 'bold' }}>Rp {formatCurrency(totalAmount)}</TableCell>
-              </TableRow>
+              {orderData.items.map((item, index) => (
+                <TableRow key={index}>
+                  <TableCell>{item.serviceName}</TableCell>
+                  <TableCell className="text-right">
+                    {item.weightBased ? `${item.weight} kg` : `${item.quantity}`}
+                  </TableCell>
+                  <TableCell className="text-right">
+                    Rp {formatCurrency(item.price)}
+                  </TableCell>
+                  <TableCell className="text-right">
+                    Rp {formatCurrency(item.subtotal)}
+                  </TableCell>
+                </TableRow>
+              ))}
             </TableBody>
           </Table>
-        </TableContainer>
+          <div className="bg-muted/50 p-4 flex justify-between items-center">
+            <span className="font-medium">Total</span>
+            <span className="font-medium">Rp {formatCurrency(orderData.total)}</span>
+          </div>
+        </div>
         
-        <Divider sx={{ my: 2 }} />
+        {orderData.notes && (
+          <div>
+            <h4 className="text-sm font-medium mb-1">Catatan</h4>
+            <p className="text-sm text-muted-foreground bg-muted p-3 rounded-md">
+              {orderData.notes}
+            </p>
+          </div>
+        )}
         
-        <Grid container spacing={2}>
-          <Grid item xs={12} sm={6}>
-            <Typography variant="body2">
-              <strong>Metode Pembayaran:</strong> {paymentMethod === 'cash' ? 'Tunai' : 
-                paymentMethod === 'transfer' ? 'Transfer' : 
-                paymentMethod === 'qris' ? 'QRIS' : paymentMethod}
-            </Typography>
-            <Typography variant="body2">
-              <strong>Jumlah Dibayar:</strong> Rp {formatCurrency(paymentAmount)}
-            </Typography>
-            {paymentMethod === 'cash' && (
-              <Typography variant="body2">
-                <strong>Kembalian:</strong> Rp {formatCurrency(change)}
-              </Typography>
-            )}
-          </Grid>
-        </Grid>
-      </Paper>
-    </Box>
+        <div className="flex items-center justify-between space-x-2 rounded-md border p-4">
+          <div className="space-y-0.5">
+            <Label htmlFor="skipPayment">Tunda Pembayaran</Label>
+            <p className="text-sm text-muted-foreground">
+              Aktifkan opsi ini jika pelanggan akan membayar nanti
+            </p>
+          </div>
+          <Switch
+            id="skipPayment"
+            checked={skipPayment}
+            onCheckedChange={handleSkipPaymentChange}
+          />
+        </div>
+      </div>
+      
+      <div className="flex justify-between pt-4">
+        <Button variant="outline" onClick={onBack}>
+          Kembali
+        </Button>
+        <Button 
+          onClick={(e) => {
+            // Prevent any additional state updates during button click
+            e.preventDefault();
+            isProcessingRef.current = true;
+            
+            // Slight delay to ensure we don't get caught in a state update cycle
+            setTimeout(() => {
+              onConfirm();
+              // Reset processing flag after execution
+              setTimeout(() => {
+                isProcessingRef.current = false;
+              }, 100);
+            }, 0);
+          }}
+          disabled={isLoading}
+        >
+          {isLoading ? (
+            <>
+              <div className="mr-2 animate-spin">⟳</div>
+              Memproses...
+            </>
+          ) : confirmButtonText ? (
+            confirmButtonText
+          ) : skipPayment ? (
+            "Buat Pesanan"
+          ) : (
+            "Lanjut ke Pembayaran"
+          )}
+        </Button>
+      </div>
+    </div>
   );
 } 

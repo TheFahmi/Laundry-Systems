@@ -16,10 +16,12 @@ const compression_interceptor_1 = require("./interceptors/compression.intercepto
 const helmet_interceptor_1 = require("./interceptors/helmet.interceptor");
 const cors_interceptor_1 = require("./interceptors/cors.interceptor");
 const global_auth_guard_1 = require("./guards/global-auth.guard");
+const cookieParser = require("cookie-parser");
 dotenv.config();
 async function bootstrap() {
     const app = await core_1.NestFactory.create(app_module_1.AppModule);
     const configService = app.get(config_1.ConfigService);
+    app.use(cookieParser());
     app.useGlobalPipes(new common_1.ValidationPipe({
         whitelist: true,
         transform: true,

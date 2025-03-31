@@ -65,8 +65,8 @@ export default function OrderFlow() {
     // Function to check service API
     const checkServiceAPI = async () => {
       try {
-        const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
-        const response = await fetch(`${apiUrl}/services?limit=1&page=1`);
+        // Use Next.js API proxy instead of direct backend calls
+        const response = await fetch(`/api/services?limit=1&page=1`);
 
         if (!response.ok) {
           const errorData = await response.json();
@@ -101,8 +101,6 @@ export default function OrderFlow() {
     setOrderData(data);
     
     try {
-      const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
-      
       console.log('Original order data to submit:', data);
       
       // Proses item untuk memastikan format data yang benar
@@ -146,8 +144,8 @@ export default function OrderFlow() {
       
       console.log('Processed order payload:', JSON.stringify(payload));
       
-      // Create order in the backend
-      const response = await fetch(`${apiUrl}/orders`, {
+      // Create order in the backend using the Next.js API proxy
+      const response = await fetch(`/api/orders`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -170,12 +168,13 @@ export default function OrderFlow() {
       // Fetch customer details
       if (data.customerId) {
         console.log('Fetching customer details for ID:', data.customerId);
-        const customerResponse = await fetch(`${apiUrl}/customers/${data.customerId}`);
+        const customerResponse = await fetch(`/api/customers/${data.customerId}`);
         
         if (customerResponse.ok) {
           const customerData = await customerResponse.json();
           console.log('Customer data fetched:', customerData);
-          setCustomer(customerData);
+          // Extract customer data from the response if needed
+          setCustomer(customerData.data || customerData);
         } else {
           console.error('Failed to fetch customer details');
           const errorData = await customerResponse.json();
@@ -201,24 +200,21 @@ export default function OrderFlow() {
     setError(null);
     
     try {
-      const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
-      
       // Extract only the necessary fields to avoid validation errors
       const paymentData = {
         orderId: createdOrder.id,
-        customerId: customer.id,
         amount: Number(data.amount || createdOrder.totalAmount || calculateTotal(createdOrder.items || [])),
-        method: data.method,
-        status: data.status,
+        paymentMethod: data.paymentMethod,
+        status: 'completed',
         notes: data.notes || '',
         transactionId: data.transactionId || '',
-        referenceNumber: generateReferenceNumber(createdOrder.id)
+        referenceNumber: data.referenceNumber || generateReferenceNumber(createdOrder.id)
       };
       
       console.log('Payment data to submit:', paymentData);
       
-      // Process payment in the backend
-      const response = await fetch(`${apiUrl}/payments`, {
+      // Process payment in the backend using the Next.js API proxy
+      const response = await fetch(`/api/payments`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -229,7 +225,7 @@ export default function OrderFlow() {
       if (!response.ok) {
         const errorData = await response.json();
         console.error('Payment error response:', errorData);
-        throw new Error(errorData.message || 'Failed to process payment');
+        throw new Error(errorData.message || 'Gagal memproses pembayaran');
       }
       
       const paymentResult = await response.json();

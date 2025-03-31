@@ -36,20 +36,15 @@ export interface CustomerFilters {
 }
 
 export interface CustomerListResponse {
+  data: {
+    items: Customer[];
+    total: number;
+    page: number;
+    limit: number;
+  };
   statusCode: number;
   message: string;
   timestamp: string;
-  data: {
-    data: {
-      items: Customer[];
-      total: number;
-      page: number;
-      limit: number;
-    };
-    statusCode: number;
-    message: string;
-    timestamp: string;
-  };
 }
 
 // Fungsi untuk mendapatkan semua pelanggan

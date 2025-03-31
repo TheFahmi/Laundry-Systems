@@ -1,14 +1,14 @@
 import axios from 'axios';
 import { API_URL } from '@/config';
 
-export type PaymentMethod = 'cash' | 'credit_card' | 'debit_card' | 'transfer' | 'ewallet' | 'other';
-export type PaymentStatus = 'pending' | 'completed' | 'failed' | 'refunded' | 'cancelled';
+export type PaymentMethod = 'cash' | 'credit_card' | 'bank_transfer' | 'ewallet' | 'other';
+export type PaymentStatus = 'pending' | 'completed' | 'failed' | 'cancelled' | 'refunded';
 
 export interface Payment {
   id: string;
   orderId: string;
   customerName?: string;
-  method: PaymentMethod;
+  paymentMethod: PaymentMethod;
   status: PaymentStatus;
   amount: number;
   transactionId?: string;
@@ -19,7 +19,7 @@ export interface Payment {
 
 export interface CreatePaymentDto {
   orderId: string;
-  method: PaymentMethod;
+  paymentMethod: PaymentMethod;
   status: PaymentStatus;
   amount: number;
   transactionId?: string;
@@ -28,7 +28,7 @@ export interface CreatePaymentDto {
 
 export interface UpdatePaymentDto {
   orderId?: string;
-  method?: PaymentMethod;
+  paymentMethod?: PaymentMethod;
   status?: PaymentStatus;
   amount?: number;
   transactionId?: string;
@@ -122,37 +122,6 @@ export const getPaymentById = async (id: string): Promise<Payment> => {
   }
 };
 
-// Fungsi untuk mendapatkan pembayaran berdasarkan ID pesanan
-export const getPaymentsByOrderId = async (orderId: string): Promise<Payment[]> => {
-  try {
-    // Try to get CSRF token from sessionStorage
-    const csrfToken = typeof window !== 'undefined' ? sessionStorage.getItem('csrfToken') : null;
-    
-    if (!csrfToken) {
-      console.warn('[getPaymentsByOrderId] No CSRF token found in session storage');
-    }
-    
-    const response = await fetch(`/api/payments/order/${orderId}`, {
-      method: 'GET',
-      headers: {
-        'Content-Type': 'application/json',
-        ...(csrfToken && { 'X-CSRF-Token': csrfToken }),
-      },
-      credentials: 'include' // Include cookies automatically
-    });
-    
-    if (!response.ok) {
-      const errorText = await response.text();
-      console.error(`[getPaymentsByOrderId] API error (${response.status}):`, errorText);
-      throw new Error(`API request failed: ${errorText}`);
-    }
-    
-    return await response.json();
-  } catch (error) {
-    console.error(`Error fetching payments for order ${orderId}:`, error);
-    throw error;
-  }
-};
 
 // Fungsi untuk membuat pembayaran baru
 export const createPayment = async (data: CreatePaymentDto): Promise<Payment> => {

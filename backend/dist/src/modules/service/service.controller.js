@@ -23,10 +23,23 @@ let ServiceController = class ServiceController {
     constructor(serviceService) {
         this.serviceService = serviceService;
     }
-    async findAll(page, limit) {
+    async findAll(page, limit, search, category, isActive) {
         page = page ? parseInt(page.toString()) : 1;
         limit = limit ? parseInt(limit.toString()) : 10;
-        return this.serviceService.findAll({ page, limit });
+        let isActiveBoolean = undefined;
+        if (isActive !== undefined) {
+            isActiveBoolean = isActive === 'true';
+        }
+        return this.serviceService.findAll({
+            page,
+            limit,
+            search,
+            category,
+            isActive: isActiveBoolean
+        });
+    }
+    async getCategories() {
+        return this.serviceService.getCategories();
     }
     async findOne(id) {
         return this.serviceService.findOne(id);
@@ -48,13 +61,28 @@ __decorate([
     (0, swagger_1.ApiResponse)({ status: 200, description: 'Return all services' }),
     (0, swagger_1.ApiQuery)({ name: 'page', required: false, type: Number }),
     (0, swagger_1.ApiQuery)({ name: 'limit', required: false, type: Number }),
+    (0, swagger_1.ApiQuery)({ name: 'search', required: false, type: String }),
+    (0, swagger_1.ApiQuery)({ name: 'category', required: false, type: String }),
+    (0, swagger_1.ApiQuery)({ name: 'isActive', required: false, type: Boolean }),
     (0, common_1.UseGuards)(jwt_auth_guard_1.JwtAuthGuard),
     __param(0, (0, common_1.Query)('page')),
     __param(1, (0, common_1.Query)('limit')),
+    __param(2, (0, common_1.Query)('search')),
+    __param(3, (0, common_1.Query)('category')),
+    __param(4, (0, common_1.Query)('isActive')),
     __metadata("design:type", Function),
-    __metadata("design:paramtypes", [Number, Number]),
+    __metadata("design:paramtypes", [Number, Number, String, String, String]),
     __metadata("design:returntype", Promise)
 ], ServiceController.prototype, "findAll", null);
+__decorate([
+    (0, common_1.Get)('categories'),
+    (0, swagger_1.ApiOperation)({ summary: 'Get all service categories' }),
+    (0, swagger_1.ApiResponse)({ status: 200, description: 'Return all service categories' }),
+    (0, common_1.UseGuards)(jwt_auth_guard_1.JwtAuthGuard),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", []),
+    __metadata("design:returntype", Promise)
+], ServiceController.prototype, "getCategories", null);
 __decorate([
     (0, common_1.Get)(':id'),
     (0, swagger_1.ApiOperation)({ summary: 'Get a service by ID' }),

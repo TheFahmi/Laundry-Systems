@@ -1,174 +1,167 @@
 'use client';
 
 import { useState } from 'react';
-import {
-  Box, Paper, Button, CircularProgress, 
-  TextField, Grid, Typography
-} from '@mui/material';
+import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardFooter } from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
+import { Form, FormControl, FormDescription, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
+import { Textarea } from "@/components/ui/textarea";
+import { useForm } from "react-hook-form";
+import { zodResolver } from "@hookform/resolvers/zod";
+import * as z from "zod";
+import { Loader2 } from "lucide-react";
+
+// Define the form validation schema
+const formSchema = z.object({
+  name: z.string().min(1, { message: "Nama pelanggan wajib diisi" }),
+  phone: z.string().min(1, { message: "Nomor telepon wajib diisi" }).regex(/^[0-9]{10,15}$/, { message: "Nomor telepon tidak valid" }),
+  email: z.string().email({ message: "Format email tidak valid" }).optional().or(z.literal("")),
+  address: z.string().optional(),
+  notes: z.string().optional(),
+});
+
+export type CustomerFormData = z.infer<typeof formSchema>;
 
 interface CustomerFormProps {
-  initialData?: {
-    name?: string;
-    phone?: string;
-    email?: string;
-    address?: string;
-    notes?: string;
-  };
-  onSubmit: (data: any) => void;
+  initialData?: Partial<CustomerFormData>;
+  onSubmit: (data: CustomerFormData) => void;
   onCancel: () => void;
   isLoading: boolean;
 }
 
 export default function CustomerForm({ initialData, onSubmit, onCancel, isLoading }: CustomerFormProps) {
-  const [formValues, setFormValues] = useState({
-    name: initialData?.name || '',
-    phone: initialData?.phone || '',
-    email: initialData?.email || '',
-    address: initialData?.address || '',
-    notes: initialData?.notes || ''
+  // Initialize the form
+  const form = useForm<CustomerFormData>({
+    resolver: zodResolver(formSchema),
+    defaultValues: {
+      name: initialData?.name || "",
+      phone: initialData?.phone || "",
+      email: initialData?.email || "",
+      address: initialData?.address || "",
+      notes: initialData?.notes || "",
+    },
   });
-  
-  const [formErrors, setFormErrors] = useState<Record<string, string>>({});
 
-  // Handle input change
-  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const { name, value } = e.target;
-    setFormValues(prev => ({
-      ...prev,
-      [name]: value
-    }));
-    
-    // Clear validation error when field is edited
-    if (formErrors[name]) {
-      setFormErrors(prev => {
-        const newErrors = { ...prev };
-        delete newErrors[name];
-        return newErrors;
-      });
-    }
-  };
-
-  // Validate form
-  const validateForm = (): boolean => {
-    const errors: Record<string, string> = {};
-    
-    if (!formValues.name || !formValues.name.trim()) {
-      errors.name = 'Nama pelanggan wajib diisi';
-    }
-    
-    if (!formValues.phone || !formValues.phone.trim()) {
-      errors.phone = 'Nomor telepon wajib diisi';
-    } else if (!/^[0-9]{10,15}$/.test(formValues.phone.trim())) {
-      errors.phone = 'Nomor telepon tidak valid';
-    }
-    
-    if (formValues.email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formValues.email)) {
-      errors.email = 'Format email tidak valid';
-    }
-    
-    setFormErrors(errors);
-    return Object.keys(errors).length === 0;
-  };
-
-  // Handle submit form
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    
-    if (!validateForm()) return;
-    
-    onSubmit(formValues);
+  const handleSubmit = (data: CustomerFormData) => {
+    onSubmit(data);
   };
 
   return (
-    <Paper component="form" onSubmit={handleSubmit} sx={{ p: 3 }}>
-      <Grid container spacing={3}>
-        <Grid item xs={12} sm={6}>
-          <TextField
-            name="name"
-            label="Nama Pelanggan *"
-            fullWidth
-            value={formValues.name}
-            onChange={handleInputChange}
-            error={!!formErrors.name}
-            helperText={formErrors.name}
-            disabled={isLoading}
-            required
-          />
-        </Grid>
-        
-        <Grid item xs={12} sm={6}>
-          <TextField
-            name="phone"
-            label="Nomor Telepon *"
-            fullWidth
-            value={formValues.phone}
-            onChange={handleInputChange}
-            error={!!formErrors.phone}
-            helperText={formErrors.phone}
-            disabled={isLoading}
-            required
-          />
-        </Grid>
-        
-        <Grid item xs={12}>
-          <TextField
-            name="email"
-            label="Email"
-            type="email"
-            fullWidth
-            value={formValues.email}
-            onChange={handleInputChange}
-            error={!!formErrors.email}
-            helperText={formErrors.email}
-            disabled={isLoading}
-          />
-        </Grid>
-        
-        <Grid item xs={12}>
-          <TextField
-            name="address"
-            label="Alamat"
-            fullWidth
-            value={formValues.address}
-            onChange={handleInputChange}
-            disabled={isLoading}
-            multiline
-            rows={2}
-          />
-        </Grid>
-        
-        <Grid item xs={12}>
-          <TextField
-            name="notes"
-            label="Catatan"
-            fullWidth
-            value={formValues.notes}
-            onChange={handleInputChange}
-            disabled={isLoading}
-            multiline
-            rows={3}
-            placeholder="Preferensi pelanggan, catatan khusus, dll."
-          />
-        </Grid>
-      </Grid>
-      
-      <Box sx={{ mt: 4, display: 'flex', justifyContent: 'flex-end', gap: 2 }}>
-        <Button
-          variant="outlined"
-          onClick={onCancel}
-          disabled={isLoading}
-        >
-          Batal
-        </Button>
-        <Button
-          type="submit"
-          variant="contained"
-          disabled={isLoading}
-          startIcon={isLoading ? <CircularProgress size={20} color="inherit" /> : null}
-        >
-          {isLoading ? 'Menyimpan...' : 'Simpan'}
-        </Button>
-      </Box>
-    </Paper>
+    <Card>
+      <Form {...form}>
+        <form onSubmit={form.handleSubmit(handleSubmit)}>
+          <CardContent className="space-y-6 pt-6">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              <FormField
+                control={form.control}
+                name="name"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Nama Pelanggan *</FormLabel>
+                    <FormControl>
+                      <Input placeholder="Masukkan nama pelanggan" {...field} disabled={isLoading} />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              
+              <FormField
+                control={form.control}
+                name="phone"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Nomor Telepon *</FormLabel>
+                    <FormControl>
+                      <Input placeholder="Contoh: 081234567890" {...field} disabled={isLoading} />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+            </div>
+            
+            <FormField
+              control={form.control}
+              name="email"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Email</FormLabel>
+                  <FormControl>
+                    <Input type="email" placeholder="pelanggan@example.com" {...field} disabled={isLoading} />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+            
+            <FormField
+              control={form.control}
+              name="address"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Alamat</FormLabel>
+                  <FormControl>
+                    <Textarea 
+                      placeholder="Alamat lengkap pelanggan" 
+                      {...field} 
+                      disabled={isLoading}
+                      rows={3}
+                    />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+            
+            <FormField
+              control={form.control}
+              name="notes"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Catatan</FormLabel>
+                  <FormControl>
+                    <Textarea
+                      placeholder="Preferensi pelanggan, catatan khusus, dll."
+                      {...field}
+                      disabled={isLoading}
+                      rows={3}
+                    />
+                  </FormControl>
+                  <FormDescription>
+                    Informasi tambahan yang perlu diketahui tentang pelanggan.
+                  </FormDescription>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+          </CardContent>
+          
+          <CardFooter className="flex justify-end gap-2 border-t p-6">
+            <Button
+              type="button"
+              variant="outline"
+              onClick={onCancel}
+              disabled={isLoading}
+            >
+              Batal
+            </Button>
+            <Button
+              type="submit"
+              disabled={isLoading}
+            >
+              {isLoading ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  Menyimpan...
+                </>
+              ) : (
+                'Simpan'
+              )}
+            </Button>
+          </CardFooter>
+        </form>
+      </Form>
+    </Card>
   );
 } 

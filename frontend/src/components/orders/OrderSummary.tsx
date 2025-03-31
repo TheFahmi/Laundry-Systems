@@ -1,5 +1,9 @@
+'use client';
+
 import React from 'react';
-import { Box, Typography, Paper, Divider, Grid } from '@mui/material';
+import { Card, CardContent } from '@/components/ui/card';
+import { Separator } from '@/components/ui/separator';
+import { Table, TableBody, TableCell, TableFooter, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 
 interface Service {
   id: string;
@@ -21,119 +25,97 @@ interface OrderItem {
 }
 
 interface OrderSummaryProps {
-  orderData: {
-    customerId: string;
-    customerName: string;
-    items: OrderItem[];
-    notes?: string;
-    total: number;
-  };
+  customerName: string;
+  items: OrderItem[];
+  total: number;
 }
 
-const OrderSummary: React.FC<OrderSummaryProps> = ({ orderData }) => {
-  // Hitung total berdasarkan item yang sesungguhnya (jangan bergantung pada total dari orderData)
+const OrderSummary: React.FC<OrderSummaryProps> = ({ customerName, items, total }) => {
+  // Calculate total based on actual items
   const calculateTotal = () => {
-    if (!orderData.items || !Array.isArray(orderData.items)) return 0;
+    if (!items || !Array.isArray(items)) return 0;
     
-    return orderData.items.reduce((sum, item) => {
+    return items.reduce((sum, item) => {
       // Use the subtotal directly from each item
       return sum + item.subtotal;
     }, 0);
   };
   
-  // Nilai total yang benar berdasarkan item
+  // Correct total based on items
   const actualTotal = calculateTotal();
   
-  // Log untuk debugging
-  console.log('OrderSummary items:', orderData.items);
-  console.log('Calculated total:', actualTotal);
-  console.log('Original total:', orderData.total);
+  const formatCurrency = (amount: number) => {
+    return new Intl.NumberFormat('id-ID', {
+      style: 'decimal',
+      minimumFractionDigits: 0,
+      maximumFractionDigits: 0
+    }).format(amount);
+  };
   
   return (
-    <Paper sx={{ p: 3 }}>
-      <Typography variant="h6" gutterBottom>
-        Konfirmasi Pesanan
-      </Typography>
+    <div className="space-y-4">
+      <div>
+        <p className="text-sm font-medium text-muted-foreground">Pelanggan</p>
+        <p className="font-medium">{customerName || 'Tidak ada nama pelanggan'}</p>
+      </div>
       
-      <Box sx={{ mb: 3 }}>
-        <Typography variant="subtitle1" gutterBottom>
-          Detail Pelanggan
-        </Typography>
-        <Typography variant="body1">
-          {orderData.customerName || 'Tidak ada nama pelanggan'}
-        </Typography>
-      </Box>
+      <Separator />
       
-      <Divider sx={{ my: 2 }} />
-      
-      <Box sx={{ mb: 3 }}>
-        <Typography variant="subtitle1" gutterBottom>
-          Item Pesanan
-        </Typography>
+      <div>
+        <h4 className="text-sm font-medium mb-2">Item Pesanan</h4>
         
-        {orderData.items.length === 0 ? (
-          <Typography variant="body2" color="text.secondary">
+        {items.length === 0 ? (
+          <p className="text-sm text-muted-foreground">
             Tidak ada item yang ditambahkan
-          </Typography>
+          </p>
         ) : (
-          <Box>
-            {orderData.items.map((item, index) => {
-              // Determine if this is a weight-based item based on service priceModel
-              const isWeightBased = item.service?.priceModel === 'per_kg';
-              
-              return (
-                <Grid container key={index} sx={{ mb: 1 }}>
-                  <Grid item xs={6}>
-                    <Typography variant="body2">
-                      {item.serviceName}
-                    </Typography>
-                  </Grid>
-                  <Grid item xs={3}>
-                    <Typography variant="body2" align="right">
-                      {isWeightBased && item.weight !== undefined
-                        ? `${item.weight} kg × Rp ${item.price.toLocaleString('id-ID')}`
-                        : `${item.quantity} × Rp ${item.price.toLocaleString('id-ID')}`
-                      }
-                    </Typography>
-                  </Grid>
-                  <Grid item xs={3}>
-                    <Typography variant="body2" align="right">
-                      Rp {item.subtotal.toLocaleString('id-ID')}
-                    </Typography>
-                  </Grid>
-                </Grid>
-              );
-            })}
-            
-            <Divider sx={{ my: 1 }} />
-            
-            <Grid container>
-              <Grid item xs={9}>
-                <Typography variant="subtitle2" align="right">
-                  Total:
-                </Typography>
-              </Grid>
-              <Grid item xs={3}>
-                <Typography variant="subtitle2" align="right">
-                  Rp {actualTotal.toLocaleString('id-ID')}
-                </Typography>
-              </Grid>
-            </Grid>
-          </Box>
+          <div className="border rounded-md">
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Layanan</TableHead>
+                  <TableHead className="text-right">Qty/Berat</TableHead>
+                  <TableHead className="text-right">Harga</TableHead>
+                  <TableHead className="text-right">Subtotal</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {items.map((item, index) => {
+                  // Determine if this is a weight-based item
+                  const isWeightBased = item.service?.priceModel === 'per_kg' || item.weightBased;
+                  
+                  return (
+                    <TableRow key={index}>
+                      <TableCell>{item.serviceName}</TableCell>
+                      <TableCell className="text-right">
+                        {isWeightBased && item.weight !== undefined
+                          ? `${item.weight} kg`
+                          : item.quantity
+                        }
+                      </TableCell>
+                      <TableCell className="text-right">
+                        Rp {formatCurrency(item.price)}
+                      </TableCell>
+                      <TableCell className="text-right">
+                        Rp {formatCurrency(item.subtotal)}
+                      </TableCell>
+                    </TableRow>
+                  );
+                })}
+              </TableBody>
+              <TableFooter>
+                <TableRow>
+                  <TableCell colSpan={3} className="text-right font-medium">Total</TableCell>
+                  <TableCell className="text-right font-medium">
+                    Rp {formatCurrency(actualTotal)}
+                  </TableCell>
+                </TableRow>
+              </TableFooter>
+            </Table>
+          </div>
         )}
-      </Box>
-      
-      {orderData.notes && (
-        <Box sx={{ mb: 3 }}>
-          <Typography variant="subtitle1" gutterBottom>
-            Catatan
-          </Typography>
-          <Typography variant="body2">
-            {orderData.notes}
-          </Typography>
-        </Box>
-      )}
-    </Paper>
+      </div>
+    </div>
   );
 };
 

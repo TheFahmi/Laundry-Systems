@@ -1,128 +1,167 @@
-# Sistem Manajemen Laundry
+# Laundry Management System
 
-Aplikasi manajemen laundry fullstack komprehensif dengan backend NestJS, database PostgreSQL, dan frontend Next.js.
+A comprehensive fullstack laundry management application with NestJS backend, PostgreSQL database, and Next.js frontend.
 
-## Ikhtisar Sistem
+## System Overview
 
-Sistem Manajemen Laundry adalah solusi end-to-end untuk bisnis laundry yang dirancang untuk mengotomatisasi dan mengoptimalkan operasi sehari-hari, memantau kinerja bisnis, dan meningkatkan pengalaman pelanggan. Sistem ini terdiri dari panel admin untuk manajemen internal dan portal pelanggan untuk pengalaman pengguna yang lancar.
+The Laundry Management System is an end-to-end solution for laundry businesses designed to automate and optimize daily operations, monitor business performance, and enhance customer experience. The system consists of an admin panel for internal management and a customer portal for a seamless user experience.
 
-## Fitur Utama
+## Key Features
 
-### Panel Admin
-- Dashboard analitik dengan metrik bisnis utama
-- Manajemen pelanggan (daftar, profil, histori)
-- Pengolahan pesanan dan pelacakan status
-- Katalog layanan dan manajemen harga
-- Pengelolaan karyawan dan izin
-- Pengendalian inventaris
-- Pemrosesan pembayaran dan akuntansi
-- Laporan dan analitik
+### Admin Panel
+- **Analytics Dashboard**: Visualization of key business metrics including revenue, order count, and popular services
+- **Customer Management**: Administration of customer information complete with history and preferences
+- **Order Processing**: Order status tracking system with real-time updates
+- **Service Catalog**: Service management with flexible pricing models (per kg, per item, flat rate)
+- **Payment Management**: Multi-stage payment process with localStorage persistence
+- **Reports and Analytics**: Comprehensive business insights with data visualization
+- **Dark/Light Mode**: Dark and light interface mode support with Shadcn UI
 
-### Portal Pelanggan
-- Pendaftaran dan autentikasi
-- Pembuatan dan pelacakan pesanan
-- Notifikasi dan pembaruan status pesanan
-- Manajemen profil
-- Riwayat pesanan dan opsi pesanan ulang
-- Opsi pembayaran terintegrasi
+### Payment System
+- **2-Step Payment Flow**:
+  - Step 1: Confirm customer and order information
+  - Step 2: Process payment with 3 states (input, confirmation, success)
+- **Multiple Payment Methods**: Support for Cash, Bank Transfer, QRIS, and E-Wallet
+- **Data Persistence**: Payment status storage in localStorage to prevent data loss during refresh
+- **Payment Validation**: Input validation for payment method and amount
+- **Payment Confirmation**: Payment summary display for verification before processing
+- **Success Status**: Successful payment confirmation display with transaction details
+- **Print Support**: Option to print payment receipt
 
-## Arsitektur
+### Customer Portal
+- **User Authentication**: Secure login and registration system
+- **Order Management**: Order creation and tracking with intuitive interface
+- **Notifications**: Order status and payment updates
+- **Profile Management**: Customer information and preference updates
+- **Order History**: Access to order history and reordering options
 
-Proyek ini menggunakan arsitektur tiga tingkat:
-
-1. **Backend**: API RESTful yang dibangun dengan NestJS
-2. **Database**: PostgreSQL untuk penyimpanan data persisten
-3. **Frontend**: Aplikasi Next.js dengan Material UI untuk antarmuka yang responsif
-
-## Direktori Proyek
-
-```
-laundry-management-system/
-├── backend/             # API NestJS
-├── frontend/            # Aplikasi Next.js
-└── README.md            # Dokumentasi proyek
-```
-
-## Teknologi yang Digunakan
+## Technologies Used
 
 ### Backend
-- NestJS (Node.js framework)
-- TypeScript
-- PostgreSQL
-- TypeORM
-- JWT untuk autentikasi
-- Swagger untuk dokumentasi API
+- **NestJS**: Node.js framework for backend
+- **TypeScript**: Static typing for safer development
+- **PostgreSQL**: Relational database for data storage
+- **TypeORM**: ORM for database management
+- **JWT Authentication**: Token-based authentication system
+- **Swagger**: Integrated API documentation
 
 ### Frontend
-- Next.js
-- React
-- Material UI
-- Zustand untuk manajemen state
-- Next-Auth untuk autentikasi
-- TanStack Table untuk manajemen tabel
+- **Next.js**: React framework with server-side rendering
+- **React**: UI library for user interfaces
+- **Shadcn UI**: UI components with dark mode support
+- **Tailwind CSS**: CSS framework for responsive styling
+- **React-Toastify**: Toast notifications for user feedback
+- **LocalStorage API**: Client-side data persistence for uninterrupted experience
+- **Chart.js**: Data visualization and charts for dashboard
 
-## Instalasi dan Konfigurasi
+## Installation and Configuration
 
-### Prasyarat
-- Node.js (v16.x atau lebih tinggi)
-- npm atau yarn
-- PostgreSQL (v12 atau lebih tinggi)
+### Prerequisites
+- Node.js (v16.x or higher)
+- npm or yarn
+- PostgreSQL (v12 or higher)
 
 ### Backend Setup
 
 ```bash
-# Navigasi ke direktori backend
+# Navigate to backend directory
 cd backend
 
-# Instal dependensi
+# Install dependencies
 npm install
 
-# Konfigurasi lingkungan
-# Salin file .env.example menjadi .env dan sesuaikan
+# Configure environment
+# Copy .env.example to .env and adjust
 cp .env.example .env
 
-# Buat database PostgreSQL
+# Create PostgreSQL database
 
-# Jalankan migrasi database
+# Run database migrations
 npm run migration:run
 
-# Jalankan server development
+# Run development server
 npm run start:dev
 ```
 
 ### Frontend Setup
 
 ```bash
-# Navigasi ke direktori frontend
+# Navigate to frontend directory
 cd frontend
 
-# Instal dependensi
+# Install dependencies
 npm install
 
-# Konfigurasi lingkungan
-# Salin file .env.example menjadi .env.local dan sesuaikan
+# Configure environment
+# Copy .env.example to .env.local and adjust
 cp .env.example .env.local
 
-# Jalankan server development
+# Run development server
 npm run dev
 ```
 
-## Kontribusi
+## Project Structure
 
-Kontribusi untuk peningkatan sistem sangat diterima. Silakan ikuti langkah-langkah berikut:
+```
+laundry-management-system/
+├── backend/             # NestJS API
+│   ├── src/             # Backend source code
+│   │   ├── modules/     # NestJS modules (customers, orders, payments, etc)
+│   │   ├── migrations/  # Database migrations
+│   │   └── db/          # Database configuration and connection
+├── frontend/            # Next.js Application
+│   ├── src/             # Frontend source code
+│   │   ├── app/         # Next.js application routes
+│   │   │   ├── (admin)/ # Admin panel routes
+│   │   │   └── (customer)/ # Customer portal routes
+│   │   ├── components/  # React components
+│   │   │   ├── payments/ # Payment components
+│   │   │   ├── orders/  # Order components
+│   │   │   └── ui/      # Base UI components
+│   │   ├── lib/         # Utility and helper functions
+│   │   └── api/         # API services and data fetching
+└── README.md            # Project documentation
+```
 
-1. Fork repositori
-2. Buat branch fitur (`git checkout -b feature/AmazingFeature`)
-3. Commit perubahan (`git commit -m 'Add some AmazingFeature'`)
-4. Push ke branch (`git push origin feature/AmazingFeature`)
-5. Buka Pull Request
+## Payment Features
 
-## Lisensi
+Our payment system features:
+
+1. **Intuitive User Flow**:
+   - Clear and easy-to-follow 2-step process
+   - Visual step indicators showing progress
+
+2. **Data Persistence**:
+   - Payment status storage in localStorage
+   - Payment session recovery after browser refresh
+   - Multi-order management without data interference
+
+3. **Responsive Interface**:
+   - Responsive design for all screen sizes
+   - Dark/light theme support
+   - Visual confirmation for user actions
+
+4. **Security and Validation**:
+   - Real-time input validation
+   - Prevention of double submissions
+   - Error handling with clear messages
+
+## Contribution
+
+Contributions to improve the system are welcome. Please follow these steps:
+
+1. Fork the repository
+2. Create a feature branch (`git checkout -b feature/AmazingFeature`)
+3. Commit your changes (`git commit -m 'Add some AmazingFeature'`)
+4. Push to the branch (`git push origin feature/AmazingFeature`)
+5. Open a Pull Request
+
+## License
 
 [ISC](LICENSE)
 
-## Kontak
+## Contact
 
-Nama Project - [Email](mailto:email@example.com)
+Project Name - [Email](mailto:email@example.com)
 
-Link Proyek: [https://github.com/username/laundry-management-system](https://github.com/username/laundry-management-system) 
+Project Link: [https://github.com/username/laundry-management-system](https://github.com/username/laundry-management-system) 

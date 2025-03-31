@@ -1,11 +1,11 @@
 import type { Metadata } from "next";
 import { Inter } from "next/font/google";
 import "./globals.css";
-import { ThemeProvider } from "@/providers/ThemeProvider";
 import { AuthProvider } from "@/providers/AuthProvider";
-import { CsrfProvider } from "@/providers/CsrfProvider";
 import { Toaster } from "react-hot-toast";
 import { APP_NAME } from "@/config";
+import { ThemeProvider } from "@/components/ui/theme-provider";
+import AuthCleanupScript from "@/components/AuthCleanupScript";
 
 const inter = Inter({ subsets: ["latin"] });
 
@@ -20,15 +20,20 @@ export default function RootLayout({
   children: React.ReactNode;
 }) {
   return (
-    <html lang="id">
+    <html lang="id" suppressHydrationWarning>
+      <head />
       <body className={inter.className}>
         <AuthProvider>
-          <CsrfProvider>
-            <ThemeProvider>
-              {children}
-              <Toaster position="top-right" />
-            </ThemeProvider>
-          </CsrfProvider>
+          <ThemeProvider
+            attribute="class"
+            defaultTheme="system"
+            enableSystem
+            disableTransitionOnChange
+          >
+            {children}
+            <Toaster position="top-right" />
+            <AuthCleanupScript />
+          </ThemeProvider>
         </AuthProvider>
       </body>
     </html>

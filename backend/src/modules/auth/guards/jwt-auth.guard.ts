@@ -1,13 +1,11 @@
 import { Injectable, ExecutionContext, UnauthorizedException, Optional } from '@nestjs/common';
 import { AuthGuard } from '@nestjs/passport';
-import { CsrfService } from '../services/csrf.service';
 import { Reflector } from '@nestjs/core';
 import { IS_PUBLIC_KEY } from '../decorators/public.decorator';
 
 @Injectable()
 export class JwtAuthGuard extends AuthGuard('jwt') {
   constructor(
-    @Optional() private csrfService: CsrfService,
     private reflector: Reflector
   ) {
     super();
@@ -29,34 +27,24 @@ export class JwtAuthGuard extends AuthGuard('jwt') {
   }
 
   handleRequest(err: any, user: any, info: any, context: ExecutionContext) {
-    if (err || !user) {
-      throw err || new UnauthorizedException('Unauthorized: Invalid or missing JWT token');
-    }
-
-    // Get the request from the context
+    // Get the request from the context for logging
     const request = context.switchToHttp().getRequest();
+    const path = request.path || 'unknown path';
     
-    // Skip CSRF validation for auth endpoints
-    const excludedRoutes = ['/auth/login', '/auth/register', '/auth/csrf-token'];
-    if (excludedRoutes.includes(request.path)) {
-      return user;
+    // Enhanced error handling
+    if (err) {
+      console.error(`[JwtAuthGuard] Error at ${path}:`, err.message);
+      throw err;
     }
-
-    // Skip CSRF validation if CsrfService is not available
-    if (!this.csrfService) {
-      console.warn('CsrfService is not available. Skipping CSRF token validation.');
-      return user;
-    }
-
-    // Get the CSRF token from the header
-    const csrfToken = this.csrfService.getTokenFromHeader(request);
     
-    // If no CSRF token is provided, throw an error
-    if (!csrfToken) {
-      throw new UnauthorizedException('Unauthorized: Missing CSRF token');
+    if (!user) {
+      const message = info?.message || 'Invalid or missing JWT token';
+      console.error(`[JwtAuthGuard] Authentication failed at ${path}: ${message}`);
+      throw new UnauthorizedException(`Unauthorized: ${message}`);
     }
-
-    // CSRF validation is handled by the middleware, so if we got here, it's valid
+    
+    console.log(`[JwtAuthGuard] User ${user.username} authorized for ${path}`);
+    
     return user;
   }
 } 

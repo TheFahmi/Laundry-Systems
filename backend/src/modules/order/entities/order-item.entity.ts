@@ -57,43 +57,11 @@ export class OrderItem {
 
   @BeforeInsert()
   @BeforeUpdate()
-  calculateSubtotal() {
-    // Ensure price is never null
-    if (this.price === null || this.price === undefined) {
-      this.price = 0;
-    }
-    
-    // Ensure quantity is never null
-    if (this.quantity === null || this.quantity === undefined) {
-      this.quantity = 1;
-    }
-    
-    // Ensure serviceName is never null
-    if (!this.serviceName) {
-      this.serviceName = this.serviceId ? `Service ${this.serviceId}` : 'Unknown Service';
-    }
-    
-    // For weight-based items, use the weight property with minimum 0.1 kg
-    if (this.weightBased) {
-      // Use weight property if available, otherwise revert to quantity with minimum 0.1
-      const itemWeight = this.weight || Math.max(this.quantity, 0.1);
-      // Ensure weight is stored with 2 decimal places
-      this.weight = Number(itemWeight.toFixed(2));
-      this.subtotal = this.price * this.weight;
-      console.log(`Weight-based item: ${this.serviceName}, Weight: ${this.weight}kg, Price: ${this.price}, Subtotal: ${this.subtotal}`);
+  calculateTotalPrice() {
+    if (this.weight && this.weight > 0) {
+      this.totalPrice = this.weight * this.unitPrice;
     } else {
-      // For piece-based items, always use quantity with minimum 1
-      this.quantity = Math.max(this.quantity, 1); // Ensure at least 1 piece
-      this.subtotal = this.price * this.quantity;
-      console.log(`Piece-based item: ${this.serviceName}, Quantity: ${this.quantity}, Price: ${this.price}, Subtotal: ${this.subtotal}`);
+      this.totalPrice = this.quantity * this.unitPrice;
     }
-    
-    // Ensure subtotal is never null
-    if (this.subtotal === null || this.subtotal === undefined) {
-      this.subtotal = 0;
-    }
-    
-    this.unitPrice = this.price;
-    this.totalPrice = this.subtotal;
   }
 } 

@@ -4,6 +4,7 @@ import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { toast } from 'react-toastify';
 import CustomerForm from '@/components/customers/CustomerForm';
+import { createAuthHeaders } from '@/lib/api-utils';
 
 interface CustomerFormData {
   name: string;
@@ -20,11 +21,13 @@ export default function NewCustomerPage() {
   const handleSubmit = async (formData: CustomerFormData) => {
     setIsLoading(true);
     try {
-      const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
-      const response = await fetch(`${apiUrl}/customers`, {
+      // Use the Next.js API proxy
+      const apiUrl = '/api/customers';
+      const response = await fetch(apiUrl, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
+          ...createAuthHeaders()
         },
         body: JSON.stringify(formData),
       });

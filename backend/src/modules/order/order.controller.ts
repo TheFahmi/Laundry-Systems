@@ -29,6 +29,16 @@ export class OrderController {
     return { message: 'Order creation form data' };
   }
 
+  @Get('by-number/:orderNumber')
+  @ApiOperation({ summary: 'Get an order by order number' })
+  @ApiResponse({ status: 200, description: 'Return the order.', type: Order })
+  @ApiResponse({ status: 404, description: 'Order not found.' })
+  @ApiParam({ name: 'orderNumber', description: 'Order Number (e.g. ORD-000001)' })
+  @UseGuards(JwtAuthGuard)
+  findByOrderNumber(@Param('orderNumber') orderNumber: string) {
+    return this.orderService.findByOrderNumber(orderNumber);
+  }
+
   @Get()
   @ApiOperation({ summary: 'Get all orders' })
   @ApiResponse({ status: 200, description: 'Return all orders.', type: [Order] })

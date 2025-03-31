@@ -1,10 +1,10 @@
-import { Entity, Column, OneToMany, CreateDateColumn, UpdateDateColumn, PrimaryColumn } from 'typeorm';
+import { Entity, Column, OneToMany, CreateDateColumn, UpdateDateColumn, PrimaryGeneratedColumn } from 'typeorm';
 import { Order } from './order.entity';
 import { Payment } from './payment.entity';
 
 @Entity('customers')
 export class Customer {
-  @PrimaryColumn({ type: 'varchar', length: 255 })
+  @PrimaryGeneratedColumn('uuid')
   id: string;
 
   @Column()

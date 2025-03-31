@@ -25,12 +25,15 @@ export class GlobalAuthGuard implements CanActivate {
     }
 
     const request = context.switchToHttp().getRequest();
+    console.log(`[AUTH] Checking auth for route: ${request.method} ${request.url}`);
     
     try {
       const token = this.extractTokenFromHeader(request);
       if (!token) {
-        // Log the headers for debugging
-        console.error('Authorization header is missing or invalid. Headers:', JSON.stringify(request.headers));
+        // Log the headers and cookies for debugging
+        console.error('Authorization token is missing or invalid.');
+        console.error('Headers:', JSON.stringify(request.headers));
+        console.error('Cookies:', request.cookies);
         throw new UnauthorizedException('No JWT token provided');
       }
 
@@ -43,6 +46,7 @@ export class GlobalAuthGuard implements CanActivate {
       
       try {
         const payload = await this.jwtService.verifyAsync(token, { secret });
+        console.log(`[AUTH] Successfully authenticated user: ${payload.username} (${payload.role})`);
         
         // Attach the user to the request object
         request['user'] = payload;
@@ -60,15 +64,17 @@ export class GlobalAuthGuard implements CanActivate {
 
   private extractTokenFromHeader(request: Request): string | undefined {
     try {
-      // Check if authorization header exists
+      // First, check if token exists in cookies
+      if (request.cookies && request.cookies.token) {
+        console.log('Found token in cookies');
+        return request.cookies.token;
+      }
+      
+      // Then check if authorization header exists
       if (!request.headers.authorization) {
         console.warn('No authorization header found in request');
-        // Try to extract from cookies as a fallback
-        const token = request.cookies?.token;
-        if (token) {
-          console.log('Found token in cookies instead of authorization header');
-          return token;
-        }
+        console.log('Request cookies:', request.cookies);
+        console.log('Request headers:', request.headers);
         return undefined;
       }
       
@@ -86,7 +92,7 @@ export class GlobalAuthGuard implements CanActivate {
       
       return token;
     } catch (error) {
-      console.error('Error extracting token from header:', error);
+      console.error('Error extracting token from header or cookies:', error);
       return undefined;
     }
   }

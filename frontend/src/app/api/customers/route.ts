@@ -32,6 +32,7 @@ export async function GET(request: NextRequest) {
         'Content-Type': 'application/json',
         ...(csrfToken && { 'X-CSRF-Token': csrfToken }),
       },
+      credentials: 'include',
       cache: 'no-store'
     });
     
@@ -63,18 +64,31 @@ export async function GET(request: NextRequest) {
     const data = await response.json();
     console.log('[API Route] /api/customers: Response received from backend');
     
-    // Ensure we return data in a consistent format
+    // Ensure we return data in a consistent format matching the expected structure
     if (data) {
       // Format response for frontend consistency
       const formattedResponse = {
+        data: {
+          items: data.items || [],
+          total: data.total || 0,
+          page: data.page || 1,
+          limit: data.limit || 10
+        },
         statusCode: 200,
         message: 'Success',
-        timestamp: new Date().toISOString(),
-        data: data
+        timestamp: new Date().toISOString()
       };
       
       console.log('[API Route] /api/customers: Returning formatted response');
-      return NextResponse.json(formattedResponse);
+      
+      // Create response with no-cache headers
+      const responseWithHeaders = NextResponse.json(formattedResponse);
+      responseWithHeaders.headers.set('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
+      responseWithHeaders.headers.set('Pragma', 'no-cache');
+      responseWithHeaders.headers.set('Expires', '0');
+      responseWithHeaders.headers.set('Surrogate-Control', 'no-store');
+      
+      return responseWithHeaders;
     } else {
       console.error('[API Route] /api/customers: Empty response from backend');
       return NextResponse.json({ 

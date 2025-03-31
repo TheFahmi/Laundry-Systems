@@ -2,89 +2,92 @@ import axios from 'axios';
 import { API_URL } from '@/config';
 import Cookies from 'js-cookie';
 
+/**
+ * User interface
+ */
 export interface User {
   id: string;
   username: string;
-  email: string;
-  name: string;
-  role: 'admin' | 'staff' | 'manager';
-  isActive: boolean;
-  createdAt: string;
-  updatedAt: string;
+  email?: string;
+  name?: string;
+  role: string;
+  createdAt?: string;
+  updatedAt?: string;
 }
 
+/**
+ * Login request payload
+ */
 export interface LoginRequest {
   username: string;
   password: string;
 }
 
+/**
+ * Login response payload
+ */
 export interface LoginResponse {
-  user: User;
   token: string;
+  user: User;
+  csrfToken?: string;
 }
 
+/**
+ * Registration request payload
+ */
 export interface RegisterRequest {
   username: string;
   password: string;
   email: string;
   name: string;
-  role?: 'admin' | 'staff' | 'manager';
+}
+
+/**
+ * Registration response payload
+ */
+export interface RegisterResponse {
+  user: User;
+}
+
+/**
+ * Token validation response payload
+ */
+export interface TokenValidationResponse {
+  valid: boolean;
+  message: string;
+  user?: User;
+}
+
+/**
+ * Token refresh response payload
+ */
+export interface TokenRefreshResponse {
+  token: string;
+  user?: User;
 }
 
 // Fungsi untuk login
 export const login = async (data: LoginRequest): Promise<LoginResponse> => {
   try {
-    // Coba login menggunakan backend
-    try {
-      const response = await axios.post(`${API_URL}/auth/login`, data);
+    // Use the Next.js API route for login
+    const response = await axios.post('/api/auth/login', data);
+    
+    // Simpan token di cookie
+    if (response.data.token) {
+      Cookies.set('token', response.data.token, { 
+        expires: 1, // 1 day
+        path: '/',
+        sameSite: 'strict'
+      });
       
-      // Simpan token di cookie
-      if (response.data.token) {
-        Cookies.set('token', response.data.token, { 
-          expires: 1, // 1 day
-          path: '/',
-          sameSite: 'strict'
-        });
-        
-        // Simpan user data di localStorage untuk kemudahan akses
-        localStorage.setItem('user', JSON.stringify(response.data.user));
-        
-        // Set token untuk semua request berikutnya
-        axios.defaults.headers.common['Authorization'] = `Bearer ${response.data.token}`;
-      }
+      // Simpan user data di localStorage untuk kemudahan akses
+      localStorage.setItem('user', JSON.stringify(response.data.user));
       
-      return response.data;
-    } catch (backendError) {
-      console.warn('Backend login failed, falling back to API route:', backendError);
-      
-      // Jika backend gagal, gunakan API route lokal sebagai fallback
-      try {
-        const fallbackResponse = await axios.post('/api/auth/login', data);
-        
-        // Simpan token di cookie
-        if (fallbackResponse.data.token) {
-          Cookies.set('token', fallbackResponse.data.token, { 
-            expires: 1, // 1 day
-            path: '/',
-            sameSite: 'strict'
-          });
-          
-          // Simpan user data di localStorage untuk kemudahan akses
-          localStorage.setItem('user', JSON.stringify(fallbackResponse.data.user));
-          
-          // Set token untuk semua request berikutnya
-          axios.defaults.headers.common['Authorization'] = `Bearer ${fallbackResponse.data.token}`;
-        }
-        
-        return fallbackResponse.data;
-      } catch (fallbackError: any) {
-        // Throw a more specific error for authentication failures
-        if (fallbackError.response && fallbackError.response.status === 401) {
-          throw new Error('Username atau password salah');
-        }
-        throw fallbackError;
-      }
+      // Set token untuk semua request berikutnya
+      axios.defaults.headers.common['Authorization'] = `Bearer ${response.data.token}`;
     }
+    
+    return response.data;
   } catch (error: any) {
     console.error('Login failed:', error);
     // If the error has a response, use the error message from the server
@@ -149,25 +152,10 @@ export const register = async (data: RegisterRequest | string, password?: string
     
     console.log('Clean data for registration:', cleanData);
     
-    // Coba register menggunakan backend
-    try {
-      const response = await axios.post(`${API_URL}/auth/register`, cleanData);
-      console.log('Backend registration successful:', response.data);
-      return response.data;
-    } catch (backendError: any) {
-      console.warn('Backend register failed, falling back to API route:', backendError);
-      
-      // Handle server validation errors
-      if (backendError.response && backendError.response.data && backendError.response.data.message) {
-        throw new Error(backendError.response.data.message);
-      }
-      
-      // Jika backend gagal, gunakan API route lokal sebagai fallback
-      console.log('Trying fallback registration via API route');
-      const fallbackResponse = await axios.post('/api/auth/register', cleanData);
-      console.log('Fallback registration successful:', fallbackResponse.data);
-      return fallbackResponse.data;
-    }
+    // Use the Next.js API route for registration
+    const response = await axios.post('/api/auth/register', cleanData);
+    console.log('Registration successful:', response.data);
+    return response.data;
   } catch (error: any) {
     console.error('Registration failed:', error);
     // If it's already an Error object, just throw it
@@ -219,25 +207,13 @@ export const validateToken = async (): Promise<boolean> => {
   if (!token) return false;
   
   try {
-    // Coba validasi menggunakan backend
-    try {
-      const response = await axios.get(`${API_URL}/auth/validate`, {
-        headers: {
-          Authorization: `Bearer ${token}`
-        }
-      });
-      return response.status === 200;
-    } catch (backendError) {
-      console.warn('Backend token validation failed, falling back to API route:', backendError);
-      
-      // Jika backend gagal, gunakan API route lokal sebagai fallback
-      const fallbackResponse = await axios.get('/api/auth/validate', {
-        headers: {
-          Authorization: `Bearer ${token}`
-        }
-      });
-      return fallbackResponse.status === 200 && fallbackResponse.data.success === true;
-    }
+    // Validate using the Next.js API route
+    const response = await axios.get('/api/auth/validate', {
+      headers: {
+        Authorization: `Bearer ${token}`
+      }
+    });
+    return response.status === 200 && response.data.success === true;
   } catch (error) {
     console.error('Token validation failed:', error);
     logout(); // Logout jika token tidak valid

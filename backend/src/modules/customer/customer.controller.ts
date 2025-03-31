@@ -27,8 +27,17 @@ export class CustomerController {
   findAll(
     @Query('page', new DefaultValuePipe(1), ParseIntPipe) page: number,
     @Query('limit', new DefaultValuePipe(10), ParseIntPipe) limit: number,
+    @Query('search') search?: string,
   ) {
-    return this.customerService.findAll({ page, limit });
+    return this.customerService.findAll({ page, limit, search });
+  }
+
+  @Get('search')
+  @ApiOperation({ summary: 'Mencari pelanggan berdasarkan query' })
+  @ApiResponse({ status: 200, description: 'Mengembalikan daftar pelanggan yang cocok dengan query' })
+  @UseGuards(JwtAuthGuard)
+  search(@Query('q') query: string) {
+    return this.customerService.search(query);
   }
 
   @Get('create-form')

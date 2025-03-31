@@ -27,6 +27,7 @@ export declare class OrderService {
         limit: number;
     }>;
     findOne(id: string): Promise<Order>;
+    findByOrderNumber(orderNumber: string): Promise<Order>;
     update(id: string, updateOrderDto: UpdateOrderDto): Promise<Order>;
     updateStatus(id: string, status: OrderStatus): Promise<Order>;
     remove(id: string): Promise<void>;

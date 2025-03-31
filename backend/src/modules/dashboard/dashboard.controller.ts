@@ -54,4 +54,11 @@ export class DashboardController {
   async getTopCustomers(@Query('limit') limit = 5) {
     return this.dashboardService.getTopCustomers(limit);
   }
+
+  @Get('recent-activity')
+  @ApiOperation({ summary: 'Mendapatkan aktivitas terbaru' })
+  @ApiResponse({ status: 200, description: 'Berhasil mendapatkan data aktivitas terbaru' })
+  async getRecentActivity(@Query('limit') limit = 10) {
+    return this.dashboardService.getRecentActivity(limit);
+  }
 } 

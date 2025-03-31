@@ -50,6 +50,10 @@ interface UserQueryParams {
   limit?: number;
 }
 
+const generateCacheBuster = () => {
+  return `_cb=${Date.now()}`;
+}
+
 export async function getUsers(params: UserQueryParams = {}): Promise<UserListResponse> {
   try {
     const queryParams = new URLSearchParams();
@@ -60,90 +64,63 @@ export async function getUsers(params: UserQueryParams = {}): Promise<UserListRe
     if (params.page !== undefined) queryParams.append('page', params.page.toString());
     if (params.limit !== undefined) queryParams.append('limit', params.limit.toString());
     
-    const url = `${API_URL}/users?${queryParams.toString()}`;
-    const response = await fetchWithAuth(url);
-    
-    if (!response.ok) {
-      throw new Error('Failed to fetch users');
-    }
-    
-    return await response.json();
+    const url = `${API_URL}/users?${queryParams.toString()}?${generateCacheBuster()}`;
+    return await fetchWithAuth<UserListResponse>(url);
   } catch (error) {
-    console.error('Error fetching users:', error);
     throw error;
   }
 }
 
-export async function getUserById(id: string): Promise<User> {
+export const getUserById = async (id: number): Promise<User> => {
+  const url = `${API_URL}/users/${id}`;
+  
   try {
-    const response = await fetchWithAuth(`${API_URL}/users/${id}`);
-    
+    const response = await fetch(url, {
+      method: 'GET',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      credentials: 'include',
+    });
+
     if (!response.ok) {
-      throw new Error('Failed to fetch user');
+      throw new Error(`Failed to fetch user with ID ${id}`);
     }
-    
+
     return await response.json();
   } catch (error) {
-    console.error(`Error fetching user ${id}:`, error);
     throw error;
   }
-}
+};
 
-export async function createUser(userData: CreateUserData): Promise<User> {
+export const createUser = async (userData: Partial<User>): Promise<User> => {
   try {
-    const response = await fetchWithAuth(`${API_URL}/users`, {
+    return await fetchWithAuth<User>(`${API_URL}/users`, {
       method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
       body: JSON.stringify(userData),
     });
-    
-    if (!response.ok) {
-      const errorData = await response.json().catch(() => ({}));
-      throw new Error(errorData.message || 'Failed to create user');
-    }
-    
-    return await response.json();
   } catch (error) {
-    console.error('Error creating user:', error);
     throw error;
   }
-}
+};
 
-export async function updateUser(id: string, userData: UpdateUserData): Promise<User> {
+export const updateUser = async (id: number, userData: Partial<User>): Promise<User> => {
   try {
-    const response = await fetchWithAuth(`${API_URL}/users/${id}`, {
+    return await fetchWithAuth<User>(`${API_URL}/users/${id}?${generateCacheBuster()}`, {
       method: 'PATCH',
-      headers: {
-        'Content-Type': 'application/json',
-      },
       body: JSON.stringify(userData),
     });
-    
-    if (!response.ok) {
-      const errorData = await response.json().catch(() => ({}));
-      throw new Error(errorData.message || 'Failed to update user');
-    }
-    
-    return await response.json();
   } catch (error) {
-    console.error(`Error updating user ${id}:`, error);
     throw error;
   }
-}
+};
 
-export async function deleteUser(id: string): Promise<void> {
+export const deleteUser = async (id: number): Promise<void> => {
   try {
-    const response = await fetchWithAuth(`${API_URL}/users/${id}`, {
+    await fetchWithAuth(`${API_URL}/users/${id}`, {
       method: 'DELETE',
     });
-    
-    if (!response.ok) {
-      throw new Error('Failed to delete user');
-    }
   } catch (error) {
-    console.error(`Error deleting user ${id}:`, error);
     throw error;
   }
-} 
+}; 

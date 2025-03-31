@@ -61,13 +61,21 @@ export async function GET(
     const data = await response.json();
     console.log(`[API Route] /api/services/${id}: Response received from backend`);
     
-    // Return service data
-    return NextResponse.json({
+    // Return service data with no-cache headers
+    const responseWithHeaders = NextResponse.json({
       statusCode: 200,
       message: 'Success',
       timestamp: new Date().toISOString(),
       data: data
     });
+    
+    // Add no-cache headers
+    responseWithHeaders.headers.set('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
+    responseWithHeaders.headers.set('Pragma', 'no-cache');
+    responseWithHeaders.headers.set('Expires', '0');
+    responseWithHeaders.headers.set('Surrogate-Control', 'no-store');
+    
+    return responseWithHeaders;
   } catch (error: any) {
     console.error(`[API Route] /api/services/${id}: Exception occurred:`, error.message);
     return NextResponse.json({ 
@@ -128,12 +136,20 @@ export async function PUT(
     
     // Return successful response
     const data = await response.json();
-    return NextResponse.json({
+    const responseWithHeaders = NextResponse.json({
       statusCode: 200,
       message: 'Service updated successfully',
       timestamp: new Date().toISOString(),
       data: data
     });
+    
+    // Add no-cache headers
+    responseWithHeaders.headers.set('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
+    responseWithHeaders.headers.set('Pragma', 'no-cache');
+    responseWithHeaders.headers.set('Expires', '0');
+    responseWithHeaders.headers.set('Surrogate-Control', 'no-store');
+    
+    return responseWithHeaders;
   } catch (error: any) {
     console.error(`[API Route] /api/services/${id}: PUT exception:`, error.message);
     return NextResponse.json({ 
@@ -189,11 +205,19 @@ export async function DELETE(
     }
     
     // Return successful response
-    return NextResponse.json({
+    const responseWithHeaders = NextResponse.json({
       statusCode: 200,
       message: 'Service deleted successfully',
       timestamp: new Date().toISOString()
     });
+    
+    // Add no-cache headers
+    responseWithHeaders.headers.set('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
+    responseWithHeaders.headers.set('Pragma', 'no-cache');
+    responseWithHeaders.headers.set('Expires', '0');
+    responseWithHeaders.headers.set('Surrogate-Control', 'no-store');
+    
+    return responseWithHeaders;
   } catch (error: any) {
     console.error(`[API Route] /api/services/${id}: DELETE exception:`, error.message);
     return NextResponse.json({ 

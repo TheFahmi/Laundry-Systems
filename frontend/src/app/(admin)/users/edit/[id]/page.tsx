@@ -1,35 +1,28 @@
 "use client";
 
 import React, { useState, useEffect } from 'react';
-import {
-  Box,
-  Typography,
-  Paper,
-  TextField,
-  Button,
-  Grid,
-  FormControl,
-  InputLabel,
-  Select,
-  MenuItem,
-  FormHelperText,
-  Alert,
-  IconButton,
-  Divider,
-  FormControlLabel,
-  Switch,
-  CircularProgress,
-  SelectChangeEvent
-} from '@mui/material';
-import { 
-  ArrowBack as BackIcon, 
-  Save as SaveIcon,
-  Close as CancelIcon 
-} from '@mui/icons-material';
-import { useRouter } from 'next/navigation';
-import Link from 'next/link';
+import { useParams, useRouter } from 'next/navigation';
 import { getUserById, updateUser } from '@/services/userService';
 import { FormErrors, UserRole, EditUserFormData, User } from '@/types/user';
+import { ArrowLeft } from 'lucide-react';
+import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
+import { Skeleton } from "@/components/ui/skeleton";
+import { Alert, AlertDescription } from "@/components/ui/alert";
+import { Switch } from "@/components/ui/switch";
+import { 
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { Separator } from "@/components/ui/separator";
+import { toast } from "sonner";
+import Link from 'next/link';
 
 export default function EditUserPage({ params }: { params: { id: string } }) {
   const router = useRouter();
@@ -77,39 +70,40 @@ export default function EditUserPage({ params }: { params: { id: string } }) {
     fetchUser();
   }, [params.id]);
 
-  const handleChange = (e: React.ChangeEvent<HTMLInputElement | { name?: string; value: unknown }> | SelectChangeEvent) => {
+  const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target;
-    if (name) {
-      setFormData(prev => ({
-        ...prev,
-        [name]: value
-      }));
-      // Clear error when field is edited
-      if (errors[name as keyof FormErrors]) {
-        setErrors(prev => ({
-          ...prev,
-          [name]: undefined
-        }));
-      }
-    }
-  };
-
-  const handleSwitchChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     setFormData(prev => ({
       ...prev,
-      status: e.target.checked
+      [name]: value
     }));
-  };
-
-  const handlePasswordSwitchChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    setChangePassword(e.target.checked);
-    if (!e.target.checked) {
-      setFormData(prev => ({
+    // Clear error when field is edited
+    if (errors[name as keyof FormErrors]) {
+      setErrors(prev => ({
         ...prev,
-        password: '',
-        confirmPassword: ''
+        [name]: undefined
       }));
     }
+  };
+
+  const handleSelectChange = (name: string, value: string) => {
+    setFormData(prev => ({
+      ...prev,
+      [name]: value
+    }));
+    // Clear error when field is edited
+    if (errors[name as keyof FormErrors]) {
+      setErrors(prev => ({
+        ...prev,
+        [name]: undefined
+      }));
+    }
+  };
+
+  const handleSwitchChange = (name: string, checked: boolean) => {
+    setFormData(prev => ({
+      ...prev,
+      [name]: checked
+    }));
   };
 
   const validate = (): boolean => {
@@ -168,6 +162,7 @@ export default function EditUserPage({ params }: { params: { id: string } }) {
     e.preventDefault();
     
     if (!validate()) {
+      toast.error("Please fix the errors in the form");
       return;
     }
 
@@ -187,6 +182,7 @@ export default function EditUserPage({ params }: { params: { id: string } }) {
       
       await updateUser(params.id, userData);
       setSuccess(true);
+      toast.success("User updated successfully!");
       
       // Redirect after a short delay to show success message
       setTimeout(() => {
@@ -195,6 +191,7 @@ export default function EditUserPage({ params }: { params: { id: string } }) {
     } catch (error: any) {
       console.error('Error updating user:', error);
       setError(error.message || 'Failed to update user. Please try again.');
+      toast.error("Failed to update user");
     } finally {
       setIsSubmitting(false);
     }
@@ -202,204 +199,233 @@ export default function EditUserPage({ params }: { params: { id: string } }) {
 
   if (loading) {
     return (
-      <Box sx={{ p: 5, display: 'flex', justifyContent: 'center', alignItems: 'center' }}>
-        <CircularProgress />
-      </Box>
+      <div className="container max-w-3xl py-10">
+        <div className="space-y-2">
+          <Skeleton className="h-8 w-[200px]" />
+          <Skeleton className="h-4 w-[300px]" />
+        </div>
+        <div className="mt-6 space-y-6">
+          <Card>
+            <CardHeader>
+              <Skeleton className="h-6 w-[150px]" />
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <Skeleton className="h-10 w-full" />
+                <Skeleton className="h-10 w-full" />
+              </div>
+              <Skeleton className="h-10 w-full" />
+              <Skeleton className="h-10 w-full" />
+            </CardContent>
+            <CardFooter>
+              <Skeleton className="h-10 w-[120px] ml-auto" />
+            </CardFooter>
+          </Card>
+        </div>
+      </div>
     );
   }
 
   if (userNotFound) {
     return (
-      <Box sx={{ p: 3 }}>
-        <Alert severity="error" sx={{ mb: 3 }}>
-          User not found. The user may have been deleted or the ID is invalid.
+      <div className="container max-w-3xl py-10">
+        <Alert className="mb-6">
+          <AlertDescription>
+            User not found. The user may have been deleted or the ID is invalid.
+          </AlertDescription>
         </Alert>
-        <Button 
-          component={Link} 
-          href="/users" 
-          variant="contained"
-          startIcon={<BackIcon />}
-        >
-          Back to Users
+        <Button asChild>
+          <Link href="/users">
+            <ArrowLeft className="mr-2 h-4 w-4" />
+            Back to Users
+          </Link>
         </Button>
-      </Box>
+      </div>
     );
   }
 
   return (
-    <Box sx={{ p: 3 }}>
-      <Box sx={{ mb: 3, display: 'flex', alignItems: 'center', gap: 1 }}>
-        <Link href="/users" passHref>
-          <IconButton color="inherit">
-            <BackIcon />
-          </IconButton>
-        </Link>
-        <Typography variant="h4">Edit User</Typography>
-      </Box>
+    <div className="container max-w-3xl py-10">
+      <div className="flex items-center space-x-2 mb-6">
+        <Button 
+          variant="outline" 
+          size="icon" 
+          asChild
+          className="h-8 w-8"
+        >
+          <Link href="/users">
+            <ArrowLeft className="h-4 w-4" />
+          </Link>
+        </Button>
+        <div>
+          <h1 className="text-2xl font-bold tracking-tight">Edit User</h1>
+          <p className="text-muted-foreground">Update user information and permissions</p>
+        </div>
+      </div>
 
       {error && (
-        <Alert severity="error" sx={{ mb: 3 }}>
-          {error}
+        <Alert className="mb-6">
+          <AlertDescription>{error}</AlertDescription>
         </Alert>
       )}
 
-      {success && (
-        <Alert severity="success" sx={{ mb: 3 }}>
-          User updated successfully!
-        </Alert>
-      )}
-
-      <Paper sx={{ p: 3 }}>
-        <form onSubmit={handleSubmit}>
-          <Grid container spacing={3}>
-            <Grid item xs={12}>
-              <Typography variant="h6" sx={{ mb: 2 }}>User Information</Typography>
-              <Divider sx={{ mb: 3 }} />
-            </Grid>
-
-            <Grid item xs={12} md={6}>
-              <TextField
-                label="Full Name"
-                name="name"
-                value={formData.name}
-                onChange={handleChange}
-                fullWidth
-                required
-                error={!!errors.name}
-                helperText={errors.name}
-              />
-            </Grid>
-
-            <Grid item xs={12} md={6}>
-              <TextField
-                label="Username"
-                name="username"
-                value={formData.username}
-                onChange={handleChange}
-                fullWidth
-                required
-                error={!!errors.username}
-                helperText={errors.username}
-              />
-            </Grid>
-
-            <Grid item xs={12} md={6}>
-              <TextField
-                label="Email Address"
+      <form onSubmit={handleSubmit}>
+        <Card>
+          <CardHeader>
+            <CardTitle>User Information</CardTitle>
+            <CardDescription>
+              Basic account information and settings
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label htmlFor="name">Full Name <span className="text-destructive">*</span></Label>
+                <Input
+                  id="name"
+                  name="name"
+                  value={formData.name}
+                  onChange={handleChange}
+                  disabled={isSubmitting}
+                  aria-invalid={!!errors.name}
+                />
+                {errors.name && (
+                  <p className="text-sm text-destructive">{errors.name}</p>
+                )}
+              </div>
+              
+              <div className="space-y-2">
+                <Label htmlFor="username">Username <span className="text-destructive">*</span></Label>
+                <Input
+                  id="username"
+                  name="username"
+                  value={formData.username}
+                  onChange={handleChange}
+                  disabled={isSubmitting}
+                  aria-invalid={!!errors.username}
+                />
+                {errors.username && (
+                  <p className="text-sm text-destructive">{errors.username}</p>
+                )}
+              </div>
+            </div>
+            
+            <div className="space-y-2">
+              <Label htmlFor="email">Email Address <span className="text-destructive">*</span></Label>
+              <Input
+                id="email"
                 name="email"
                 type="email"
                 value={formData.email}
                 onChange={handleChange}
-                fullWidth
-                required
-                error={!!errors.email}
-                helperText={errors.email}
+                disabled={isSubmitting}
+                aria-invalid={!!errors.email}
               />
-            </Grid>
-
-            <Grid item xs={12} md={6}>
-              <FormControl fullWidth error={!!errors.role}>
-                <InputLabel id="role-label">Role</InputLabel>
-                <Select
-                  labelId="role-label"
-                  name="role"
-                  value={formData.role}
-                  onChange={handleChange}
-                  label="Role"
-                  required
-                >
-                  <MenuItem value={UserRole.ADMIN}>Admin</MenuItem>
-                  <MenuItem value={UserRole.STAFF}>Staff</MenuItem>
-                  <MenuItem value={UserRole.USER}>Regular User</MenuItem>
-                </Select>
-                {errors.role && <FormHelperText>{errors.role}</FormHelperText>}
-              </FormControl>
-            </Grid>
-
-            <Grid item xs={12}>
-              <FormControlLabel
-                control={
-                  <Switch
-                    checked={changePassword}
-                    onChange={handlePasswordSwitchChange}
-                    color="primary"
-                  />
-                }
-                label="Change Password"
+              {errors.email && (
+                <p className="text-sm text-destructive">{errors.email}</p>
+              )}
+            </div>
+            
+            <div className="space-y-2">
+              <Label htmlFor="role">Role <span className="text-destructive">*</span></Label>
+              <Select
+                value={formData.role}
+                onValueChange={(value) => handleSelectChange("role", value)}
+                disabled={isSubmitting}
+              >
+                <SelectTrigger aria-invalid={!!errors.role}>
+                  <SelectValue placeholder="Select a role" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value={UserRole.ADMIN}>Admin</SelectItem>
+                  <SelectItem value={UserRole.STAFF}>Staff</SelectItem>
+                  <SelectItem value={UserRole.USER}>Regular User</SelectItem>
+                </SelectContent>
+              </Select>
+              {errors.role && (
+                <p className="text-sm text-destructive">{errors.role}</p>
+              )}
+            </div>
+            
+            <div className="flex items-center space-x-2">
+              <Switch
+                id="changePassword"
+                checked={changePassword}
+                onCheckedChange={(checked) => setChangePassword(checked)}
+                disabled={isSubmitting}
               />
-            </Grid>
-
+              <Label htmlFor="changePassword">Change Password</Label>
+            </div>
+            
             {changePassword && (
-              <>
-                <Grid item xs={12} md={6}>
-                  <TextField
-                    label="New Password"
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label htmlFor="password">New Password <span className="text-destructive">*</span></Label>
+                  <Input
+                    id="password"
                     name="password"
                     type="password"
                     value={formData.password}
                     onChange={handleChange}
-                    fullWidth
-                    required={changePassword}
-                    error={!!errors.password}
-                    helperText={errors.password}
+                    disabled={isSubmitting}
+                    aria-invalid={!!errors.password}
                   />
-                </Grid>
-
-                <Grid item xs={12} md={6}>
-                  <TextField
-                    label="Confirm New Password"
+                  {errors.password && (
+                    <p className="text-sm text-destructive">{errors.password}</p>
+                  )}
+                </div>
+                
+                <div className="space-y-2">
+                  <Label htmlFor="confirmPassword">Confirm New Password <span className="text-destructive">*</span></Label>
+                  <Input
+                    id="confirmPassword"
                     name="confirmPassword"
                     type="password"
                     value={formData.confirmPassword}
                     onChange={handleChange}
-                    fullWidth
-                    required={changePassword}
-                    error={!!errors.confirmPassword}
-                    helperText={errors.confirmPassword}
+                    disabled={isSubmitting}
+                    aria-invalid={!!errors.confirmPassword}
                   />
-                </Grid>
-              </>
+                  {errors.confirmPassword && (
+                    <p className="text-sm text-destructive">{errors.confirmPassword}</p>
+                  )}
+                </div>
+              </div>
             )}
-
-            <Grid item xs={12}>
-              <Typography variant="h6" sx={{ mb: 2, mt: 1 }}>Status</Typography>
-              <Divider sx={{ mb: 3 }} />
-            </Grid>
-
-            <Grid item xs={12}>
-              <FormControlLabel
-                control={
-                  <Switch
-                    checked={formData.status}
-                    onChange={handleSwitchChange}
-                    color="primary"
-                  />
-                }
-                label={formData.status ? "Active" : "Inactive"}
-              />
-            </Grid>
-
-            <Grid item xs={12} sx={{ mt: 2, display: 'flex', justifyContent: 'flex-end', gap: 2 }}>
-              <Button
-                variant="outlined"
-                startIcon={<CancelIcon />}
-                onClick={() => router.push('/users')}
-                disabled={isSubmitting}
-              >
-                Cancel
-              </Button>
-              <Button
-                type="submit"
-                variant="contained"
-                startIcon={<SaveIcon />}
-                disabled={isSubmitting || success}
-              >
-                {isSubmitting ? 'Saving...' : 'Save Changes'}
-              </Button>
-            </Grid>
-          </Grid>
-        </form>
-      </Paper>
-    </Box>
+            
+            <Separator className="my-4" />
+            
+            <div className="space-y-2">
+              <h3 className="text-lg font-medium">Account Status</h3>
+              <div className="flex items-center space-x-2">
+                <Switch
+                  id="status"
+                  checked={formData.status}
+                  onCheckedChange={(checked) => handleSwitchChange("status", checked)}
+                  disabled={isSubmitting}
+                />
+                <Label htmlFor="status">{formData.status ? "Active" : "Inactive"}</Label>
+              </div>
+            </div>
+          </CardContent>
+          <CardFooter className="flex justify-end space-x-2">
+            <Button
+              variant="outline"
+              type="button"
+              onClick={() => router.push('/users')}
+              disabled={isSubmitting}
+            >
+              Cancel
+            </Button>
+            <Button
+              type="submit"
+              disabled={isSubmitting || success}
+            >
+              {isSubmitting ? 'Saving...' : 'Save Changes'}
+            </Button>
+          </CardFooter>
+        </Card>
+      </form>
+    </div>
   );
 } 

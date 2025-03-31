@@ -1,16 +1,19 @@
-import React, { useState, useEffect } from 'react';
-import { 
-  Box, Typography, Paper, CircularProgress, TextField, InputAdornment,
-  Pagination, IconButton, Grid, Divider, Dialog, DialogTitle, DialogContent,
-  DialogActions, Button
-} from '@mui/material';
-import SearchIcon from '@mui/icons-material/Search';
-import PersonAddIcon from '@mui/icons-material/PersonAdd';
-import CustomerForm from '@/components/customers/CustomerForm';
-import { toast } from 'react-toastify';
+'use client';
 
-interface CustomerSelectProps {
-  onSelect: (id: string, name: string) => void;
+import React, { useState, useEffect } from 'react';
+import { createAuthHeaders } from '@/lib/api-utils';
+import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from '@/components/ui/card';
+import { Input } from '@/components/ui/input';
+import { Button } from '@/components/ui/button';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
+import { Loader2, Search, Plus, User } from 'lucide-react';
+import CustomerForm, { CustomerFormData } from '@/components/customers/CustomerForm';
+import { toast } from 'sonner';
+import { Pagination, PaginationContent, PaginationItem, PaginationLink, PaginationNext, PaginationPrevious } from '@/components/ui/pagination';
+import { Alert, AlertDescription } from '@/components/ui/alert';
+
+export interface CustomerSelectProps {
+  onSelectCustomer: (id: string, name: string) => void;
   selectedCustomerId?: string;
 }
 
@@ -23,7 +26,7 @@ interface Customer {
 
 const customersPerPage = 10;
 
-const CustomerSelect: React.FC<CustomerSelectProps> = ({ onSelect, selectedCustomerId }) => {
+export default function CustomerSelect({ onSelectCustomer, selectedCustomerId }: CustomerSelectProps) {
   const [customers, setCustomers] = useState<Customer[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -34,35 +37,47 @@ const CustomerSelect: React.FC<CustomerSelectProps> = ({ onSelect, selectedCusto
   const [openNewCustomerDialog, setOpenNewCustomerDialog] = useState(false);
   const [isCreatingCustomer, setIsCreatingCustomer] = useState(false);
 
+  const generateCacheBuster = () => {
+    return `_cb=${Date.now()}`;
+  };
+
   // Fetch customers
   useEffect(() => {
     const fetchCustomers = async () => {
+      setLoading(true);
+      setError(null);
       try {
-        setLoading(true);
-        const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
-        console.log('Fetching customers from:', `${apiUrl}/customers`);
+        // Use Next.js API proxy
+        const apiUrl = '/api/customers?' + generateCacheBuster();
+        console.log('CustomerSelect: Fetching customers from', apiUrl);
         
-        const response = await fetch(`${apiUrl}/customers`);
-        console.log('Response status:', response.status);
+        const response = await fetch(apiUrl, {
+          headers: createAuthHeaders()
+        });
+        
+        console.log('CustomerSelect: Response status:', response.status);
         
         if (!response.ok) {
-          throw new Error('Failed to fetch customers');
+          throw new Error(`Failed to load customers: ${response.status} ${response.statusText}`);
         }
         
-        const data = await response.json();
-        console.log('Received data:', data);
+        const responseData = await response.json();
+        console.log('CustomerSelect: Received customers data:', responseData);
         
-        // Handle different response formats
+        // Extract customers array from nested response
         let customersArray: Customer[] = [];
-        if (Array.isArray(data)) {
-          customersArray = data;
-        } else if (data.data && Array.isArray(data.data)) {
-          customersArray = data.data;
-        } else if (data.items && Array.isArray(data.items)) {
-          customersArray = data.items;
-        }
         
-        console.log('Processed customers array:', customersArray);
+        if (responseData.data && responseData.data.items && Array.isArray(responseData.data.items)) {
+          customersArray = responseData.data.items;
+        } else if (responseData.items && Array.isArray(responseData.items)) {
+          customersArray = responseData.items;
+        } else if (responseData.data && Array.isArray(responseData.data)) {
+          customersArray = responseData.data;
+        } else if (Array.isArray(responseData)) {
+          customersArray = responseData;
+        } else {
+          console.error('Unexpected customers response format:', responseData);
+        }
         
         // Ensure we have valid customer objects
         customersArray = customersArray.filter(customer => 
@@ -74,9 +89,9 @@ const CustomerSelect: React.FC<CustomerSelectProps> = ({ onSelect, selectedCusto
         
         setCustomers(customersArray);
         setFilteredCustomers(customersArray);
-      } catch (err) {
-        console.error('Error fetching customers:', err);
-        setError(err instanceof Error ? err.message : 'Failed to fetch customers');
+      } catch (error) {
+        console.error('CustomerSelect: Error fetching customers:', error);
+        setError(error instanceof Error ? error.message : 'Failed to load customers');
         setCustomers([]);
         setFilteredCustomers([]);
       } finally {
@@ -89,11 +104,7 @@ const CustomerSelect: React.FC<CustomerSelectProps> = ({ onSelect, selectedCusto
 
   // Filter customers based on search query
   useEffect(() => {
-    console.log('Filtering customers. Current customers:', customers);
-    console.log('Search query:', searchQuery);
-
     if (!Array.isArray(customers)) {
-      console.log('Customers is not an array, setting filtered to empty');
       setFilteredCustomers([]);
       return;
     }
@@ -101,7 +112,6 @@ const CustomerSelect: React.FC<CustomerSelectProps> = ({ onSelect, selectedCusto
     let filtered: Customer[] = [];
     
     if (searchQuery.trim() === '') {
-      console.log('No search query, showing all customers');
       filtered = customers;
     } else {
       const lowerCaseQuery = searchQuery.toLowerCase();
@@ -110,7 +120,6 @@ const CustomerSelect: React.FC<CustomerSelectProps> = ({ onSelect, selectedCusto
         customer.phone.toLowerCase().includes(lowerCaseQuery) ||
         (customer.email && customer.email.toLowerCase().includes(lowerCaseQuery))
       );
-      console.log('Filtered customers:', filtered);
     }
     
     setFilteredCustomers(filtered);
@@ -119,10 +128,8 @@ const CustomerSelect: React.FC<CustomerSelectProps> = ({ onSelect, selectedCusto
 
   // Update total pages when filtered customers change
   useEffect(() => {
-    console.log('Updating total pages. Filtered customers:', filteredCustomers);
     if (Array.isArray(filteredCustomers)) {
       const total = Math.max(1, Math.ceil(filteredCustomers.length / customersPerPage));
-      console.log('Calculated total pages:', total);
       setTotalPages(total);
     }
   }, [filteredCustomers]);
@@ -135,13 +142,8 @@ const CustomerSelect: React.FC<CustomerSelectProps> = ({ onSelect, selectedCusto
       )
     : [];
   
-  console.log('Current displayed customers:', displayedCustomers);
-  console.log('Current page:', page);
-  console.log('Total pages:', totalPages);
-  
-  const handlePageChange = (_event: React.ChangeEvent<unknown>, value: number) => {
-    console.log('Page changed to:', value);
-    setPage(value);
+  const handlePageChange = (newPage: number) => {
+    setPage(newPage);
   };
   
   const handleSearchChange = (event: React.ChangeEvent<HTMLInputElement>) => {
@@ -156,16 +158,16 @@ const CustomerSelect: React.FC<CustomerSelectProps> = ({ onSelect, selectedCusto
     setOpenNewCustomerDialog(false);
   };
 
-  const handleNewCustomerSubmit = async (formData: any) => {
+  const handleNewCustomerSubmit = async (formData: CustomerFormData) => {
     try {
       setIsCreatingCustomer(true);
-      const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
-      console.log('Creating new customer:', formData);
+      const apiUrl = '/api/customers';
       
-      const response = await fetch(`${apiUrl}/customers`, {
+      const response = await fetch(apiUrl, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
+          ...createAuthHeaders()
         },
         body: JSON.stringify(formData),
       });
@@ -175,12 +177,24 @@ const CustomerSelect: React.FC<CustomerSelectProps> = ({ onSelect, selectedCusto
         throw new Error(errorData.message || 'Failed to create customer');
       }
 
-      const newCustomer = await response.json();
-      console.log('Created new customer:', newCustomer);
+      const responseData = await response.json();
+      
+      // Handle different response formats
+      let newCustomer: Customer;
+      if (responseData.data) {
+        newCustomer = responseData.data;
+      } else if (responseData.id) {
+        newCustomer = responseData;
+      } else {
+        throw new Error('Invalid response format from create customer API');
+      }
       
       setCustomers(prev => [...prev, newCustomer]);
       setFilteredCustomers(prev => [...prev, newCustomer]);
-      onSelect(newCustomer.id, newCustomer.name);
+      
+      // Just select the customer but don't trigger automatic progression
+      onSelectCustomer(newCustomer.id, newCustomer.name);
+      
       setOpenNewCustomerDialog(false);
       toast.success('Customer created successfully');
     } catch (error: any) {
@@ -191,95 +205,148 @@ const CustomerSelect: React.FC<CustomerSelectProps> = ({ onSelect, selectedCusto
     }
   };
   
-  if (loading) return <CircularProgress />;
+  if (loading) {
+    return (
+      <div className="flex justify-center items-center p-8">
+        <Loader2 className="h-8 w-8 animate-spin text-primary" />
+      </div>
+    );
+  }
+  
+  if (error) {
+    return (
+      <div className="space-y-4">
+        <h2 className="text-xl font-semibold">Pilih Pelanggan</h2>
+        <Alert variant="destructive">
+          <AlertDescription>{error}</AlertDescription>
+        </Alert>
+        <Button onClick={() => window.location.reload()}>
+          Coba Lagi
+        </Button>
+      </div>
+    );
+  }
   
   return (
-    <Box>
-      <Typography variant="h6" gutterBottom>Pilih Pelanggan</Typography>
-      
-      <Box sx={{ mb: 3, display: 'flex', justifyContent: 'space-between' }}>
-        <TextField
-          placeholder="Cari pelanggan..."
-          variant="outlined"
-          size="small"
-          fullWidth
-          value={searchQuery}
-          onChange={handleSearchChange}
-          sx={{ maxWidth: 500 }}
-          InputProps={{
-            startAdornment: (
-              <InputAdornment position="start">
-                <SearchIcon />
-              </InputAdornment>
-            ),
-          }}
-        />
-        <IconButton 
-          color="primary" 
-          onClick={handleAddNewCustomer}
-          title="Tambah Pelanggan Baru"
-        >
-          <PersonAddIcon />
-        </IconButton>
-      </Box>
-      
-      <Paper sx={{ mb: 2 }}>
-        <Grid container>
-          {displayedCustomers.length === 0 ? (
-            <Grid item xs={12}>
-              <Box sx={{ p: 2, textAlign: 'center' }}>
-                <Typography color="text.secondary">
-                  {searchQuery ? 'Tidak ada pelanggan yang cocok dengan pencarian' : 'Tidak ada pelanggan'}
-                </Typography>
-              </Box>
-            </Grid>
-          ) : (
-            displayedCustomers.map((customer) => (
-              <Grid item xs={12} key={customer.id}>
-                <Box
-                  sx={{
-                    p: 2,
-                    cursor: 'pointer',
-                    bgcolor: selectedCustomerId === customer.id ? 'action.selected' : 'transparent',
-                    '&:hover': {
-                      bgcolor: 'action.hover',
-                    },
+    <Card>
+      <CardHeader>
+        <CardTitle>Pilih Pelanggan</CardTitle>
+        <CardDescription>
+          Pilih pelanggan yang akan membuat pesanan atau tambahkan pelanggan baru
+        </CardDescription>
+      </CardHeader>
+      <CardContent className="space-y-4">
+        <div className="flex gap-2">
+          <div className="relative flex-1">
+            <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
+            <Input
+              placeholder="Cari nama atau nomor telepon..."
+              value={searchQuery}
+              onChange={handleSearchChange}
+              className="pl-8"
+            />
+          </div>
+          <Button onClick={handleAddNewCustomer}>
+            <Plus className="mr-2 h-4 w-4" />
+            Pelanggan Baru
+          </Button>
+        </div>
+        
+        {displayedCustomers.length === 0 ? (
+          <div className="py-8 text-center">
+            <User className="mx-auto h-12 w-12 text-muted-foreground opacity-50" />
+            <p className="mt-2 text-muted-foreground">Tidak ada pelanggan yang ditemukan</p>
+            <Button variant="outline" className="mt-4" onClick={handleAddNewCustomer}>
+              Tambah Pelanggan Baru
+            </Button>
+          </div>
+        ) : (
+          <div className="space-y-4">
+            <div className="grid grid-cols-1 gap-2">
+              {displayedCustomers.map((customer) => (
+                <div 
+                  key={customer.id}
+                  className={`p-4 border rounded-md cursor-pointer transition-colors ${
+                    selectedCustomerId === customer.id 
+                      ? 'bg-primary/5 border-primary' 
+                      : 'hover:bg-accent'
+                  }`}
+                  onClick={() => {
+                    // Just notify parent of selection but don't trigger automatic progression
+                    onSelectCustomer(customer.id, customer.name);
                   }}
-                  onClick={() => onSelect(customer.id, customer.name)}
                 >
-                  <Typography variant="subtitle1">{customer.name}</Typography>
-                  <Typography variant="body2" color="text.secondary">
-                    {customer.phone}
-                    {customer.email && ` • ${customer.email}`}
-                  </Typography>
-                </Box>
-                <Divider />
-              </Grid>
-            ))
-          )}
-        </Grid>
-      </Paper>
+                  <div className="font-medium">{customer.name}</div>
+                  <div className="text-sm text-muted-foreground">{customer.phone}</div>
+                  {customer.email && (
+                    <div className="text-sm text-muted-foreground">{customer.email}</div>
+                  )}
+                </div>
+              ))}
+            </div>
+            
+            {totalPages > 1 && (
+              <Pagination className="justify-center">
+                <PaginationContent>
+                  <PaginationItem>
+                    <PaginationPrevious 
+                      onClick={() => handlePageChange(Math.max(1, page - 1))}
+                      className={page <= 1 ? "pointer-events-none opacity-50" : ""}
+                    />
+                  </PaginationItem>
+                  
+                  {Array.from({ length: totalPages }, (_, i) => i + 1)
+                    .filter(p => Math.abs(p - page) < 3 || p === 1 || p === totalPages)
+                    .map((p, i, arr) => {
+                      // Add ellipsis
+                      if (i > 0 && p > arr[i - 1] + 1) {
+                        return (
+                          <React.Fragment key={`ellipsis-${p}`}>
+                            <PaginationItem>
+                              <span className="px-4 py-2">...</span>
+                            </PaginationItem>
+                            <PaginationItem>
+                              <PaginationLink
+                                onClick={() => handlePageChange(p)}
+                                isActive={page === p}
+                              >
+                                {p}
+                              </PaginationLink>
+                            </PaginationItem>
+                          </React.Fragment>
+                        );
+                      }
+                      
+                      return (
+                        <PaginationItem key={p}>
+                          <PaginationLink
+                            onClick={() => handlePageChange(p)}
+                            isActive={page === p}
+                          >
+                            {p}
+                          </PaginationLink>
+                        </PaginationItem>
+                      );
+                    })}
+                  
+                  <PaginationItem>
+                    <PaginationNext 
+                      onClick={() => handlePageChange(Math.min(totalPages, page + 1))}
+                      className={page >= totalPages ? "pointer-events-none opacity-50" : ""}
+                    />
+                  </PaginationItem>
+                </PaginationContent>
+              </Pagination>
+            )}
+          </div>
+        )}
+      </CardContent>
       
-      {displayedCustomers.length > 0 && (
-        <Box sx={{ display: 'flex', justifyContent: 'center' }}>
-          <Pagination
-            count={totalPages}
-            page={page}
-            onChange={handlePageChange}
-            color="primary"
-          />
-        </Box>
-      )}
-
-      {/* New Customer Dialog */}
-      <Dialog 
-        open={openNewCustomerDialog} 
-        onClose={handleCloseNewCustomerDialog}
-        maxWidth="sm"
-        fullWidth
-      >
-        <DialogTitle>Tambah Pelanggan Baru</DialogTitle>
-        <DialogContent>
+      <Dialog open={openNewCustomerDialog} onOpenChange={setOpenNewCustomerDialog}>
+        <DialogContent className="sm:max-w-[625px]">
+          <DialogHeader>
+            <DialogTitle>Tambah Pelanggan Baru</DialogTitle>
+          </DialogHeader>
           <CustomerForm
             onSubmit={handleNewCustomerSubmit}
             onCancel={handleCloseNewCustomerDialog}
@@ -287,8 +354,6 @@ const CustomerSelect: React.FC<CustomerSelectProps> = ({ onSelect, selectedCusto
           />
         </DialogContent>
       </Dialog>
-    </Box>
+    </Card>
   );
-};
-
-export default CustomerSelect; 
+} 

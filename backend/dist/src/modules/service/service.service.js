@@ -26,14 +26,27 @@ let ServiceService = class ServiceService {
         return this.serviceRepository.save(service);
     }
     async findAll(options = {}) {
-        const { page = 1, limit = 10 } = options;
+        const { page = 1, limit = 10, search, category, isActive } = options;
         const skip = (page - 1) * limit;
         try {
-            const [items, total] = await this.serviceRepository.findAndCount({
-                skip,
-                take: limit,
-                order: { name: 'ASC' }
-            });
+            const queryBuilder = this.serviceRepository.createQueryBuilder('service');
+            if (search) {
+                queryBuilder.andWhere('(service.name ILIKE :search OR service.description ILIKE :search)', {
+                    search: `%${search}%`,
+                });
+            }
+            if (category) {
+                queryBuilder.andWhere('service.category = :category', { category });
+            }
+            if (isActive !== undefined) {
+                queryBuilder.andWhere('service.isActive = :isActive', { isActive });
+            }
+            const total = await queryBuilder.getCount();
+            const items = await queryBuilder
+                .orderBy('service.name', 'ASC')
+                .skip(skip)
+                .take(limit)
+                .getMany();
             return {
                 items,
                 total,
@@ -75,6 +88,22 @@ let ServiceService = class ServiceService {
         const result = await this.serviceRepository.delete(id);
         if (result.affected === 0) {
             throw new common_1.NotFoundException(`Service with ID ${id} not found`);
+        }
+    }
+    async getCategories() {
+        try {
+            const result = await this.serviceRepository
+                .createQueryBuilder('service')
+                .select('DISTINCT service.category', 'category')
+                .where('service.category IS NOT NULL')
+                .andWhere('service.category != :empty', { empty: '' })
+                .orderBy('service.category', 'ASC')
+                .getRawMany();
+            return result.map(item => item.category);
+        }
+        catch (error) {
+            console.error('Error in getCategories:', error);
+            return [];
         }
     }
     async save(serviceData) {

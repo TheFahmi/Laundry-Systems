@@ -1,539 +1,527 @@
-'use client';
+"use client"
 
-import React, { useState, useEffect } from 'react';
-import {
-  Container, Box, Typography, Paper, Table, TableBody, TableCell,
-  TableContainer, TableHead, TableRow, Button, TextField,
-  TablePagination, Chip, CircularProgress, InputAdornment,
-  IconButton, MenuItem, Select, FormControl, InputLabel, Alert,
-  SelectChangeEvent
-} from '@mui/material';
-import {
-  Search as SearchIcon,
-  Add as AddIcon,
-  FilterList as FilterIcon,
-  Clear as ClearIcon,
-} from '@mui/icons-material';
-import { useRouter } from 'next/navigation';
-import { format } from 'date-fns';
+import React, { useState, useEffect } from "react"
 import { 
-  getOrders, OrderStatus, OrderFilters, Order 
-} from '@/api/orders';
-import Link from 'next/link';
-import PageHeader from '@/components/PageHeader';
+  ArrowUpDown, 
+  ChevronDown, 
+  MoreHorizontal, 
+  Plus, 
+  Filter,
+  Download,
+  Search,
+  LogIn
+} from "lucide-react"
+import { Button } from "@/components/ui/button"
+import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu"
+import { Input } from "@/components/ui/input"
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table"
+import { formatRupiah, formatShortDate } from "@/lib/utils"
+import { Badge } from "@/components/ui/badge"
+import Link from "next/link"
+import { getOrders, updateOrderStatus, Order, OrderStatus } from "@/lib/orders"
+import { toast } from "@/components/ui/use-toast"
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog"
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select"
+import { authApi } from "@/utils/api"
+import { useAuth } from '@/providers/AuthProvider'
 
-// Status chip colors
-const statusColors: Record<string, string> = {
-  [OrderStatus.NEW]: 'warning',
-  [OrderStatus.PROCESSING]: 'info',
-  [OrderStatus.WASHING]: 'info',
-  [OrderStatus.DRYING]: 'info',
-  [OrderStatus.FOLDING]: 'info',
-  [OrderStatus.READY]: 'success',
-  [OrderStatus.DELIVERED]: 'primary',
-  [OrderStatus.CANCELLED]: 'error',
-};
-
-// Terjemahan status pesanan
-const statusLabels: Record<string, string> = {
-  [OrderStatus.NEW]: 'Baru',
-  [OrderStatus.PROCESSING]: 'Diproses',
-  [OrderStatus.WASHING]: 'Dicuci',
-  [OrderStatus.DRYING]: 'Dikeringkan',
-  [OrderStatus.FOLDING]: 'Dilipat',
-  [OrderStatus.READY]: 'Siap',
-  [OrderStatus.DELIVERED]: 'Dikirim',
-  [OrderStatus.CANCELLED]: 'Dibatalkan',
-};
-
-// Helper function to format date safely
-const formatDate = (dateString?: string) => {
-  if (!dateString) return '-';
-  
-  try {
-    const date = new Date(dateString);
-    return date.toLocaleDateString('id-ID', {
-      day: '2-digit',
-      month: 'long',
-      year: 'numeric'
-    });
-  } catch (error) {
-    console.error('Error formatting date:', error);
-    return dateString;
-  }
-};
+// Status badge variations
+const statusVariants = {
+  new: "bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-300",
+  processing: "bg-indigo-100 text-indigo-800 dark:bg-indigo-900 dark:text-indigo-300",
+  washing: "bg-cyan-100 text-cyan-800 dark:bg-cyan-900 dark:text-cyan-300",
+  drying: "bg-sky-100 text-sky-800 dark:bg-sky-900 dark:text-sky-300",
+  folding: "bg-teal-100 text-teal-800 dark:bg-teal-900 dark:text-teal-300",
+  ready: "bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-300",
+  delivered: "bg-purple-100 text-purple-800 dark:bg-purple-900 dark:text-purple-300",
+  cancelled: "bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-300",
+}
 
 export default function OrdersPage() {
-  const router = useRouter();
-  const [orders, setOrders] = useState<Order[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-  const [dataReceived, setDataReceived] = useState(false);
-  const dataProcessedRef = React.useRef(false);
+  const [orders, setOrders] = useState<Order[]>([])
+  const [totalOrders, setTotalOrders] = useState(0)
+  const [page, setPage] = useState(1)
+  const [limit, setLimit] = useState(10)
+  const [searchQuery, setSearchQuery] = useState("")
+  const [statusFilter, setStatusFilter] = useState<OrderStatus | "">("")
+  const [loading, setLoading] = useState(false)
   
-  // Pagination
-  const [page, setPage] = useState(0);
-  const [rowsPerPage, setRowsPerPage] = useState(10);
-  const [totalOrders, setTotalOrders] = useState(0);
+  // Status update dialog
+  const [isUpdateDialogOpen, setIsUpdateDialogOpen] = useState(false)
+  const [selectedOrder, setSelectedOrder] = useState<Order | null>(null)
+  const [newStatus, setNewStatus] = useState<OrderStatus | "">("")
+  const [isUpdating, setIsUpdating] = useState(false)
   
-  // Filter & Search
-  const [searchQuery, setSearchQuery] = useState('');
-  const [filterOpen, setFilterOpen] = useState(false);
-  const [statusFilter, setStatusFilter] = useState<OrderStatus | ''>('');
-  const [filters, setFilters] = useState<OrderFilters>({
-    page: 1,
-    limit: 10,
-  });
-
-  // Initialize CSRF token
-  const initializeCsrfToken = async () => {
-    try {
-      console.log('[OrdersPage] Checking for CSRF token');
-      // Check if token already exists in sessionStorage
-      const existingToken = typeof window !== 'undefined' ? sessionStorage.getItem('csrfToken') : null;
-      
-      if (existingToken) {
-        console.log('[OrdersPage] CSRF token already exists');
-        return;
-      }
-      
-      console.log('[OrdersPage] Fetching new CSRF token');
-      
-      // Try to get a new CSRF token
-      const response = await fetch('/api/auth/csrf-token', {
-        method: 'GET',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        credentials: 'include'
-      });
-      
-      if (!response.ok) {
-        throw new Error(`Failed to fetch CSRF token: ${response.status}`);
-      }
-      
-      const data = await response.json();
-      
-      if (data && (data.csrfToken || (data.data && data.data.csrfToken))) {
-        const token = data.csrfToken || data.data.csrfToken;
-        console.log('[OrdersPage] Got new CSRF token, storing in session storage');
-        sessionStorage.setItem('csrfToken', token);
-      } else {
-        console.warn('[OrdersPage] Response did not contain CSRF token:', data);
-      }
-    } catch (err) {
-      console.error('[OrdersPage] Error fetching CSRF token:', err);
+  // Login dialog
+  const [isLoginDialogOpen, setIsLoginDialogOpen] = useState(false)
+  const [username, setUsername] = useState("")
+  const [password, setPassword] = useState("")
+  const [isLoggingIn, setIsLoggingIn] = useState(false)
+  
+  // Add authentication state check
+  const { isAuthenticated } = useAuth();
+  
+  // Handle login for testing
+  const handleLogin = async () => {
+    if (!username || !password) {
+      toast({
+        title: "Error",
+        description: "Please enter both username and password",
+        variant: "destructive",
+      })
+      return
     }
-  };
-
-  // Fetch pesanan dari API
-  const fetchOrders = async () => {
-    setLoading(true);
-    setError(null);
     
+    setIsLoggingIn(true)
     try {
-      console.log('[OrdersPage] Fetching orders with params:', {
-        page: page + 1,
-        limit: rowsPerPage,
-        search: searchQuery || 'none',
-        status: statusFilter || 'all'
-      });
+      const response = await authApi.login(username, password)
       
-      const response = await getOrders({
-        ...filters,
-        page: page + 1,
-        limit: rowsPerPage,
-        search: searchQuery || undefined,
-        status: statusFilter || undefined
-      });
+      toast({
+        title: "Login Successful",
+        description: "You are now logged in.",
+      })
       
-      console.log('[OrdersPage] Raw API response:', response);
+      setIsLoginDialogOpen(false)
       
-      // Handle the deeply nested structure from the API
-      if (response && response.data && response.data.data) {
-        // The actual order items are in response.data.data.items
-        if (response.data.data.items && Array.isArray(response.data.data.items)) {
-          const ordersData = response.data.data.items.map((order: any) => ({
-            ...order,
-            // Ensure totalAmount is a number
-            totalAmount: typeof order.totalAmount === 'string' ? parseFloat(order.totalAmount) : (order.totalAmount || 0),
-            // Set customerName from customer object if available
-            customerName: order.customerName || (order.customer ? order.customer.name : ''),
-            // Ensure there's always a status property
-            status: order.status || OrderStatus.NEW,
-          }));
-          
-          setOrders(ordersData);
-          setTotalOrders(response.data.data.total || 0);
-          setDataReceived(true);
-          dataProcessedRef.current = true;
-          
-          console.log('[OrdersPage] Data processed successfully from nested structure');
-        } else {
-          console.error('[OrdersPage] No items array found in the nested response:', response.data.data);
-          setOrders([]);
-          setTotalOrders(0);
-          setError('Format respons tidak valid - tidak ada data pesanan');
-        }
-      } else if (response && response.items && Array.isArray(response.items)) {
-        // Fallback to older format where response directly contains items
-        const ordersData = response.items.map((order: any) => ({
-          ...order,
-          totalAmount: typeof order.totalAmount === 'string' ? parseFloat(order.totalAmount) : (order.totalAmount || 0),
-          customerName: order.customerName || (order.customer ? order.customer.name : ''),
-          status: order.status || OrderStatus.NEW,
-        }));
-        
-        setOrders(ordersData);
-        setTotalOrders(response.total || 0);
-        setDataReceived(true);
-        dataProcessedRef.current = true;
-        
-        console.log('[OrdersPage] Data processed from direct items structure');
-      } else {
-        console.error('[OrdersPage] Unexpected response format:', response);
-        setOrders([]);
-        setTotalOrders(0);
-        setError('Format respons tidak valid');
-      }
-    } catch (err) {
-      console.error('[OrdersPage] Error fetching orders:', err);
-      setError('Terjadi kesalahan saat mengambil data pesanan');
-      setOrders([]);
-      setTotalOrders(0);
+      // Refresh orders
+      fetchOrdersData()
+    } catch (error) {
+      console.error("Login failed:", error)
+      toast({
+        title: "Login Failed",
+        description: "Check your credentials and try again.",
+        variant: "destructive",
+      })
     } finally {
-      setLoading(false);
+      setIsLoggingIn(false)
     }
-  };
+  }
 
-  // Load orders when the component mounts
+  // Fetch orders when parameters change
   useEffect(() => {
-    async function init() {
-      console.log('[OrdersPage] Component mounted, initializing...');
-      // First, ensure we have a CSRF token
-      await initializeCsrfToken();
-      // Then fetch the orders
-      fetchOrders();
+    fetchOrdersData()
+  }, [page, limit, searchQuery, statusFilter])
+  
+  const fetchOrdersData = async () => {
+    setLoading(true)
+    try {
+      const params: any = { page, limit }
+      
+      if (searchQuery) {
+        params.search = searchQuery
+      }
+      
+      if (statusFilter) {
+        params.status = statusFilter
+      }
+      
+      const response = await getOrders(params)
+      
+      // Extract the items and total by navigating through the response
+      // Try various paths to find the items array
+      let items = null
+      let total = 0
+      
+      // Try to extract items from deeply nested structure
+      if (response?.data?.data?.data?.items && Array.isArray(response.data.data.data.items)) {
+        items = response.data.data.data.items
+        total = response.data.data.data.total || 0
+      }
+      // Try data.data.items
+      else if (response?.data?.data?.items && Array.isArray(response.data.data.items)) {
+        items = response.data.data.items
+        total = response.data.data.total || 0
+      }
+      // Try data.items directly
+      else if (response?.data?.items && Array.isArray(response.data.items)) {
+        items = response.data.items
+        total = response.data.total || 0
+      }
+      
+      if (items) {
+        setOrders(items)
+        setTotalOrders(total)
+      } else {
+        // Handle case where response doesn't match expected format
+        console.warn("Response format not as expected:", response)
+        setOrders([])
+        setTotalOrders(0)
+        toast({
+          title: "Data Format Issue",
+          description: "The server returned data in an unexpected format.",
+          variant: "destructive",
+        })
+      }
+    } catch (error) {
+      console.error("Failed to fetch orders:", error)
+      setOrders([])
+      setTotalOrders(0)
+      toast({
+        title: "Error",
+        description: "Failed to load orders. Please try again or check your connection.",
+        variant: "destructive",
+      })
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  // Handle search input with debounce
+  const handleSearchChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    setSearchQuery(e.target.value)
+  }
+
+  // Handle status filter
+  const handleStatusFilter = (status: OrderStatus | "") => {
+    setStatusFilter(status)
+    setPage(1) // Reset to first page when filtering
+  }
+
+  // Handle pagination
+  const handlePreviousPage = () => {
+    if (page > 1) {
+      setPage(page - 1)
+    }
+  }
+
+  const handleNextPage = () => {
+    if (page * limit < totalOrders) {
+      setPage(page + 1)
+    }
+  }
+  
+  // Open update status dialog
+  const openUpdateDialog = (order: Order) => {
+    setSelectedOrder(order)
+    setNewStatus(order.status)
+    setIsUpdateDialogOpen(true)
+  }
+  
+  // Handle status update
+  const handleUpdateStatus = async () => {
+    if (!selectedOrder || !newStatus) {
+      return;
     }
     
-    init();
-  }, []);
-
-  // Load orders when filters change
-  useEffect(() => {
-    if (dataReceived) { // Only refetch if we've already gotten data once
-      console.log('[OrdersPage] Filters changed, refetching data');
-      fetchOrders();
+    setIsUpdating(true);
+    try {
+      const response = await updateOrderStatus(selectedOrder.id, newStatus as OrderStatus);
+      
+      // Update the order in the local state
+      setOrders(orders.map(order => 
+        order.id === selectedOrder.id 
+          ? { ...order, status: newStatus as OrderStatus } 
+          : order
+      ));
+      
+      toast({
+        title: "Status Updated",
+        description: `Order ${selectedOrder.orderNumber} status updated to ${newStatus}`,
+      });
+      
+      setIsUpdateDialogOpen(false);
+    } catch (error) {
+      console.error("Failed to update order status:", error);
+      toast({
+        title: "Update Failed",
+        description: "Could not update the order status. Please try again.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsUpdating(false);
     }
-  }, [page, rowsPerPage, filters]);
-  
-  // Monitor state changes (without triggering re-renders)
-  useEffect(() => {
-    console.log('[OrdersPage] Current state:', {
-      ordersCount: orders.length, 
-      loading,
-      error: error || 'none',
-      page,
-      rowsPerPage,
-      dataReceived
-    });
-  }, [orders, loading, error, page, rowsPerPage, dataReceived]);
-
-  // Handle page change
-  const handleChangePage = (_event: unknown, newPage: number) => {
-    console.log('[OrdersPage] Page changed to', newPage + 1);
-    setPage(newPage);
-  };
-
-  // Handle rows per page change
-  const handleChangeRowsPerPage = (event: React.ChangeEvent<HTMLInputElement>) => {
-    const newRowsPerPage = parseInt(event.target.value, 10);
-    console.log('[OrdersPage] Rows per page changed to', newRowsPerPage);
-    setRowsPerPage(newRowsPerPage);
-    setPage(0);
-  };
-  
-  // Apply search filter
-  const handleSearch = () => {
-    console.log('[OrdersPage] Search applied with query:', searchQuery);
-    setPage(0);
-    fetchOrders();
-  };
-
-  // Clear all filters
-  const handleClearFilters = () => {
-    console.log('[OrdersPage] Filters cleared');
-    setSearchQuery('');
-    setStatusFilter('');
-    setPage(0);
-    setFilters({
-      page: 1,
-      limit: rowsPerPage,
-    });
-  };
-  
-  // Handle status filter change
-  const handleStatusFilterChange = (event: SelectChangeEvent<string>) => {
-    const newStatus = event.target.value as OrderStatus | '';
-    console.log('[OrdersPage] Status filter changed to:', newStatus);
-    setStatusFilter(newStatus);
-  };
-  
-  // Go to order detail page
-  const handleViewOrder = (orderId: string) => {
-    console.log('[OrdersPage] Navigating to order detail:', orderId);
-    router.push(`/orders/${orderId}`);
-  };
-  
-  // Go to create order page
-  const handleCreateOrder = () => {
-    console.log('[OrdersPage] Navigating to create order page');
-    router.push('/orders/new');
-  };
-
-  // Render a fallback data view if table is not showing data
-  const renderFallbackData = () => {
-    if (orders.length === 0) return null;
-    
-    return (
-      <Box mt={3}>
-        <Typography variant="h6" color="primary" gutterBottom>
-          Data is available but not rendering in table:
-        </Typography>
-        {orders.slice(0, 3).map((order, index) => (
-          <Paper key={order.id || index} sx={{ p: 2, mb: 2 }}>
-            <Typography variant="subtitle1">
-              Order #{order.orderNumber || index + 1}
-            </Typography>
-            <Typography>
-              Customer: {order.customerName || order.customer?.name || 'Unknown'}
-            </Typography>
-            <Typography>
-              Amount: Rp {order.totalAmount?.toLocaleString() || '0'}
-            </Typography>
-            <Typography>
-              Status: {statusLabels[order.status] || order.status}
-            </Typography>
-            <Button 
-              variant="outlined" 
-              size="small" 
-              sx={{ mt: 1 }}
-              onClick={() => handleViewOrder(order.id)}
-            >
-              View Details
-            </Button>
-          </Paper>
-        ))}
-        {orders.length > 3 && (
-          <Typography variant="body2" color="text.secondary">
-            ...and {orders.length - 3} more orders
-          </Typography>
-        )}
-      </Box>
-    );
-  };
+  }
 
   return (
-    <div className="container mx-auto p-4">
-      <PageHeader 
-        title="Daftar Pesanan" 
-        action={
-          <Link href="/orders/new" passHref>
-            <Button variant="contained" color="primary">
-              Buat Pesanan Baru
+    <div className="space-y-6">
+      <div className="flex items-center justify-between">
+        <h2 className="text-3xl font-bold tracking-tight">Orders</h2>
+        <div className="flex gap-2">
+          {/* {!isAuthenticated && (
+            <Button variant="outline" onClick={() => setIsLoginDialogOpen(true)}>
+              <LogIn className="mr-2 h-4 w-4" />
+              Login
+            </Button>
+          )} */}
+          <Link href="/orders/new">
+            <Button>
+              <Plus className="mr-2 h-4 w-4" />
+              New Order
             </Button>
           </Link>
-        }
-      />
-      
-      <Box sx={{ mb: 3 }}>
-        {/* Search & Filter */}
-        <Paper sx={{ p: 2, mb: 3 }}>
-          <Box sx={{ display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: 2 }}>
-            <TextField
-              label="Cari pesanan"
-              variant="outlined"
-              size="small"
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              onKeyPress={(e) => e.key === 'Enter' && handleSearch()}
-              sx={{ flexGrow: 1 }}
-              InputProps={{
-                startAdornment: (
-                  <InputAdornment position="start">
-                    <SearchIcon />
-                  </InputAdornment>
-                ),
-                endAdornment: searchQuery && (
-                  <InputAdornment position="end">
-                    <IconButton 
-                      size="small" 
-                      onClick={() => {
-                        setSearchQuery('');
-                        handleSearch();
-                      }}
-                    >
-                      <ClearIcon />
-                    </IconButton>
-                  </InputAdornment>
-                )
-              }}
-            />
-            
-            <IconButton 
-              color={filterOpen ? 'primary' : 'default'} 
-              onClick={() => setFilterOpen(!filterOpen)}
-            >
-              <FilterIcon />
-            </IconButton>
-            
-            <Button 
-              variant="outlined"
-              size="small"
-              onClick={handleSearch}
-            >
-              Cari
+        </div>
+      </div>
+
+      <div className="flex flex-col sm:flex-row items-center gap-4">
+        <div className="relative w-full sm:w-auto flex-1">
+          <Search className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
+          <Input 
+            placeholder="Search orders..." 
+            className="pl-8"
+            value={searchQuery}
+            onChange={handleSearchChange}
+          />
+        </div>
+        <div className="flex gap-2 w-full sm:w-auto">
+          <Button variant="outline" size="icon">
+            <Filter className="h-4 w-4" />
+          </Button>
+          <Button variant="outline" size="icon">
+            <Download className="h-4 w-4" />
             </Button>
-            
-            {(searchQuery || statusFilter) && (
-              <Button 
-                variant="text"
-                size="small"
-                onClick={handleClearFilters}
-                startIcon={<ClearIcon />}
-              >
-                Reset
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button variant="outline">
+                Status
+                <ChevronDown className="ml-2 h-4 w-4" />
               </Button>
-            )}
-          </Box>
-          
-          {filterOpen && (
-            <Box sx={{ mt: 2, display: 'flex', flexWrap: 'wrap', gap: 2 }}>
-              <FormControl variant="outlined" size="small" sx={{ minWidth: 200 }}>
-                <InputLabel>Status</InputLabel>
-                <Select
-                  value={statusFilter}
-                  onChange={handleStatusFilterChange}
-                  label="Status"
-                >
-                  <MenuItem value="">Semua Status</MenuItem>
-                  {Object.values(OrderStatus).map((status) => (
-                    <MenuItem key={status} value={status}>
-                      {statusLabels[status]}
-                    </MenuItem>
-                  ))}
-                </Select>
-              </FormControl>
-            </Box>
-          )}
-        </Paper>
-      </Box>
-      
-      {error && (
-        <Alert severity="error" sx={{ mb: 3 }}>
-          {error}
-        </Alert>
-      )}
-      
-      {/* Debug info - remove in production */}
-      <Paper sx={{ mb: 3, p: 2, display: 'flex', flexDirection: 'column', gap: 1 }}>
-        <Typography variant="h6">Debug Info</Typography>
-        <Typography variant="body2" color={orders.length > 0 ? 'success.main' : 'error.main'}>
-          Orders Count: {orders.length}
-        </Typography>
-        <Typography variant="body2">Total Orders: {totalOrders}</Typography>
-        <Typography variant="body2">Loading: {loading ? 'Yes' : 'No'}</Typography>
-        <Typography variant="body2">Error: {error || 'None'}</Typography>
-        <Typography variant="body2">Page: {page + 1}</Typography>
-        <Typography variant="body2">Rows per page: {rowsPerPage}</Typography>
-        
-        {/* Fallback direct rendering */}
-        {orders.length > 0 && (
-          <Box>
-            <Typography variant="subtitle2">Data Dump (Raw Orders):</Typography>
-            <pre style={{ fontSize: '0.7rem', overflow: 'auto', maxHeight: '300px', backgroundColor: '#f5f5f5', padding: '8px' }}>
-              {JSON.stringify(orders, null, 2)}
-            </pre>
-          </Box>
-        )}
-      </Paper>
-      
-      {/* Fallback data view */}
-      {!loading && renderFallbackData()}
-      
-      {/* Orders Table */}
-      <Paper>
-        <TableContainer>
-          <Table>
-            <TableHead>
-              <TableRow>
-                <TableCell>No. Pesanan</TableCell>
-                <TableCell>Pelanggan</TableCell>
-                <TableCell>Tanggal</TableCell>
-                <TableCell>Total</TableCell>
-                <TableCell>Status</TableCell>
-                <TableCell align="right">Aksi</TableCell>
-              </TableRow>
-            </TableHead>
-            <TableBody>
-              {loading ? (
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end">
+              <DropdownMenuItem onClick={() => handleStatusFilter("")}>All</DropdownMenuItem>
+              <DropdownMenuItem onClick={() => handleStatusFilter("new")}>New</DropdownMenuItem>
+              <DropdownMenuItem onClick={() => handleStatusFilter("processing")}>Processing</DropdownMenuItem>
+              <DropdownMenuItem onClick={() => handleStatusFilter("washing")}>Washing</DropdownMenuItem>
+              <DropdownMenuItem onClick={() => handleStatusFilter("drying")}>Drying</DropdownMenuItem>
+              <DropdownMenuItem onClick={() => handleStatusFilter("folding")}>Folding</DropdownMenuItem>
+              <DropdownMenuItem onClick={() => handleStatusFilter("ready")}>Ready</DropdownMenuItem>
+              <DropdownMenuItem onClick={() => handleStatusFilter("delivered")}>Delivered</DropdownMenuItem>
+              <DropdownMenuItem onClick={() => handleStatusFilter("cancelled")}>Cancelled</DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
+        </div>
+      </div>
+
+      <Card>
+        <CardHeader className="px-6 py-4">
+          <CardTitle>Order Management</CardTitle>
+          <CardDescription>Manage your orders and track their status</CardDescription>
+        </CardHeader>
+        <CardContent className="p-0 overflow-auto">
+          {loading ? (
+            <div className="py-10 text-center">Loading orders...</div>
+          ) : (
+            <Table>
+              <TableHeader>
                 <TableRow>
-                  <TableCell colSpan={6} align="center" sx={{ py: 3 }}>
-                    <CircularProgress size={30} />
-                  </TableCell>
+                  <TableHead className="w-[100px]">Order ID</TableHead>
+                  <TableHead>
+                    <div className="flex items-center">
+                      Customer
+                      <ArrowUpDown className="ml-2 h-4 w-4" />
+                    </div>
+                  </TableHead>
+                  <TableHead>Services</TableHead>
+                  <TableHead>Status</TableHead>
+                  <TableHead>
+                    <div className="flex items-center">
+                      Date
+                      <ArrowUpDown className="ml-2 h-4 w-4" />
+                    </div>
+                  </TableHead>
+                  <TableHead className="text-right">Amount</TableHead>
+                  <TableHead className="w-[50px]"></TableHead>
                 </TableRow>
-              ) : orders.length === 0 ? (
-                <TableRow>
-                  <TableCell colSpan={6} align="center" sx={{ py: 3 }}>
-                    Tidak ada pesanan ditemukan
-                  </TableCell>
-                </TableRow>
-              ) : (
-                orders.map((order) => (
-                  <TableRow key={order.id} hover>
-                    <TableCell>{order.orderNumber}</TableCell>
-                    <TableCell>{order.customerName || order.customer?.name || 'Unknown'}</TableCell>
-                    <TableCell>
-                      {formatDate(order.createdAt)}
-                    </TableCell>
-                    <TableCell>Rp {(order.totalAmount || 0).toLocaleString()}</TableCell>
-                    <TableCell>
-                      <Chip 
-                        label={statusLabels[order.status] || order.status} 
-                        color={statusColors[order.status] as any || 'default'}
-                        size="small"
-                      />
-                    </TableCell>
-                    <TableCell align="right">
-                      <Button
-                        variant="text"
-                        size="small"
-                        onClick={() => handleViewOrder(order.id)}
-                      >
-                        Detail
-                      </Button>
+              </TableHeader>
+              <TableBody>
+                {orders.length === 0 ? (
+                  <TableRow>
+                    <TableCell colSpan={7} className="text-center py-10">
+                      No orders found
                     </TableCell>
                   </TableRow>
-                ))
-              )}
-            </TableBody>
-          </Table>
-        </TableContainer>
-        
-        <TablePagination
-          rowsPerPageOptions={[5, 10, 25, 50]}
-          component="div"
-          count={totalOrders}
-          rowsPerPage={rowsPerPage}
-          page={page}
-          onPageChange={handleChangePage}
-          onRowsPerPageChange={handleChangeRowsPerPage}
-          labelRowsPerPage="Baris per halaman:"
-          labelDisplayedRows={({ from, to, count }) => 
-            `${from}-${to} dari ${count !== -1 ? count : `lebih dari ${to}`}`
-          }
-        />
-      </Paper>
+                ) : (
+                  orders.map((order) => (
+                    <TableRow key={order.id}>
+                      <TableCell className="font-medium">{order.orderNumber}</TableCell>
+                      <TableCell>{order.customer.name || `Customer ${order.customerId}`}</TableCell>
+                      <TableCell>
+                        <div className="flex flex-wrap gap-1">
+                          {order.items?.slice(0, 3).map((item) => (
+                            <Badge key={item.id} variant="outline" className="whitespace-nowrap">
+                              {item.serviceName}
+                            </Badge>
+                          ))}
+                          {order.items && order.items.length > 3 && (
+                            <Badge variant="outline">+{order.items.length - 3} more</Badge>
+                          )}
+                        </div>
+                      </TableCell>
+                      <TableCell>
+                        <Badge
+                          className={statusVariants[order.status as keyof typeof statusVariants]}
+                          variant="secondary"
+                        >
+                          {order.status.charAt(0).toUpperCase() + order.status.slice(1)}
+                        </Badge>
+                      </TableCell>
+                      <TableCell>{formatShortDate(new Date(order.createdAt))}</TableCell>
+                      <TableCell className="text-right">{formatRupiah(order.totalAmount)}</TableCell>
+                      <TableCell>
+                        <DropdownMenu>
+                          <DropdownMenuTrigger asChild>
+                            <Button variant="ghost" className="h-8 w-8 p-0">
+                              <span className="sr-only">Open menu</span>
+                              <MoreHorizontal className="h-4 w-4" />
+                            </Button>
+                          </DropdownMenuTrigger>
+                          <DropdownMenuContent align="end">
+                            <DropdownMenuLabel>Actions</DropdownMenuLabel>
+                            <DropdownMenuItem>
+                              <Link href={`/orders/${order.id}`} className="w-full">
+                                View details
+                              </Link>
+                            </DropdownMenuItem>
+                            <DropdownMenuItem onClick={() => openUpdateDialog(order)}>
+                              Update status
+                            </DropdownMenuItem>
+                            <DropdownMenuSeparator />
+                            <DropdownMenuItem>Print invoice</DropdownMenuItem>
+                            <DropdownMenuItem className="text-destructive">
+                              Cancel order
+                            </DropdownMenuItem>
+                          </DropdownMenuContent>
+                        </DropdownMenu>
+                      </TableCell>
+                    </TableRow>
+                  ))
+                )}
+              </TableBody>
+            </Table>
+          )}
+        </CardContent>
+        <CardFooter className="flex flex-col sm:flex-row items-center justify-between p-4 border-t">
+          <div className="text-sm text-muted-foreground mb-4 sm:mb-0">
+            Showing <strong>{orders.length}</strong> of <strong>{totalOrders}</strong> orders
+          </div>
+          <div className="flex items-center space-x-2">
+            <Button 
+              variant="outline" 
+              size="sm"
+              onClick={handlePreviousPage}
+              disabled={page === 1}
+            >
+              Previous
+            </Button>
+            <Button 
+              variant="outline" 
+              size="sm"
+              onClick={handleNextPage}
+              disabled={page * limit >= totalOrders}
+            >
+              Next
+            </Button>
+          </div>
+        </CardFooter>
+      </Card>
+      
+      {/* Update Status Dialog */}
+      <Dialog open={isUpdateDialogOpen} onOpenChange={setIsUpdateDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Update Order Status</DialogTitle>
+            <DialogDescription>
+              Change the status for order {selectedOrder?.orderNumber}
+            </DialogDescription>
+          </DialogHeader>
+          <div className="py-4">
+            <Select value={newStatus} onValueChange={(value) => setNewStatus(value as OrderStatus)}>
+              <SelectTrigger>
+                <SelectValue placeholder="Select a new status" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="new">New</SelectItem>
+                <SelectItem value="processing">Processing</SelectItem>
+                <SelectItem value="washing">Washing</SelectItem>
+                <SelectItem value="drying">Drying</SelectItem>
+                <SelectItem value="folding">Folding</SelectItem>
+                <SelectItem value="ready">Ready</SelectItem>
+                <SelectItem value="delivered">Delivered</SelectItem>
+                <SelectItem value="cancelled">Cancelled</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setIsUpdateDialogOpen(false)}>
+              Cancel
+            </Button>
+            <Button onClick={handleUpdateStatus} disabled={isUpdating}>
+              {isUpdating ? "Updating..." : "Update Status"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+      
+      {/* Login Dialog */}
+      <Dialog open={isLoginDialogOpen} onOpenChange={setIsLoginDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Login</DialogTitle>
+            <DialogDescription>
+              Enter your credentials to access the orders
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 py-2">
+            <div className="space-y-2">
+              <label htmlFor="username" className="text-sm font-medium">Username</label>
+              <Input
+                id="username"
+                value={username}
+                onChange={(e) => setUsername(e.target.value)}
+              />
+            </div>
+            <div className="space-y-2">
+              <label htmlFor="password" className="text-sm font-medium">Password</label>
+              <Input
+                id="password"
+                type="password"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter') {
+                    handleLogin();
+                  }
+                }}
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setIsLoginDialogOpen(false)}>
+              Cancel
+            </Button>
+            <Button onClick={handleLogin} disabled={isLoggingIn}>
+              {isLoggingIn ? "Logging in..." : "Login"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
-  );
+  )
 } 

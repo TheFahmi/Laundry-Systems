@@ -1,34 +1,38 @@
 import { DataSource } from 'typeorm';
-import { AppDataSource } from '../../data-source';
-import { seedServiceCategories } from './service-category.seed';
 import { seedServices } from './service.seed';
-import { seedCustomers } from './customer.seed';
+import * as dotenv from 'dotenv';
 
-const runSeeds = async () => {
+dotenv.config();
+
+const dataSource = new DataSource({
+  type: 'postgres',
+  host: process.env.DB_HOST || 'localhost',
+  port: parseInt(process.env.DB_PORT || '5432'),
+  username: process.env.DB_USERNAME || 'postgres',
+  password: process.env.DB_PASSWORD || 'postgres',
+  database: process.env.DB_DATABASE || 'laundry_db',
+  synchronize: false,
+  logging: true,
+});
+
+async function runSeeds() {
+  let connection: DataSource | null = null;
   try {
-    // Initialize the data source
-    const dataSource = await AppDataSource.initialize();
-    console.log('Data source initialized');
-
-    // Run seeds in order
-    console.log('Running service category seeds...');
-    await seedServiceCategories(dataSource);
-    console.log('Service category seeds completed');
+    connection = await dataSource.initialize();
+    console.log('Connected to database');
 
     console.log('Running service seeds...');
-    await seedServices(dataSource);
-    console.log('Service seeds completed');
-
-    console.log('Running customer seeds...');
-    await seedCustomers(dataSource);
-    console.log('Customer seeds completed');
-
-    console.log('All seeds completed successfully');
-    process.exit(0);
+    await seedServices(connection);
+    console.log('Service seeds completed successfully');
   } catch (error) {
     console.error('Error running seeds:', error);
     process.exit(1);
+  } finally {
+    if (connection) {
+      await connection.destroy();
+      console.log('Database connection closed');
+    }
   }
-};
+}
 
 runSeeds(); 

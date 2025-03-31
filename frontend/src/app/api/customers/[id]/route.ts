@@ -61,13 +61,21 @@ export async function GET(
     const data = await response.json();
     console.log(`[API Route] /api/customers/${id}: Response received from backend`);
     
-    // Return customer data
-    return NextResponse.json({
+    // Return customer data with no-cache headers
+    const responseWithHeaders = NextResponse.json({
+      data: data,
       statusCode: 200,
       message: 'Success',
-      timestamp: new Date().toISOString(),
-      data: data
+      timestamp: new Date().toISOString()
     });
+    
+    // Add cache control headers
+    responseWithHeaders.headers.set('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
+    responseWithHeaders.headers.set('Pragma', 'no-cache');
+    responseWithHeaders.headers.set('Expires', '0');
+    responseWithHeaders.headers.set('Surrogate-Control', 'no-store');
+    
+    return responseWithHeaders;
   } catch (error: any) {
     console.error(`[API Route] /api/customers/${id}: Exception occurred:`, error.message);
     return NextResponse.json({ 

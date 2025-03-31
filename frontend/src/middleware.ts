@@ -1,68 +1,95 @@
 import { NextResponse } from 'next/server';
 import type { NextRequest } from 'next/server';
+import { jwtVerify } from 'jose';
 
-// Define public routes that don't require authentication
-const publicPaths = [
-  '/login',
-  '/register',
-  '/forgot-password',
-  '/reset-password',
-  '/api/auth',
-  '/_next',
-  '/favicon.ico',
+// Paths that require authentication
+const AUTH_PATHS = ['/dashboard', '/orders', '/customers', '/services', '/reports', '/settings'];
+// Public paths that don't require authentication
+const PUBLIC_PATHS = ['/', '/login', '/register', '/forgot-password'];
+// Public API paths that don't require authentication
+const PUBLIC_API_PATHS = ['/api/auth/login', '/api/auth/register'];
+
+// Secret key for JWT verification - should match the one in auth.ts
+const JWT_SECRET = process.env.JWT_SECRET || 'your-super-secret-key-here';
+
+// The list of API paths that should bypass the proxy logic
+const BYPASS_PATHS: string[] = [
+  // Add any API routes that should not be proxied
 ];
 
-// This middleware function will help us handle authentication and redirect malformed URLs
-export function middleware(request: NextRequest) {
-  const url = request.nextUrl.clone();
-  const path = url.pathname;
-
-  // Log all requests for debugging
-  console.log(`[Middleware] Request path: ${path}`);
-
-  // Check if the path is public
-  const isPublicPath = publicPaths.some(publicPath => 
-    path.startsWith(publicPath) || path === '/'
-  );
-
-  // Get the token from cookies
-  const token = request.cookies.get('token')?.value;
+export async function middleware(request: NextRequest) {
+  const { pathname } = request.nextUrl;
   
-  // Redirect to login if no token and accessing protected route
-  if (!token && !isPublicPath) {
-    url.pathname = '/login';
-    // Store the original URL to redirect back after login
-    url.searchParams.set('callbackUrl', request.url);
-    return NextResponse.redirect(url);
-  }
-
-  // Allow access to public routes even without token
-  if (isPublicPath) {
+  // Only apply this middleware to API routes
+  if (!pathname.startsWith('/api/')) {
     return NextResponse.next();
   }
-
-  // Check for potentially malformed paths like /orders/undefined/customers
-  if (path.includes('/undefined/') || path.includes('undefined')) {
-    console.error(`[Middleware] Malformed URL detected: ${path}`);
-    
-    // Clean up the path by replacing undefined with appropriate values or redirecting
-    if (path.includes('/orders/undefined')) {
-      url.pathname = '/orders';
-      return NextResponse.redirect(url);
-    }
-    
-    if (path.includes('/customers/undefined')) {
-      url.pathname = '/customers';
-      return NextResponse.redirect(url);
-    }
+  
+  // Skip specific paths that should be handled by their own route handlers
+  if (BYPASS_PATHS.some(path => pathname.startsWith(path))) {
+    return NextResponse.next();
   }
-
-  return NextResponse.next();
+  
+  // Get the backend API URL
+  const backendUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
+  
+  try {
+    // Construct target URL for the backend API
+    // Remove '/api' prefix when forwarding to backend
+    const targetPath = pathname.replace(/^\/api/, '');
+    const url = new URL(targetPath, backendUrl);
+    
+    // Copy all search parameters
+    request.nextUrl.searchParams.forEach((value, key) => {
+      url.searchParams.append(key, value);
+    });
+    
+    // Clone the request headers
+    const headers = new Headers(request.headers);
+    
+    // Get authorization token from cookies or Authorization header
+    const authHeader = request.headers.get('Authorization');
+    const tokenCookie = request.cookies.get('token');
+    
+    // Set Authorization header if available from either source
+    if (authHeader) {
+      headers.set('Authorization', authHeader);
+    } else if (tokenCookie) {
+      headers.set('Authorization', `Bearer ${tokenCookie.value}`);
+    }
+    
+    // Forward the request to the backend
+    const response = await fetch(url.toString(), {
+      method: request.method,
+      headers,
+      body: request.body,
+      redirect: 'manual',
+    });
+    
+    // Create a NextResponse from the backend response
+    const responseHeaders = new Headers(response.headers);
+    
+    // Add CORS headers
+    responseHeaders.set('Access-Control-Allow-Origin', '*');
+    responseHeaders.set('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, PATCH, OPTIONS');
+    responseHeaders.set('Access-Control-Allow-Headers', 'Content-Type, Authorization');
+    
+    // Create the response
+    return new NextResponse(response.body, {
+      status: response.status,
+      statusText: response.statusText,
+      headers: responseHeaders,
+    });
+  } catch (error) {
+    console.error('API proxy error:', error);
+    return NextResponse.json(
+      { error: 'Failed to proxy request to backend' },
+      { status: 500 }
+    );
+  }
 }
 
-// Run middleware on all routes
+// Configure the middleware to run only for API routes
 export const config = {
-  matcher: [
-    '/((?!_next/static|_next/image|images|public|favicon.ico).*)',
-  ],
+  matcher: '/api/:path*',
 }; 

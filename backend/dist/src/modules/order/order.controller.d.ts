@@ -12,6 +12,7 @@ export declare class OrderController {
     getCreateForm(): Promise<{
         message: string;
     }>;
+    findByOrderNumber(orderNumber: string): Promise<Order>;
     findAll(page?: number, limit?: number, status?: OrderStatus): Promise<{
         items: Order[];
         total: number;

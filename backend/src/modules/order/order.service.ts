@@ -223,9 +223,9 @@ export class OrderService {
             orderId: savedOrder.id,
             customerId: savedOrder.customerId,
             amount: createOrderDto.payment.amount,
-            method: createOrderDto.payment.method,
+            paymentMethod: createOrderDto.payment.method,
             status: PaymentStatus.COMPLETED,
-            referenceNumber: `PAY-${Date.now().toString().substring(0, 10)}`,
+            notes: `Payment for order ${savedOrder.orderNumber}`,
             transactionId: `CHANGE-${createOrderDto.payment.change}`
           });
           
@@ -277,13 +277,29 @@ export class OrderService {
     const query = this.orderRepository.createQueryBuilder('order')
       .leftJoinAndSelect('order.customer', 'customer')
       .leftJoinAndSelect('order.items', 'orderItems')
-      .leftJoinAndSelect('orderItems.service', 'service');
+      .leftJoinAndSelect('orderItems.service', 'service')
+      .select([
+        'order',
+        'customer',
+        'orderItems.id',
+        'orderItems.orderId',
+        'orderItems.serviceId',
+        'orderItems.serviceName',
+        'orderItems.quantity',
+        'orderItems.weight',
+        'orderItems.unitPrice',
+        'orderItems.totalPrice',
+        'orderItems.createdAt',
+        'orderItems.updatedAt',
+        'service'
+      ]);
     
     if (status) {
       query.andWhere('order.status = :status', { status });
     }
     
     const [items, total] = await query
+      .orderBy('order.createdAt', 'DESC')
       .skip((page - 1) * limit)
       .take(limit)
       .getManyAndCount();
@@ -304,6 +320,19 @@ export class OrderService {
 
     if (!order) {
       throw new NotFoundException(`Order with ID ${id} not found`);
+    }
+
+    return order;
+  }
+
+  async findByOrderNumber(orderNumber: string): Promise<Order> {
+    const order = await this.orderRepository.findOne({
+      where: { orderNumber },
+      relations: ['customer', 'items', 'items.service', 'payments'],
+    });
+
+    if (!order) {
+      throw new NotFoundException(`Order with order number ${orderNumber} not found`);
     }
 
     return order;
@@ -372,7 +401,7 @@ export class OrderService {
         orderId: order.id,
         customerId: order.customerId,
         amount: totalAmount,
-        method: PaymentMethod.CASH, // Use enum value
+        paymentMethod: PaymentMethod.CASH, // Use enum value
         status: PaymentStatus.PENDING, // Use enum value
         transactionId: `TRX-${Date.now()}`
       });
