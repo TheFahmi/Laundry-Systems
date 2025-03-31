@@ -21,6 +21,8 @@ import { Input } from "@/components/ui/input"
 import { Textarea } from "@/components/ui/textarea"
 import { toast } from "sonner"
 import { getJobQueueById, updateJobQueue, deleteJobQueue } from "@/api/job-queue"
+import { LoadingIndicator } from "@/components/ui/loading-indicator"
+import { LoadingSpinner } from "@/components/ui/loading-spinner"
 
 // Define the form schema
 const formSchema = z.object({
@@ -188,8 +190,16 @@ export default function EditJobQueuePage() {
 
   if (loading) {
     return (
-      <div className="flex justify-center items-center h-[calc(100vh-100px)]">
-        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-gray-900 dark:border-white"></div>
+      <div className="flex flex-col gap-4">
+        <div>
+          <h1 className="text-3xl font-bold tracking-tight">Edit Job Queue Entry</h1>
+          <p className="text-muted-foreground">Loading job queue details...</p>
+        </div>
+        <Card>
+          <CardContent>
+            <LoadingIndicator text="Loading job queue details..." />
+          </CardContent>
+        </Card>
       </div>
     )
   }
@@ -302,10 +312,12 @@ export default function EditJobQueuePage() {
                   type="button"
                   variant="outline"
                   onClick={() => router.push("/job-queue")}
+                  disabled={submitting}
                 >
                   Cancel
                 </Button>
                 <Button type="submit" disabled={submitting}>
+                  {submitting && <LoadingSpinner size="sm" className="mr-2" />}
                   {submitting ? "Saving..." : "Save Changes"}
                 </Button>
               </div>

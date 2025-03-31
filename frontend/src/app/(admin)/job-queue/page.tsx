@@ -14,6 +14,7 @@ import { cn } from "@/lib/utils"
 import { getJobQueueByDate, getJobQueuePrintData } from "@/api/job-queue"
 import { JobQueueItem } from "@/types/job-queue"
 import { toast } from "sonner"
+import { LoadingIndicator } from '@/components/ui/loading-indicator'
 
 export default function JobQueuePage() {
   const router = useRouter()
@@ -196,9 +197,7 @@ export default function JobQueuePage() {
         </CardHeader>
         <CardContent>
           {loading ? (
-            <div className="flex justify-center items-center h-40">
-              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-gray-900 dark:border-white"></div>
-            </div>
+            <LoadingIndicator />
           ) : jobQueueItems.length === 0 ? (
             <div className="flex flex-col items-center justify-center h-40 text-center">
               <p className="text-muted-foreground mb-4">No job queue items for this date</p>

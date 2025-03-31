@@ -29,6 +29,7 @@ import {
 import { toast } from "sonner"
 import { createJobQueue } from "@/api/job-queue"
 import { getOrders, Order, OrderStatus } from "@/api/orders"
+import { LoadingSpinner } from "@/components/ui/loading-spinner"
 
 // Define the form schema
 const formSchema = z.object({
@@ -269,6 +270,9 @@ export default function AddJobQueuePage() {
                   Cancel
                 </Button>
                 <Button type="submit" disabled={loading}>
+                  {loading && 
+                    <LoadingSpinner size="sm" className="mr-2" />
+                  }
                   {loading ? "Adding..." : "Add to Queue"}
                 </Button>
               </div>
