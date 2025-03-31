@@ -21,6 +21,7 @@ const dashboard_module_1 = require("./modules/dashboard/dashboard.module");
 const validation_middleware_1 = require("./middleware/validation.middleware");
 const auth_module_2 = require("./guards/auth.module");
 const typeorm_naming_strategies_1 = require("typeorm-naming-strategies");
+const calendar_module_1 = require("./modules/calendar/calendar.module");
 let AppModule = class AppModule {
     configure(consumer) {
         consumer.apply(validation_middleware_1.ValidationMiddleware).forRoutes('auth/*');
@@ -53,6 +54,7 @@ exports.AppModule = AppModule = __decorate([
             user_module_1.UserModule,
             payment_module_1.PaymentModule,
             dashboard_module_1.DashboardModule,
+            calendar_module_1.CalendarModule,
         ],
     })
 ], AppModule);

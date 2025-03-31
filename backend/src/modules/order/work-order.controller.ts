@@ -1,4 +1,4 @@
-import { Controller, Get, Post, Body, Patch, Param, Delete, Query, UseGuards } from '@nestjs/common';
+import { Controller, Get, Post, Body, Patch, Param, Delete, Query, UseGuards, InternalServerErrorException, Logger } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiResponse } from '@nestjs/swagger';
 import { JwtAuthGuard } from '../../modules/auth/guards/jwt-auth.guard';
 import { WorkOrderService } from './work-order.service';
@@ -17,6 +17,8 @@ import {
 @Controller('work-order')
 @UseGuards(JwtAuthGuard)
 export class WorkOrderController {
+  private readonly logger = new Logger(WorkOrderController.name);
+  
   constructor(private readonly workOrderService: WorkOrderService) {}
 
   @Post()
@@ -43,15 +45,40 @@ export class WorkOrderController {
   @Get()
   @ApiOperation({ summary: 'Get all work orders with optional filtering' })
   @ApiResponse({ status: 200, description: 'Return the list of work orders.' })
-  findAll(@Query() query: WorkOrderQueryDto): Promise<{ data: WorkOrder[] }> {
-    return this.workOrderService.findAll(query).then(data => ({ data }));
+  async findAll(@Query() query: WorkOrderQueryDto): Promise<{ data: WorkOrder[] }> {
+    try {
+      const data = await this.workOrderService.findAll(query);
+      return { data };
+    } catch (error) {
+      this.logger.error(`Error fetching work orders: ${error.message}`, error.stack);
+      
+      // If the table doesn't exist yet, return an empty array
+      if (error.message && error.message.includes('relation "work_orders" does not exist')) {
+        this.logger.warn('Work orders table does not exist yet. Returning empty results.');
+        return { data: [] };
+      }
+      
+      throw new InternalServerErrorException('Failed to retrieve work orders');
+    }
   }
 
   @Get(':id')
   @ApiOperation({ summary: 'Get a work order by ID' })
   @ApiResponse({ status: 200, description: 'Return the work order.' })
-  findOne(@Param('id') id: string): Promise<WorkOrder> {
-    return this.workOrderService.findOne(id);
+  async findOne(@Param('id') id: string): Promise<WorkOrder> {
+    try {
+      return await this.workOrderService.findOne(id);
+    } catch (error) {
+      this.logger.error(`Error fetching work order ${id}: ${error.message}`, error.stack);
+      
+      // If the table doesn't exist yet, handle it gracefully
+      if (error.message && error.message.includes('relation "work_orders" does not exist')) {
+        this.logger.warn('Work orders table does not exist yet.');
+        throw new InternalServerErrorException('Work orders functionality is not available yet');
+      }
+      
+      throw error;
+    }
   }
 
   @Patch(':id')

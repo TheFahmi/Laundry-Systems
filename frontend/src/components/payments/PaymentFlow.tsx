@@ -212,8 +212,7 @@ export default function PaymentFlow({
         paymentMethod: backendPaymentMethod,
         referenceNumber: generateReferenceNumber(orderId),
         notes: paymentData.notes || '',
-        status: 'completed',
-        createdAt: new Date().toISOString() // Add current date
+        status: 'completed'
       };
       
       console.log('Submitting payment with payload:', paymentSubmission);

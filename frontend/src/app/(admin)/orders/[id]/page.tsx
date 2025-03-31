@@ -6,6 +6,7 @@ import Link from 'next/link';
 import { format } from 'date-fns';
 import { id } from 'date-fns/locale';
 import { createAuthHeaders } from '@/lib/api-utils';
+import OrderDetailsMobile from '@/components/mobile/OrderDetailsMobile';
 
 // Shadcn UI imports
 import { Button } from "@/components/ui/button";
@@ -170,11 +171,28 @@ export default function OrderDetailPage() {
   const [isUpdating, setIsUpdating] = useState(false);
   const [updateError, setUpdateError] = useState('');
   const [updateSuccess, setUpdateSuccess] = useState('');
+  const [isMobile, setIsMobile] = useState(false);
   
   // Generate a helper function for creating cache busters
   const generateCacheBuster = () => {
     return `_cb=${Date.now()}`;
   };
+
+  // Detect mobile devices
+  useEffect(() => {
+    const checkIsMobile = () => {
+      setIsMobile(window.innerWidth < 768);
+    };
+    
+    // Initialize
+    checkIsMobile();
+    
+    // Add event listener for resize
+    window.addEventListener('resize', checkIsMobile);
+    
+    // Cleanup event listener
+    return () => window.removeEventListener('resize', checkIsMobile);
+  }, []);
 
   // Add refresh function
   const refreshOrderDetails = async () => {
@@ -414,6 +432,16 @@ export default function OrderDetailPage() {
           ← Kembali
         </Button>
       </div>
+    );
+  }
+
+  // If on mobile device, show the mobile UI
+  if (isMobile) {
+    return (
+      <OrderDetailsMobile 
+        order={order}
+        onRefresh={refreshOrderDetails}
+      />
     );
   }
 

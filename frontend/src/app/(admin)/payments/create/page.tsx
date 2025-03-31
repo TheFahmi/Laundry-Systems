@@ -33,7 +33,8 @@ export default function CreatePaymentPage() {
     status: PaymentStatus.PENDING,
     amount: 0,
     notes: '',
-    transactionId: ''
+    transactionId: '',
+    referenceNumber: `PAY-${Date.now()}`
   });
   
   const [loading, setLoading] = useState(false);

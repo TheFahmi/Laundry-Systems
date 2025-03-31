@@ -97,14 +97,15 @@ export async function getPayment(id: string): Promise<Payment> {
   const normalizedPayment: Payment = {
     id: paymentData.id,
     orderId: paymentData.orderId || paymentData.order_id || '',
+    customerId: paymentData.customerId || paymentData.customer_id || '',
     amount: Number(paymentData.amount) || 0,
     paymentMethod: (paymentData.paymentMethod || paymentData.payment_method || paymentData.method || 'cash') as PaymentMethod,
     status: (paymentData.status || paymentData.payment_status || 'pending') as PaymentStatus,
     transactionId: paymentData.transactionId || paymentData.transaction_id || '',
     referenceNumber: paymentData.referenceNumber || paymentData.reference_number || '',
     notes: paymentData.notes || '',
-    createdAt: paymentData.createdAt || paymentData.created_at || new Date().toISOString(),
-    updatedAt: paymentData.updatedAt || paymentData.updated_at || new Date().toISOString(),
+    createdAt: paymentData.created_at || new Date().toISOString(),
+    updatedAt: paymentData.updated_at || new Date().toISOString(),
   };
   
   return normalizedPayment;
@@ -112,15 +113,7 @@ export async function getPayment(id: string): Promise<Payment> {
 
 // Create a new payment
 export async function createPayment(payment: Partial<Payment>): Promise<Payment> {
-  const backendPayment = {
-    order_id: payment.orderId,
-    amount: payment.amount,
-    payment_method: payment.paymentMethod,
-    payment_status: payment.status,
-    transaction_id: payment.transactionId,
-    reference_number: payment.referenceNumber,
-    notes: payment.notes
-  };
+  const backendPayment = convertToBackendPayment(payment);
   
   const response = await fetch('/api/payments', {
     method: 'POST',
