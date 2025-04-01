@@ -1,29 +1,16 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
 import { toast } from 'react-toastify';
 import { Check, ArrowLeft, MoreVertical, Clock, CreditCard } from 'lucide-react';
 import { createAuthHeaders } from '@/lib/api-utils';
-import {
-  Sheet,
-  SheetContent,
-  SheetDescription,
-  SheetHeader,
-  SheetTitle,
-  SheetTrigger,
-} from "@/components/ui/sheet";
+import PaymentConfirmationSheet from './PaymentConfirmationSheet';
+import BottomSheet from './BottomSheet';
+import ActionSheet, { ActionItem } from './ActionSheet';
 
 interface OrderDetailsMobileProps {
   order: any;
@@ -34,8 +21,22 @@ export default function OrderDetailsMobile({ order, onRefresh }: OrderDetailsMob
   const router = useRouter();
   const [isUpdating, setIsUpdating] = useState(false);
   const [openStatusDialog, setOpenStatusDialog] = useState(false);
+  const [showPaymentSheet, setShowPaymentSheet] = useState(false);
+  const [paymentData, setPaymentData] = useState({
+    amount: Number(order.totalAmount) || 0,
+    change: 0,
+    method: 'cash',
+    status: 'completed',
+    referenceNumber: `REF-${Date.now().toString().substring(0, 8)}`
+  });
+  const [isProcessingPayment, setIsProcessingPayment] = useState(false);
+  const [actionSheetOpen, setActionSheetOpen] = useState(false);
   
-  const isFullyPaid = order.paymentStatus === 'paid' || order.isPaid;
+  // Calculate if the order is fully paid based on completed payments
+  const hasCompletedPayments = order.payments && 
+    order.payments.some((p: any) => p.status === 'completed');
+  
+  const isFullyPaid = order.paymentStatus === 'paid' || order.isPaid || hasCompletedPayments;
   
   // Get order status badge variant
   const getStatusVariant = (status: string) => {
@@ -90,70 +91,91 @@ export default function OrderDetailsMobile({ order, onRefresh }: OrderDetailsMob
     }
   };
 
+  const handleConfirmPayment = async () => {
+    setIsProcessingPayment(true);
+    
+    try {
+      // Create payment record
+      const response = await fetch('/api/payments', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          ...createAuthHeaders()
+        },
+        body: JSON.stringify({
+          orderId: order.id,
+          amount: Number(paymentData.amount),
+          paymentMethod: paymentData.method,
+          status: paymentData.status,
+          referenceNumber: paymentData.referenceNumber,
+          notes: `Payment processed via mobile app`
+        }),
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({ message: 'Unknown error' }));
+        throw new Error(errorData.message || `Failed to process payment: ${response.status}`);
+      }
+
+      // Update order payment status
+      await fetch(`/api/orders/${order.id}/payment-status`, {
+        method: 'PATCH',
+        headers: {
+          'Content-Type': 'application/json',
+          ...createAuthHeaders()
+        },
+        body: JSON.stringify({
+          paymentStatus: 'paid',
+          isPaid: true
+        }),
+      });
+
+      toast.success('Pembayaran berhasil diproses!');
+      setShowPaymentSheet(false);
+      onRefresh();
+    } catch (error: any) {
+      console.error('Error processing payment:', error);
+      toast.error(error.message || 'Gagal memproses pembayaran');
+    } finally {
+      setIsProcessingPayment(false);
+    }
+  };
+
+  // Auto-update payment status if order has completed payments
+  useEffect(() => {
+    const autoUpdatePaymentStatus = async () => {
+      // If there are completed payments but order is not marked as paid
+      if (hasCompletedPayments && !order.isPaid && order.paymentStatus !== 'paid') {
+        try {
+          await handleUpdatePaymentStatus();
+        } catch (error) {
+          console.error('Failed to auto-update payment status:', error);
+        }
+      }
+    };
+    
+    autoUpdatePaymentStatus();
+  }, [hasCompletedPayments, order.isPaid, order.paymentStatus]);
+
   return (
     <div className="flex flex-col h-full">
       {/* Mobile Header */}
       <div className="sticky top-0 z-10 bg-background border-b p-4 flex items-center justify-between">
+        <div className="flex items-center space-x-2">
+          <Button variant="ghost" size="icon" onClick={handleBack}>
+            <ArrowLeft className="h-5 w-5" />
+          </Button>
+          <h1 className="text-lg font-semibold">Pesanan #{order.id}</h1>
+        </div>
+        
         <Button 
           variant="ghost" 
           size="icon" 
-          onClick={handleBack}
           className="rounded-full"
+          onClick={() => setActionSheetOpen(true)}
         >
-          <ArrowLeft className="h-5 w-5" />
+          <MoreVertical className="h-5 w-5" />
         </Button>
-        
-        <div className="flex-1 text-center">
-          <h1 className="text-lg font-semibold truncate">
-            {order.orderNumber || `ORD-${order.id.substring(0, 8)}`}
-          </h1>
-        </div>
-        
-        <Sheet>
-          <SheetTrigger asChild>
-            <Button variant="ghost" size="icon" className="rounded-full">
-              <MoreVertical className="h-5 w-5" />
-            </Button>
-          </SheetTrigger>
-          <SheetContent side="bottom" className="rounded-t-xl">
-            <SheetHeader className="mb-4">
-              <SheetTitle>Pengaturan Pesanan</SheetTitle>
-              <SheetDescription>
-                Pilih tindakan untuk pesanan ini
-              </SheetDescription>
-            </SheetHeader>
-            <div className="grid gap-3 px-1">
-              {!isFullyPaid && (
-                <Button 
-                  variant="default" 
-                  className="w-full justify-start py-6"
-                  onClick={() => setOpenStatusDialog(true)}
-                >
-                  <CreditCard className="mr-3 h-5 w-5" />
-                  <span>Tandai sebagai Lunas</span>
-                </Button>
-              )}
-              
-              <Button 
-                variant="default" 
-                className="w-full justify-start py-6"
-                onClick={() => router.push(`/orders/${order.id}/payment`)}
-              >
-                <CreditCard className="mr-3 h-5 w-5" />
-                <span>Proses Pembayaran</span>
-              </Button>
-              
-              <Button 
-                variant="outline" 
-                className="w-full justify-start py-6"
-                onClick={handleBack}
-              >
-                <ArrowLeft className="mr-3 h-5 w-5" />
-                <span>Kembali ke Daftar</span>
-              </Button>
-            </div>
-          </SheetContent>
-        </Sheet>
       </div>
 
       {/* Main content */}
@@ -217,6 +239,35 @@ export default function OrderDetailsMobile({ order, onRefresh }: OrderDetailsMob
           </CardContent>
         </Card>
         
+        {/* Payment Details */}
+        <Card>
+          <CardContent className="p-4">
+            <h3 className="font-medium mb-2">Detail Pembayaran</h3>
+            {order.payments && order.payments.length > 0 ? (
+              <div className="space-y-2">
+                {order.payments.map((payment: any, index: number) => (
+                  <div key={index} className="text-sm border-b pb-2">
+                    <div className="flex justify-between">
+                      <span className="font-medium">#{index + 1} {payment.paymentMethod || payment.payment_method}</span>
+                      <span>Rp {new Intl.NumberFormat('id-ID').format(payment.amount || 0)}</span>
+                    </div>
+                    <div className="flex justify-between text-muted-foreground">
+                      <span>{new Date(payment.createdAt || payment.created_at).toLocaleDateString()}</span>
+                      <Badge variant={payment.status === 'completed' ? "success" : "warning"}>
+                        {payment.status === 'completed' ? 'Selesai' : 'Menunggu'}
+                      </Badge>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <div className="text-sm text-muted-foreground p-2 bg-gray-50 rounded">
+                Belum ada riwayat pembayaran
+              </div>
+            )}
+          </CardContent>
+        </Card>
+        
         {/* Items */}
         <Card>
           <CardContent className="p-4">
@@ -248,61 +299,103 @@ export default function OrderDetailsMobile({ order, onRefresh }: OrderDetailsMob
           <Button 
             variant="default" 
             className="flex-1"
-            onClick={() => setOpenStatusDialog(true)}
+            onClick={() => {
+              setShowPaymentSheet(true);
+              // Make sure the payment sheet is visible in the next render cycle
+              setTimeout(() => {
+                const sheet = document.querySelector('[data-state="open"]');
+                if (!sheet) {
+                  console.log('Sheet not found, forcing visibility');
+                  setShowPaymentSheet(true);
+                }
+              }, 100);
+            }}
           >
-            <Check className="mr-2 h-4 w-4" />
-            Tandai Lunas
-          </Button>
-        )}
-        
-        {isFullyPaid && (
-          <Button 
-            variant="outline" 
-            className="flex-1"
-            disabled
-          >
-            <Check className="mr-2 h-4 w-4" />
-            Lunas
+            <CreditCard className="mr-2 h-4 w-4" />
+            Proses Pembayaran
           </Button>
         )}
       </div>
       
-      {/* Dialog for marking as paid */}
-      <Dialog open={openStatusDialog} onOpenChange={setOpenStatusDialog}>
-        <DialogContent className="sm:max-w-md">
-          <DialogHeader>
-            <DialogTitle>Konfirmasi Pembayaran</DialogTitle>
-            <DialogDescription>
-              Apakah Anda yakin ingin menandai pesanan ini sebagai Lunas?
-            </DialogDescription>
-          </DialogHeader>
-          <DialogFooter className="flex sm:justify-between">
-            <Button 
-              variant="outline" 
-              onClick={() => setOpenStatusDialog(false)}
-            >
-              Batal
-            </Button>
-            <Button
-              variant="default"
-              onClick={handleUpdatePaymentStatus}
-              disabled={isUpdating}
-            >
-              {isUpdating ? (
-                <>
-                  <Clock className="mr-2 h-4 w-4 animate-spin" />
-                  Processing...
-                </>
-              ) : (
-                <>
-                  <Check className="mr-2 h-4 w-4" />
-                  Tandai Lunas
-                </>
-              )}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+      {/* Payment Confirmation Sheet */}
+      <PaymentConfirmationSheet
+        isOpen={showPaymentSheet}
+        onClose={() => setShowPaymentSheet(false)}
+        onConfirm={handleConfirmPayment}
+        paymentData={paymentData}
+        orderTotal={order.totalAmount || 0}
+        isLoading={isProcessingPayment}
+      />
+      
+      {/* Payment Status Dialog */}
+      <BottomSheet 
+        isOpen={openStatusDialog} 
+        onClose={() => setOpenStatusDialog(false)}
+        title="Update Status Pembayaran"
+        description="Anda yakin ingin menandai pesanan ini sebagai Lunas?"
+      >
+        <div className="flex flex-col p-4 gap-4 border-t">
+          <Button 
+            onClick={handleUpdatePaymentStatus}
+            disabled={isUpdating}
+            className="w-full"
+          >
+            {isUpdating ? (
+              <>
+                <svg className="animate-spin -ml-1 mr-2 h-4 w-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                  <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                </svg>
+                Memproses...
+              </>
+            ) : (
+              <>
+                <Check className="mr-2 h-4 w-4" />
+                Konfirmasi
+              </>
+            )}
+          </Button>
+          <Button 
+            variant="outline" 
+            onClick={() => setOpenStatusDialog(false)}
+            disabled={isUpdating}
+            className="w-full"
+          >
+            Batal
+          </Button>
+        </div>
+      </BottomSheet>
+
+      {/* Action Sheet for order settings */}
+      <ActionSheet
+        isOpen={actionSheetOpen}
+        onClose={() => setActionSheetOpen(false)}
+        title="Pengaturan Pesanan"
+        description="Pilih tindakan untuk pesanan ini"
+        actions={[
+          ...((!isFullyPaid) ? [{
+            icon: <CreditCard className="h-5 w-5" />,
+            label: "Proses Pembayaran",
+            onClick: () => {
+              setActionSheetOpen(false);
+              setTimeout(() => setShowPaymentSheet(true), 300);
+            }
+          }] : []),
+          {
+            icon: <Clock className="h-5 w-5" />,
+            label: "Ubah Status Pesanan",
+            onClick: () => {
+              router.push(`/orders/${order.id}/status`);
+            }
+          },
+          {
+            icon: <ArrowLeft className="h-5 w-5" />,
+            label: "Kembali ke Daftar",
+            onClick: handleBack,
+            variant: "outline"
+          }
+        ]}
+      />
     </div>
   );
 } 

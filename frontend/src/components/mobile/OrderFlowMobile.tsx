@@ -407,15 +407,15 @@ export default function OrderFlowMobile() {
         <div className="px-4 pb-2">
           <div className="flex justify-between items-center relative">
             {/* Connector lines first (in the background) */}
-            <div className="absolute h-0.5 bg-gray-200 left-0 right-0 top-1/2 transform -translate-y-1/2 -z-10"></div>
+            {/* <div className="absolute h-0.5 bg-gray-200 left-0 right-0 top-1/2 transform -translate-y-1/2 -z-10"></div> */}
             
             {/* Colored progress line */}
-            <div 
+            {/* <div 
               className="absolute h-0.5 bg-blue-500 left-0 top-1/2 transform -translate-y-1/2 -z-10 transition-all duration-300"
               style={{
                 width: `${(currentStep / (stepTitles.length - 1)) * 100}%`
               }}
-            ></div>
+            ></div> */}
             
             {/* Stepper circles */}
             {stepTitles.map((title, idx) => (
