@@ -5,22 +5,13 @@ import { CalendarIcon, ClockIcon, TruckIcon, HomeIcon, NotebookIcon, FileTextIco
 import { format, addDays } from "date-fns";
 import { id } from 'date-fns/locale';
 import { Button } from "@/components/ui/button";
-import { Calendar } from "@/components/ui/calendar";
-import { 
-  Popover, 
-  PopoverContent, 
-  PopoverTrigger 
-} from "@/components/ui/popover";
 import { Textarea } from "@/components/ui/textarea";
-import { 
-  Select, 
-  SelectContent, 
-  SelectItem, 
-  SelectTrigger, 
-  SelectValue 
-} from "@/components/ui/select";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { cn } from "@/lib/utils";
+import DatePickerSheet from '../DatePickerSheet';
+
+// Import Indonesian holidays
+import { INDONESIAN_HOLIDAYS } from '@/lib/holidays';
 
 interface OrderDetailsProps {
   orderData: any;
@@ -38,6 +29,10 @@ export default function OrderDetails({ orderData, updateOrderData }: OrderDetail
     orderData.deliveryDate ? new Date(orderData.deliveryDate) : undefined
   );
   
+  // State for date picker sheets
+  const [showPickupDatePicker, setShowPickupDatePicker] = useState(false);
+  const [showDeliveryDatePicker, setShowDeliveryDatePicker] = useState(false);
+
   // Get maximum processing time from all services in the order
   const getMaxProcessingTime = () => {
     if (!orderData.items || orderData.items.length === 0) return 24; // Default 24 hours
@@ -140,6 +135,24 @@ export default function OrderDetails({ orderData, updateOrderData }: OrderDetail
     return `${days} hari`;
   };
 
+  // Handle pickup date selection
+  const handlePickupDateSelect = (date: Date) => {
+    setPickupDate(date);
+    // If delivery date exists but is now invalid (before pickup date),
+    // reset delivery date
+    if (isDeliveryNeeded && deliveryDate) {
+      const minDeliveryDate = getEstimatedCompletionDate(date);
+      if (deliveryDate < minDeliveryDate) {
+        setDeliveryDate(undefined);
+      }
+    }
+  };
+
+  // Handle delivery date selection
+  const handleDeliveryDateSelect = (date: Date) => {
+    setDeliveryDate(date);
+  };
+
   return (
     <div className="space-y-6">
       {/* Processing time alert */}
@@ -199,17 +212,18 @@ export default function OrderDetails({ orderData, updateOrderData }: OrderDetail
               <CalendarIcon className="h-4 w-4 text-green-600 mr-2" />
               <h4 className="text-sm font-medium">Tanggal Pengambilan</h4>
             </div>
-            <input
-              type="date"
-              value={pickupDate ? format(pickupDate, "yyyy-MM-dd") : ""}
-              min={format(getEarliestPickupDate(), "yyyy-MM-dd")}
-              onChange={(e) => {
-                if (e.target.value) {
-                  setPickupDate(new Date(e.target.value));
-                }
-              }}
-              className="w-full p-2 border border-green-200 bg-green-50/70 rounded-md"
-            />
+            <Button
+              variant="outline"
+              className={`w-full justify-between border-green-200 bg-green-50/70 hover:bg-green-100 text-left font-normal h-10 px-3 ${!pickupDate ? 'text-muted-foreground' : ''}`}
+              onClick={() => setShowPickupDatePicker(true)}
+            >
+              {pickupDate ? (
+                format(pickupDate, "EEEE, dd MMMM yyyy", { locale: id })
+              ) : (
+                <span>Pilih tanggal pengambilan</span>
+              )}
+              <CalendarIcon className="ml-auto h-4 w-4 opacity-50" />
+            </Button>
           </div>
           
           {/* Delivery date selector */}
@@ -219,23 +233,19 @@ export default function OrderDetails({ orderData, updateOrderData }: OrderDetail
                 <CalendarIcon className="h-4 w-4 text-indigo-600 mr-2" />
                 <h4 className="text-sm font-medium">Tanggal Pengiriman</h4>
               </div>
-              <input
-                type="date"
-                value={deliveryDate ? format(deliveryDate, "yyyy-MM-dd") : ""}
-                min={
-                  pickupDate 
-                    ? (getEstimatedCompletionDate(pickupDate) > pickupDate 
-                      ? format(getEstimatedCompletionDate(pickupDate), "yyyy-MM-dd") 
-                      : format(pickupDate, "yyyy-MM-dd"))
-                    : format(getEarliestPickupDate(), "yyyy-MM-dd")
-                }
-                onChange={(e) => {
-                  if (e.target.value) {
-                    setDeliveryDate(new Date(e.target.value));
-                  }
-                }}
-                className="w-full p-2 border border-indigo-200 bg-indigo-50/70 rounded-md"
-              />
+              <Button
+                variant="outline"
+                className={`w-full justify-between border-indigo-200 bg-indigo-50/70 hover:bg-indigo-100 text-left font-normal h-10 px-3 ${!deliveryDate ? 'text-muted-foreground' : ''}`}
+                onClick={() => setShowDeliveryDatePicker(true)}
+                disabled={!pickupDate}
+              >
+                {deliveryDate ? (
+                  format(deliveryDate, "EEEE, dd MMMM yyyy", { locale: id })
+                ) : (
+                  <span>{pickupDate ? 'Pilih tanggal pengiriman' : 'Pilih tanggal pengambilan dahulu'}</span>
+                )}
+                <CalendarIcon className="ml-auto h-4 w-4 opacity-50" />
+              </Button>
             </div>
           )}
         </div>
@@ -270,6 +280,33 @@ export default function OrderDetails({ orderData, updateOrderData }: OrderDetail
           className="border-cyan-200 bg-cyan-50/50 focus-visible:ring-cyan-300"
         />
       </div>
+
+      {/* Date Picker Sheets */}
+      <DatePickerSheet
+        isOpen={showPickupDatePicker}
+        onClose={() => setShowPickupDatePicker(false)}
+        onSelect={handlePickupDateSelect}
+        selectedDate={pickupDate}
+        minDate={getEarliestPickupDate()}
+        title="Pilih Tanggal Pengambilan"
+        description="Pilih tanggal pengambilan pesanan"
+        holidayDates={INDONESIAN_HOLIDAYS}
+      />
+
+      <DatePickerSheet
+        isOpen={showDeliveryDatePicker && !!pickupDate}
+        onClose={() => setShowDeliveryDatePicker(false)}
+        onSelect={handleDeliveryDateSelect}
+        selectedDate={deliveryDate}
+        minDate={pickupDate ? getEstimatedCompletionDate(pickupDate) : undefined}
+        title="Pilih Tanggal Pengiriman"
+        description="Pilih tanggal pengiriman pesanan"
+        minIntervalAfterDate={pickupDate ? {
+          date: pickupDate,
+          days: Math.ceil(getMaxProcessingTime() / 24)
+        } : undefined}
+        holidayDates={INDONESIAN_HOLIDAYS}
+      />
     </div>
   );
 } 

@@ -17,7 +17,8 @@ import {
   MoreHorizontal,
   DollarSign,
   HashIcon,
-  PenIcon
+  PenIcon,
+  Clock
 } from 'lucide-react';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import {
@@ -29,6 +30,7 @@ import {
 } from '@/components/ui/select';
 import { createAuthHeaders } from '@/lib/api-utils';
 import { useToast } from '@/components/ui/use-toast';
+import PaymentConfirmationSheet from '../PaymentConfirmationSheet';
 
 enum PaymentMethod {
   CASH = 'cash',
@@ -58,6 +60,7 @@ export default function PaymentStep({ orderId, orderData, onComplete }: PaymentS
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [isSuccess, setIsSuccess] = useState(false);
+  const [showConfirmationSheet, setShowConfirmationSheet] = useState(false);
   const [paymentData, setPaymentData] = useState({
     amount: orderData.totalAmount || 0,
     paymentMethod: PaymentMethod.CASH,
@@ -66,6 +69,71 @@ export default function PaymentStep({ orderId, orderData, onComplete }: PaymentS
     notes: '',
     referenceNumber: `PAY-${Date.now().toString().substring(0, 10)}`
   });
+
+  // Listen for the 'payment:later' event
+  useEffect(() => {
+    const handlePayLater = () => {
+      handlePaymentLater();
+    };
+    
+    window.addEventListener('payment:later', handlePayLater);
+    
+    return () => {
+      window.removeEventListener('payment:later', handlePayLater);
+    };
+  }, []);
+  
+  // Handle pay later option
+  const handlePaymentLater = async () => {
+    try {
+      setIsLoading(true);
+      
+      // Create a pending payment record
+      const response = await fetch('/api/payments', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          ...createAuthHeaders()
+        },
+        body: JSON.stringify({
+          orderId: orderId,
+          amount: Number(paymentData.amount),
+          paymentMethod: paymentData.paymentMethod,
+          status: PaymentStatus.PENDING, // Use pending status
+          transactionId: paymentData.transactionId,
+          referenceNumber: paymentData.referenceNumber,
+          notes: (paymentData.notes || '') + ' (Bayar Nanti)'
+        }),
+      });
+      
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({ message: 'Unknown error' }));
+        throw new Error(errorData.message || `Failed to process payment: ${response.status}`);
+      }
+      
+      // Show success notification
+      toast({
+        title: "Order dibuat",
+        description: "Pesanan telah dibuat dengan status pembayaran menunggu.",
+      });
+      
+      // Complete the payment flow
+      onComplete();
+      
+    } catch (error: any) {
+      console.error('Error setting up pay later:', error);
+      setError(error.message || 'Gagal menyiapkan pembayaran nanti');
+      
+      toast({
+        title: "Error",
+        description: error.message || 'Gagal menyiapkan pembayaran nanti',
+        variant: "destructive",
+      });
+    } finally {
+      setIsLoading(false);
+      setShowConfirmationSheet(false);
+    }
+  };
 
   // Payment method label map
   const paymentMethodLabels: Record<string, string> = {
@@ -106,6 +174,15 @@ export default function PaymentStep({ orderId, orderData, onComplete }: PaymentS
     }));
   };
 
+  // Prepare data for the confirmation sheet
+  const sheetPaymentData = {
+    amount: paymentData.amount,
+    change: paymentData.amount > orderData.totalAmount ? paymentData.amount - orderData.totalAmount : 0,
+    method: paymentData.paymentMethod,
+    status: paymentData.status,
+    referenceNumber: paymentData.referenceNumber
+  };
+
   // Process payment
   const processPayment = async () => {
     if (!orderId) {
@@ -125,7 +202,7 @@ export default function PaymentStep({ orderId, orderData, onComplete }: PaymentS
         },
         body: JSON.stringify({
           orderId: orderId,
-          amount: paymentData.amount,
+          amount: Number(paymentData.amount),
           paymentMethod: paymentData.paymentMethod,
           status: paymentData.status,
           transactionId: paymentData.transactionId,
@@ -166,6 +243,7 @@ export default function PaymentStep({ orderId, orderData, onComplete }: PaymentS
       });
     } finally {
       setIsLoading(false);
+      setShowConfirmationSheet(false); // Close the sheet
     }
   };
 
@@ -255,6 +333,19 @@ export default function PaymentStep({ orderId, orderData, onComplete }: PaymentS
           />
         </div>
         
+        {/* Display change amount if payment > total */}
+        {paymentData.amount > orderData.totalAmount && (
+          <div className="bg-green-50 border border-green-200 rounded-lg p-3">
+            <p className="font-medium text-green-700 flex items-center">
+              <Banknote className="h-4 w-4 text-green-500 mr-1" />
+              Kembalian
+            </p>
+            <p className="font-bold text-lg text-green-700 mt-1">
+              Rp {(paymentData.amount - orderData.totalAmount).toLocaleString('id-ID')}
+            </p>
+          </div>
+        )}
+        
         {/* Payment Method */}
         <div className="space-y-2">
           <Label htmlFor="paymentMethod" className="flex items-center">
@@ -332,22 +423,33 @@ export default function PaymentStep({ orderId, orderData, onComplete }: PaymentS
       </div>
       
       <Button 
-        onClick={processPayment} 
+        onClick={() => setShowConfirmationSheet(true)} 
         disabled={isLoading} 
         className="w-full mt-4 bg-green-600 hover:bg-green-700"
       >
-        {isLoading ? (
-          <>
-            <AlertCircle className="h-4 w-4 mr-2 animate-spin" />
-            Memproses...
-          </>
-        ) : (
-          <>
-            <CheckCircle2 className="h-4 w-4 mr-2" />
-            Proses Pembayaran
-          </>
-        )}
+        <CheckCircle2 className="h-4 w-4 mr-2" />
+        Konfirmasi Pembayaran
       </Button>
+      
+      <Button 
+        onClick={handlePaymentLater}
+        disabled={isLoading} 
+        variant="outline"
+        className="w-full mt-2"
+      >
+        <Clock className="h-4 w-4 mr-2" />
+        Bayar Nanti
+      </Button>
+      
+      {/* Payment Confirmation Sheet */}
+      <PaymentConfirmationSheet
+        isOpen={showConfirmationSheet}
+        onClose={() => setShowConfirmationSheet(false)}
+        onConfirm={processPayment}
+        paymentData={sheetPaymentData}
+        orderTotal={orderData.totalAmount || 0}
+        isLoading={isLoading}
+      />
     </div>
   );
 } 

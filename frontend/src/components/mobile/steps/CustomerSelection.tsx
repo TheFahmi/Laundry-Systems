@@ -7,16 +7,8 @@ import { Search, Plus, User, X, Phone, Mail, Home, UserPlus, UserCircle } from '
 import { Label } from '@/components/ui/label';
 import { Avatar } from '@/components/ui/avatar';
 import { Separator } from '@/components/ui/separator';
-import { 
-  Dialog, 
-  DialogContent, 
-  DialogHeader, 
-  DialogTitle, 
-  DialogFooter,
-  DialogDescription,
-  DialogClose
-} from '@/components/ui/dialog';
 import { toast } from 'sonner';
+import CustomerFormSheet from '../CustomerFormSheet';
 
 interface Customer {
   id: string;
@@ -36,15 +28,8 @@ export default function CustomerSelection({ orderData, updateOrderData }: Custom
   const [loading, setLoading] = useState(false);
   const [selectedCustomerId, setSelectedCustomerId] = useState<string | null>(null);
   
-  // State for new customer dialog
-  const [showNewCustomerDialog, setShowNewCustomerDialog] = useState(false);
-  const [newCustomer, setNewCustomer] = useState({
-    name: '',
-    phone: '',
-    email: '',
-    address: ''
-  });
-  const [isCreating, setIsCreating] = useState(false);
+  // State for new customer sheet
+  const [showCustomerFormSheet, setShowCustomerFormSheet] = useState(false);
 
   // Initialize selectedCustomerId from orderData only once on mount
   useEffect(() => {
@@ -127,83 +112,23 @@ export default function CustomerSelection({ orderData, updateOrderData }: Custom
     }
   };
   
-  // Handle new customer input change
-  const handleNewCustomerChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const { name, value } = e.target;
-    setNewCustomer(prev => ({
-      ...prev,
-      [name]: value
-    }));
-  };
-  
-  // Handle create new customer
-  const handleCreateCustomer = async () => {
-    // Basic validation
-    if (!newCustomer.name.trim()) {
-      toast.error('Nama pelanggan wajib diisi');
-      return;
-    }
+  // Handle successful customer creation
+  const handleCustomerCreated = (createdCustomer: Customer) => {
+    // Update customer list
+    setCustomers(prev => [createdCustomer, ...prev]);
     
-    setIsCreating(true);
+    // Select the new customer - set state only once
+    setSelectedCustomerId(createdCustomer.id);
     
-    try {
-      const response = await fetch('/api/customers', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(newCustomer),
+    // Update order data separately to avoid sync issues
+    setTimeout(() => {
+      updateOrderData({ 
+        customer: createdCustomer,
+        customerId: createdCustomer.id 
       });
-      
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.message || 'Failed to create customer');
-      }
-      
-      const data = await response.json();
-      
-      // Find the created customer in the response
-      let createdCustomer;
-      if (data.data && data.data.id) {
-        createdCustomer = data.data;
-      } else if (data.id) {
-        createdCustomer = data;
-      }
-      
-      if (createdCustomer) {
-        toast.success('Pelanggan baru berhasil dibuat');
-        
-        // Update customer list
-        setCustomers(prev => [createdCustomer, ...prev]);
-        
-        // Select the new customer - set state only once
-        setSelectedCustomerId(createdCustomer.id);
-        
-        // Update order data separately to avoid sync issues
-        setTimeout(() => {
-          updateOrderData({ 
-            customer: createdCustomer,
-            customerId: createdCustomer.id 
-          });
-        }, 0);
-        
-        // Close dialog and reset form
-        setShowNewCustomerDialog(false);
-        setNewCustomer({
-          name: '',
-          phone: '',
-          email: '',
-          address: ''
-        });
-      } else {
-        throw new Error('Invalid response format');
-      }
-    } catch (error: any) {
-      console.error('Error creating customer:', error);
-      toast.error(error.message || 'Gagal membuat pelanggan baru');
-    } finally {
-      setIsCreating(false);
-    }
+    }, 0);
+    
+    toast.success('Pelanggan baru berhasil dibuat');
   };
 
   return (
@@ -232,7 +157,7 @@ export default function CustomerSelection({ orderData, updateOrderData }: Custom
       <Button 
         variant="outline" 
         className="w-full border-green-200 bg-green-50 hover:bg-green-100 text-green-700" 
-        onClick={() => setShowNewCustomerDialog(true)}
+        onClick={() => setShowCustomerFormSheet(true)}
       >
         <UserPlus className="mr-2 h-4 w-4 text-green-600" />
         Pelanggan Baru
@@ -299,7 +224,7 @@ export default function CustomerSelection({ orderData, updateOrderData }: Custom
             variant="outline" 
             size="sm" 
             className="mt-2 border-green-200 hover:bg-green-50"
-            onClick={() => setShowNewCustomerDialog(true)}
+            onClick={() => setShowCustomerFormSheet(true)}
           >
             <UserPlus className="mr-2 h-3 w-3 text-green-600" />
             Tambah Pelanggan Baru
@@ -332,106 +257,12 @@ export default function CustomerSelection({ orderData, updateOrderData }: Custom
         </div>
       )}
       
-      {/* New Customer Dialog */}
-      <Dialog open={showNewCustomerDialog} onOpenChange={setShowNewCustomerDialog}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle className="flex items-center gap-2">
-              <UserPlus className="h-5 w-5 text-green-500" />
-              Tambah Pelanggan Baru
-            </DialogTitle>
-            <DialogDescription>
-              Masukkan informasi pelanggan baru di bawah ini.
-            </DialogDescription>
-          </DialogHeader>
-          
-          <div className="space-y-4 py-2">
-            <div className="space-y-2">
-              <Label htmlFor="name" className="flex items-center">
-                <UserCircle className="h-4 w-4 text-blue-500 mr-1" />
-                Nama
-              </Label>
-              <Input
-                id="name"
-                name="name"
-                value={newCustomer.name}
-                onChange={handleNewCustomerChange}
-                className="border-blue-200 focus-visible:ring-blue-300"
-              />
-            </div>
-            
-            <div className="space-y-2">
-              <Label htmlFor="phone" className="flex items-center">
-                <Phone className="h-4 w-4 text-green-500 mr-1" />
-                Telepon
-              </Label>
-              <Input
-                id="phone"
-                name="phone"
-                value={newCustomer.phone}
-                onChange={handleNewCustomerChange}
-                className="border-green-200 focus-visible:ring-green-300"
-              />
-            </div>
-            
-            <div className="space-y-2">
-              <Label htmlFor="email" className="flex items-center">
-                <Mail className="h-4 w-4 text-amber-500 mr-1" />
-                Email
-              </Label>
-              <Input
-                id="email"
-                name="email"
-                type="email"
-                value={newCustomer.email}
-                onChange={handleNewCustomerChange}
-                className="border-amber-200 focus-visible:ring-amber-300"
-              />
-            </div>
-            
-            <div className="space-y-2">
-              <Label htmlFor="address" className="flex items-center">
-                <Home className="h-4 w-4 text-purple-500 mr-1" />
-                Alamat
-              </Label>
-              <Input
-                id="address"
-                name="address"
-                value={newCustomer.address}
-                onChange={handleNewCustomerChange}
-                className="border-purple-200 focus-visible:ring-purple-300"
-              />
-            </div>
-          </div>
-          
-          <DialogFooter>
-            <Button 
-              variant="outline" 
-              onClick={() => setShowNewCustomerDialog(false)}
-            >
-              <X className="h-4 w-4 mr-2" />
-              Batal
-            </Button>
-            <Button 
-              onClick={handleCreateCustomer} 
-              disabled={isCreating || !newCustomer.name.trim()}
-              className="bg-green-600 hover:bg-green-700"
-            >
-              {isCreating ? (
-                <>
-                  <div className="mr-2 h-4 w-4 animate-spin rounded-full border-2 border-white border-t-transparent"></div>
-                  Menyimpan...
-                </>
-              ) : (
-                <>
-                  <UserPlus className="h-4 w-4 mr-2" />
-                  Simpan Pelanggan
-                </>
-              )}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+      {/* Customer Form Sheet */}
+      <CustomerFormSheet
+        isOpen={showCustomerFormSheet}
+        onClose={() => setShowCustomerFormSheet(false)}
+        onSuccess={handleCustomerCreated}
+      />
     </div>
   );
 } 
