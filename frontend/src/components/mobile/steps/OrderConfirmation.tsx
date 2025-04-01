@@ -1,11 +1,10 @@
 'use client';
 
-import { ScrollArea } from '@/components/ui/scroll-area';
-import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { format } from 'date-fns';
 import { id } from 'date-fns/locale';
+import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Separator } from '@/components/ui/separator';
-import { AlertCircle, CheckCircle2 } from 'lucide-react';
+import { Loader2, User, UserIcon, PhoneIcon, MailIcon, HomeIcon, TruckIcon, CalendarIcon, FileTextIcon, MessageSquareIcon, ShoppingBagIcon, CheckCircleIcon } from 'lucide-react';
 
 interface OrderConfirmationProps {
   orderData: any;
@@ -13,135 +12,184 @@ interface OrderConfirmationProps {
   error: string | null;
 }
 
-export default function OrderConfirmation({ 
-  orderData, 
-  isLoading,
-  error 
-}: OrderConfirmationProps) {
-  // Format date helper
-  const formatDate = (dateString: string | undefined) => {
-    if (!dateString) return 'Belum ditentukan';
-    
+export default function OrderConfirmation({ orderData, isLoading, error }: OrderConfirmationProps) {
+  // Format date for display
+  const formatDate = (dateString?: string) => {
+    if (!dateString) return '-';
     try {
-      return format(new Date(dateString), 'dd MMMM yyyy', { locale: id });
+      const date = new Date(dateString);
+      return format(date, 'dd MMMM yyyy', { locale: id });
     } catch (error) {
-      return 'Format tanggal tidak valid';
+      console.error('Error formatting date:', error);
+      return dateString || '-';
     }
   };
 
-  return (
-    <div className="space-y-4">
-      <h2 className="text-xl font-semibold">Konfirmasi Pesanan</h2>
-      
-      {isLoading && (
-        <div className="py-4 flex justify-center items-center">
-          <div className="animate-spin rounded-full h-8 w-8 border-2 border-primary border-t-transparent"></div>
-          <p className="ml-2">Memproses pesanan...</p>
-        </div>
-      )}
+  // Total calculation
+  const calculateTotal = () => {
+    if (!orderData.items || !Array.isArray(orderData.items)) return 0;
+    
+    return orderData.items.reduce((total: number, item: any) => {
+      const subtotal = Number(item.subtotal) || 0;
+      return total + subtotal;
+    }, 0);
+  };
 
+  return (
+    <div className="space-y-6">
+      {/* Error message if any */}
       {error && (
         <Alert variant="destructive">
-          <AlertCircle className="h-4 w-4" />
-          <AlertTitle>Error</AlertTitle>
-          <AlertDescription>{error}</AlertDescription>
+          <AlertDescription>
+            {error}
+          </AlertDescription>
         </Alert>
       )}
       
-      <ScrollArea className="h-[400px] pr-4">
-        {/* Customer Information */}
-        <div className="space-y-2">
-          <h3 className="font-medium">Informasi Pelanggan</h3>
-          <div className="bg-muted/30 rounded-lg p-3">
-            <p><span className="font-medium">Nama:</span> {orderData.customer?.name || 'N/A'}</p>
-            <p><span className="font-medium">Telepon:</span> {orderData.customer?.phone || 'N/A'}</p>
-            <p><span className="font-medium">Email:</span> {orderData.customer?.email || 'N/A'}</p>
-          </div>
+      {/* Loading indicator */}
+      {isLoading && (
+        <div className="flex flex-col items-center justify-center py-8">
+          <Loader2 className="h-8 w-8 animate-spin text-primary mb-4" />
+          <p className="text-muted-foreground">Memproses pesanan...</p>
         </div>
-        
-        <Separator className="my-4" />
-        
-        {/* Service Items */}
-        <div className="space-y-2">
-          <h3 className="font-medium">Item Layanan</h3>
-          {orderData.items && orderData.items.length > 0 ? (
-            <div className="space-y-2">
-              {orderData.items.map((item: any, index: number) => (
-                <div key={index} className="bg-muted/30 rounded-lg p-3">
-                  <p className="font-medium">{item.serviceName}</p>
-                  {item.weightBased ? (
-                    <p className="text-sm">{item.weight} kg x Rp {item.price.toLocaleString('id-ID')}</p>
-                  ) : (
-                    <p className="text-sm">{item.quantity} x Rp {item.price.toLocaleString('id-ID')}</p>
-                  )}
-                  {item.notes && (
-                    <p className="text-sm text-muted-foreground mt-1">Catatan: {item.notes}</p>
-                  )}
-                  <p className="text-sm font-medium mt-1">Subtotal: Rp {item.subtotal.toLocaleString('id-ID')}</p>
+      )}
+      
+      {!isLoading && !error && (
+        <>
+          {/* Customer Information */}
+          <div>
+            <div className="flex items-center mb-3">
+              <UserIcon className="h-5 w-5 text-blue-500 mr-2" />
+              <h3 className="text-base font-semibold">Informasi Pelanggan</h3>
+            </div>
+            <div className="border border-blue-200 rounded-md p-3 space-y-2 bg-blue-50/50">
+              <p className="font-medium">{orderData.customer?.name || '-'}</p>
+              <div className="flex items-center text-sm text-muted-foreground">
+                <PhoneIcon className="h-3.5 w-3.5 mr-2 text-blue-400" />
+                <p>{orderData.customer?.phone || '-'}</p>
+              </div>
+              <div className="flex items-center text-sm text-muted-foreground">
+                <MailIcon className="h-3.5 w-3.5 mr-2 text-blue-400" />
+                <p>{orderData.customer?.email || '-'}</p>
+              </div>
+              {orderData.customer?.address && (
+                <div className="flex items-center text-sm text-muted-foreground">
+                  <HomeIcon className="h-3.5 w-3.5 mr-2 text-blue-400" />
+                  <p>{orderData.customer.address}</p>
                 </div>
-              ))}
+              )}
+            </div>
+          </div>
+          
+          {/* Order Details */}
+          <div>
+            <div className="flex items-center mb-3">
+              <FileTextIcon className="h-5 w-5 text-purple-500 mr-2" />
+              <h3 className="text-base font-semibold">Detail Pesanan</h3>
+            </div>
+            <div className="border border-purple-200 rounded-md p-3 space-y-3 bg-purple-50/50">
+              <div className="grid grid-cols-2 gap-3 text-sm">
+                <div>
+                  <p className="text-muted-foreground flex items-center">
+                    {orderData.isDeliveryNeeded ? 
+                      <TruckIcon className="h-3.5 w-3.5 mr-1 text-purple-400" /> : 
+                      <HomeIcon className="h-3.5 w-3.5 mr-1 text-purple-400" />
+                    }
+                    Metode Pengambilan:
+                  </p>
+                  <p className="font-medium">
+                    {orderData.isDeliveryNeeded ? 'Antar ke Alamat' : 'Diambil Sendiri'}
+                  </p>
+                </div>
+                <div>
+                  <p className="text-muted-foreground flex items-center">
+                    <CalendarIcon className="h-3.5 w-3.5 mr-1 text-purple-400" />
+                    Tanggal Pengambilan:
+                  </p>
+                  <p className="font-medium">{formatDate(orderData.pickupDate)}</p>
+                </div>
+                {orderData.isDeliveryNeeded && (
+                  <div>
+                    <p className="text-muted-foreground flex items-center">
+                      <CalendarIcon className="h-3.5 w-3.5 mr-1 text-purple-400" />
+                      Tanggal Pengiriman:
+                    </p>
+                    <p className="font-medium">{formatDate(orderData.deliveryDate)}</p>
+                  </div>
+                )}
+              </div>
               
-              <div className="bg-primary/10 rounded-lg p-3 mt-3">
-                <p className="font-bold">Total: Rp {orderData.totalAmount.toLocaleString('id-ID')}</p>
-                <p className="text-sm">Total Berat: {orderData.totalWeight.toFixed(2)} kg</p>
+              {(orderData.notes || orderData.specialRequirements) && (
+                <>
+                  <Separator className="bg-purple-200" />
+                  {orderData.notes && (
+                    <div>
+                      <p className="text-muted-foreground text-sm flex items-center">
+                        <FileTextIcon className="h-3.5 w-3.5 mr-1 text-purple-400" />
+                        Catatan:
+                      </p>
+                      <p className="text-sm">{orderData.notes}</p>
+                    </div>
+                  )}
+                  {orderData.specialRequirements && (
+                    <div>
+                      <p className="text-muted-foreground text-sm flex items-center">
+                        <MessageSquareIcon className="h-3.5 w-3.5 mr-1 text-purple-400" />
+                        Permintaan Khusus:
+                      </p>
+                      <p className="text-sm">{orderData.specialRequirements}</p>
+                    </div>
+                  )}
+                </>
+              )}
+            </div>
+          </div>
+          
+          {/* Item List */}
+          <div>
+            <div className="flex items-center mb-3">
+              <ShoppingBagIcon className="h-5 w-5 text-green-500 mr-2" />
+              <h3 className="text-base font-semibold">Daftar Layanan</h3>
+            </div>
+            <div className="border border-green-200 rounded-md p-3 bg-green-50/50">
+              <div className="space-y-3">
+                {orderData.items && orderData.items.map((item: any, index: number) => (
+                  <div key={index} className="flex justify-between text-sm">
+                    <div>
+                      <p>
+                        {item.quantity} x {item.serviceName}
+                      </p>
+                      <p className="text-sm text-muted-foreground">
+                        @ Rp {Number(item.price).toLocaleString('id-ID')}
+                      </p>
+                    </div>
+                    <p className="font-medium">
+                      Rp {Number(item.subtotal).toLocaleString('id-ID')}
+                    </p>
+                  </div>
+                ))}
+                
+                <Separator className="bg-green-200" />
+                
+                <div className="flex justify-between">
+                  <p className="font-medium">Total</p>
+                  <p className="font-medium text-green-700">
+                    Rp {calculateTotal().toLocaleString('id-ID')}
+                  </p>
+                </div>
               </div>
             </div>
-          ) : (
-            <p className="text-muted-foreground">Tidak ada item yang dipilih</p>
-          )}
-        </div>
-        
-        <Separator className="my-4" />
-        
-        {/* Delivery Information */}
-        <div className="space-y-2">
-          <h3 className="font-medium">Informasi Pengiriman</h3>
-          <div className="bg-muted/30 rounded-lg p-3">
-            <p>
-              <span className="font-medium">Opsi Pengiriman:</span> {
-                orderData.isDeliveryNeeded ? 'Antar ke Alamat' : 'Diambil Sendiri'
-              }
-            </p>
-            <p>
-              <span className="font-medium">Tanggal Pengambilan:</span> {
-                formatDate(orderData.pickupDate)
-              }
-            </p>
-            {orderData.isDeliveryNeeded && (
-              <p>
-                <span className="font-medium">Tanggal Pengiriman:</span> {
-                  formatDate(orderData.deliveryDate)
-                }
-              </p>
-            )}
           </div>
-        </div>
-        
-        <Separator className="my-4" />
-        
-        {/* Notes & Requirements */}
-        <div className="space-y-2">
-          <h3 className="font-medium">Catatan & Permintaan</h3>
-          <div className="bg-muted/30 rounded-lg p-3">
-            <p className="font-medium">Catatan:</p>
-            <p className="text-sm">{orderData.notes || 'Tidak ada catatan'}</p>
-            
-            <p className="font-medium mt-2">Permintaan Khusus:</p>
-            <p className="text-sm">{orderData.specialRequirements || 'Tidak ada permintaan khusus'}</p>
-          </div>
-        </div>
-        
-        <Separator className="my-4" />
-        
-        {/* Confirmation Notice */}
-        <Alert className="mt-4 border-green-500 bg-green-50 text-green-800">
-          <CheckCircle2 className="h-4 w-4" />
-          <AlertTitle>Siap untuk diproses</AlertTitle>
-          <AlertDescription>
-            Silahkan periksa kembali detail pesanan di atas dan tekan tombol "Buat Pesanan" untuk melanjutkan.
-          </AlertDescription>
-        </Alert>
-      </ScrollArea>
+          
+          {/* Confirmation Message */}
+          <Alert className="bg-amber-50 border-amber-200 text-amber-800">
+            <CheckCircleIcon className="h-4 w-4 text-amber-500 mr-2" />
+            <AlertDescription>
+              Silakan periksa detail pesanan. Klik tombol "Lanjutkan" untuk memproses pesanan ini.
+            </AlertDescription>
+          </Alert>
+        </>
+      )}
     </div>
   );
 } 

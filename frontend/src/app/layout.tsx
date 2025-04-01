@@ -5,6 +5,9 @@ import { AuthProvider } from "@/providers/AuthProvider";
 import { Toaster } from "react-hot-toast";
 import { APP_NAME } from "@/config";
 import { ThemeProvider } from "@/components/ui/theme-provider";
+import '../styles/calendar-styles.css';
+import '../styles/cursor-fixes.css';
+import '../styles/calendar-fixes.css';
 
 const inter = Inter({ subsets: ["latin"] });
 

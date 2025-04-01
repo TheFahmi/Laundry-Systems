@@ -1,27 +1,26 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { Label } from '@/components/ui/label';
-import { Textarea } from '@/components/ui/textarea';
-import { Input } from '@/components/ui/input';
-import { 
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue, 
-} from '@/components/ui/select';
-import { CalendarIcon } from 'lucide-react';
-import { Button } from '@/components/ui/button';
-import { Calendar } from '@/components/ui/calendar';
-import { format } from 'date-fns';
+import { CalendarIcon, ClockIcon, TruckIcon, HomeIcon, NotebookIcon, FileTextIcon, MessageSquareIcon, AlertCircleIcon } from "lucide-react";
+import { format, addDays } from "date-fns";
 import { id } from 'date-fns/locale';
-import {
-  Popover,
-  PopoverContent,
-  PopoverTrigger,
-} from '@/components/ui/popover';
-import { cn } from '@/lib/utils';
+import { Button } from "@/components/ui/button";
+import { Calendar } from "@/components/ui/calendar";
+import { 
+  Popover, 
+  PopoverContent, 
+  PopoverTrigger 
+} from "@/components/ui/popover";
+import { Textarea } from "@/components/ui/textarea";
+import { 
+  Select, 
+  SelectContent, 
+  SelectItem, 
+  SelectTrigger, 
+  SelectValue 
+} from "@/components/ui/select";
+import { Alert, AlertDescription } from "@/components/ui/alert";
+import { cn } from "@/lib/utils";
 
 interface OrderDetailsProps {
   orderData: any;
@@ -30,197 +29,245 @@ interface OrderDetailsProps {
 
 export default function OrderDetails({ orderData, updateOrderData }: OrderDetailsProps) {
   const [notes, setNotes] = useState(orderData.notes || '');
-  const [specialRequirements, setSpecialRequirements] = useState(
-    orderData.specialRequirements || ''
-  );
+  const [specialRequirements, setSpecialRequirements] = useState(orderData.specialRequirements || '');
+  const [isDeliveryNeeded, setIsDeliveryNeeded] = useState(orderData.isDeliveryNeeded || false);
   const [pickupDate, setPickupDate] = useState<Date | undefined>(
     orderData.pickupDate ? new Date(orderData.pickupDate) : undefined
   );
   const [deliveryDate, setDeliveryDate] = useState<Date | undefined>(
     orderData.deliveryDate ? new Date(orderData.deliveryDate) : undefined
   );
-  const [isDeliveryNeeded, setIsDeliveryNeeded] = useState<string>(
-    orderData.isDeliveryNeeded ? 'yes' : 'no'
-  );
+  
+  // Get maximum processing time from all services in the order
+  const getMaxProcessingTime = () => {
+    if (!orderData.items || orderData.items.length === 0) return 24; // Default 24 hours
 
-  // Calculate suggested pickup date (today + 2 days)
-  const getSuggestedPickupDate = () => {
-    const date = new Date();
-    date.setDate(date.getDate() + 2);
-    return date;
+    // Map service types to estimated processing times (in hours)
+    const processingTimes = {
+      "cuci-setrika": 48, // 2 days for washing and ironing
+      "cuci-lipat": 36,   // 1.5 days for washing and folding
+      "setrika": 24,      // 1 day for ironing only
+      "dry-clean": 72     // 3 days for dry cleaning
+    };
+
+    // Find the maximum processing time among all items
+    let maxTime = 24; // Default minimum processing time (24 hours)
+    
+    for (const item of orderData.items) {
+      const serviceType = item.serviceType || "default";
+      const serviceTime = processingTimes[serviceType as keyof typeof processingTimes] || 24;
+      maxTime = Math.max(maxTime, serviceTime);
+    }
+    
+    return maxTime;
   };
 
-  // Calculate suggested delivery date (today + 3 days)
-  const getSuggestedDeliveryDate = () => {
-    const date = new Date();
-    date.setDate(date.getDate() + 3);
-    return date;
+  // Calculate the earliest possible pickup date based on processing time
+  const getEarliestPickupDate = () => {
+    const processingHours = getMaxProcessingTime();
+    const now = new Date();
+    return addDays(now, Math.ceil(processingHours / 24));
   };
+
+  // Calculate estimated completion date based on pickup date + processing time
+  const getEstimatedCompletionDate = (pickupDate: Date) => {
+    const processingHours = getMaxProcessingTime();
+    // Create a new date object to avoid modifying the original
+    const estimatedDate = new Date(pickupDate);
+    return addDays(estimatedDate, Math.ceil(processingHours / 24));
+  };
+
+  // Suggest a pickup date (earliest date + 0 days)
+  const suggestPickupDate = () => {
+    return getEarliestPickupDate();
+  };
+
+  // Suggest a delivery date (pickup date + processing time)
+  const suggestDeliveryDate = () => {
+    if (pickupDate) {
+      return getEstimatedCompletionDate(pickupDate);
+    }
+    // Fallback to earliest date + 1 day if no pickup date
+    return addDays(getEarliestPickupDate(), 1);
+  };
+
+  // Initialize dates if not set
+  useEffect(() => {
+    if (!pickupDate) {
+      setPickupDate(suggestPickupDate());
+    }
+    
+    if (isDeliveryNeeded && !deliveryDate) {
+      setDeliveryDate(suggestDeliveryDate());
+    }
+  }, [isDeliveryNeeded]);
+
+  // Add an effect to reset delivery date if it becomes invalid
+  useEffect(() => {
+    if (isDeliveryNeeded && pickupDate && deliveryDate) {
+      const pickupTime = pickupDate.getTime();
+      const deliveryTime = deliveryDate.getTime();
+      
+      // Calculate estimated completion date based on pickup date
+      const estimatedCompletionDate = getEstimatedCompletionDate(pickupDate);
+      const estimatedCompletionTime = estimatedCompletionDate.getTime();
+      
+      // Calculate the minimum allowed delivery date (later of pickup date or estimated completion date)
+      const minAllowedDeliveryTime = Math.max(pickupTime, estimatedCompletionTime);
+      
+      // If delivery date is before the minimum allowed date, reset it
+      if (deliveryTime < minAllowedDeliveryTime) {
+        setDeliveryDate(undefined);
+      }
+    }
+  }, [pickupDate, isDeliveryNeeded]);
 
   // Update order data when form values change
   useEffect(() => {
     updateOrderData({
       notes,
       specialRequirements,
-      pickupDate: pickupDate ? pickupDate.toISOString() : undefined,
-      deliveryDate: deliveryDate ? deliveryDate.toISOString() : undefined,
-      isDeliveryNeeded: isDeliveryNeeded === 'yes'
+      isDeliveryNeeded,
+      pickupDate: pickupDate?.toISOString(),
+      deliveryDate: isDeliveryNeeded ? deliveryDate?.toISOString() : undefined
     });
-  }, [notes, specialRequirements, pickupDate, deliveryDate, isDeliveryNeeded]);
+  }, [notes, specialRequirements, isDeliveryNeeded, pickupDate, deliveryDate, updateOrderData]);
+
+  // Format the processing time for display
+  const formatProcessingTime = () => {
+    const hours = getMaxProcessingTime();
+    const days = Math.ceil(hours / 24);
+    return `${days} hari`;
+  };
 
   return (
-    <div className="space-y-4">
-      <h2 className="text-xl font-semibold">Detail Pesanan</h2>
-      
-      {/* Order Summary */}
-      <div className="bg-muted/30 rounded-lg p-3">
-        <p className="font-medium">Ringkasan Pesanan</p>
-        <div className="grid grid-cols-2 gap-2 mt-2 text-sm">
-          <div>
-            <p className="text-muted-foreground">Pelanggan:</p>
-            <p className="font-medium">{orderData.customer?.name || 'N/A'}</p>
-          </div>
-          <div>
-            <p className="text-muted-foreground">Total Item:</p>
-            <p className="font-medium">{orderData.items?.length || 0} item</p>
-          </div>
-          <div>
-            <p className="text-muted-foreground">Total Berat:</p>
-            <p className="font-medium">{orderData.totalWeight?.toFixed(2) || 0} kg</p>
-          </div>
-          <div>
-            <p className="text-muted-foreground">Total Harga:</p>
-            <p className="font-medium">Rp {orderData.totalAmount?.toLocaleString('id-ID') || 0}</p>
-          </div>
+    <div className="space-y-6">
+      {/* Processing time alert */}
+      <Alert variant="default" className="bg-blue-50 text-blue-800 border-blue-200">
+        <div className="flex items-start">
+          <AlertCircleIcon className="h-5 w-5 text-blue-600 mr-2 mt-0.5" />
+          <AlertDescription className="text-blue-800">
+            Estimasi waktu pengerjaan: <strong>{formatProcessingTime()}</strong>. 
+            Pengiriman paling cepat adalah <strong className="text-blue-700">{formatProcessingTime()}</strong> setelah tanggal pengambilan.
+          </AlertDescription>
         </div>
-      </div>
+      </Alert>
       
-      {/* Delivery Options */}
-      <div className="space-y-2">
-        <Label htmlFor="delivery-option">Opsi Pengiriman</Label>
-        <Select 
-          value={isDeliveryNeeded} 
-          onValueChange={setIsDeliveryNeeded}
-        >
-          <SelectTrigger id="delivery-option">
-            <SelectValue placeholder="Pilih opsi pengiriman" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="no">Diambil Sendiri</SelectItem>
-            <SelectItem value="yes">Antar ke Alamat</SelectItem>
-          </SelectContent>
-        </Select>
-      </div>
-      
-      {/* Pickup Date */}
-      <div className="space-y-2">
-        <Label htmlFor="pickup-date">Tanggal Pengambilan</Label>
-        <Popover>
-          <PopoverTrigger asChild>
-            <Button
-              id="pickup-date"
-              variant="outline"
-              className={cn(
-                "w-full justify-start text-left font-normal",
-                !pickupDate && "text-muted-foreground"
-              )}
-            >
-              <CalendarIcon className="mr-2 h-4 w-4" />
-              {pickupDate ? (
-                format(pickupDate, "PPP", { locale: id })
-              ) : (
-                "Pilih tanggal pengambilan"
-              )}
-            </Button>
-          </PopoverTrigger>
-          <PopoverContent className="w-auto p-0" align="start">
-            <Calendar
-              mode="single"
-              selected={pickupDate}
-              onSelect={setPickupDate}
-              initialFocus
-              disabled={(date) => date < new Date()}
-            />
-            <div className="p-3 border-t">
-              <Button 
-                variant="outline" 
-                size="sm"
-                className="w-full"
-                onClick={() => setPickupDate(getSuggestedPickupDate())}
+      {/* Delivery options */}
+      <div className="space-y-3">
+        <div className="flex items-center mb-1">
+          <TruckIcon className="h-5 w-5 text-indigo-600 mr-2" />
+          <h3 className="text-base font-semibold">Opsi Pengiriman</h3>
+        </div>
+        
+        <div className="bg-indigo-50 border border-indigo-200 rounded-md p-3">
+          <div className="flex flex-col space-y-2">
+            <label className="text-sm font-medium">
+              Metode Pengiriman
+            </label>
+            <div className="flex space-x-2">
+              <button
+                type="button"
+                onClick={() => setIsDeliveryNeeded(false)}
+                className={`flex items-center px-3 py-2 rounded-md text-sm flex-1 ${
+                  !isDeliveryNeeded 
+                    ? 'bg-blue-100 border border-blue-300 text-blue-800' 
+                    : 'bg-gray-100 border border-gray-300 text-gray-700'
+                }`}
               >
-                Tanggal yang disarankan
-              </Button>
+                <HomeIcon className="h-4 w-4 mr-2 text-blue-600" />
+                Diambil Sendiri
+              </button>
+              <button
+                type="button"
+                onClick={() => setIsDeliveryNeeded(true)}
+                className={`flex items-center px-3 py-2 rounded-md text-sm flex-1 ${
+                  isDeliveryNeeded 
+                    ? 'bg-indigo-100 border border-indigo-300 text-indigo-800' 
+                    : 'bg-gray-100 border border-gray-300 text-gray-700'
+                }`}
+              >
+                <TruckIcon className="h-4 w-4 mr-2 text-indigo-600" />
+                Antar ke Alamat
+              </button>
             </div>
-          </PopoverContent>
-        </Popover>
-      </div>
-      
-      {/* Delivery Date - Only show if delivery is needed */}
-      {isDeliveryNeeded === 'yes' && (
-        <div className="space-y-2">
-          <Label htmlFor="delivery-date">Tanggal Pengiriman</Label>
-          <Popover>
-            <PopoverTrigger asChild>
-              <Button
-                id="delivery-date"
-                variant="outline"
-                className={cn(
-                  "w-full justify-start text-left font-normal",
-                  !deliveryDate && "text-muted-foreground"
-                )}
-              >
-                <CalendarIcon className="mr-2 h-4 w-4" />
-                {deliveryDate ? (
-                  format(deliveryDate, "PPP", { locale: id })
-                ) : (
-                  "Pilih tanggal pengiriman"
-                )}
-              </Button>
-            </PopoverTrigger>
-            <PopoverContent className="w-auto p-0" align="start">
-              <Calendar
-                mode="single"
-                selected={deliveryDate}
-                onSelect={setDeliveryDate}
-                initialFocus
-                disabled={(date) => date < new Date()}
-              />
-              <div className="p-3 border-t">
-                <Button 
-                  variant="outline" 
-                  size="sm"
-                  className="w-full"
-                  onClick={() => setDeliveryDate(getSuggestedDeliveryDate())}
-                >
-                  Tanggal yang disarankan
-                </Button>
+          </div>
+          
+          {/* Pickup date selector */}
+          <div className="space-y-2 mt-3">
+            <div className="flex items-center">
+              <CalendarIcon className="h-4 w-4 text-green-600 mr-2" />
+              <h4 className="text-sm font-medium">Tanggal Pengambilan</h4>
+            </div>
+            <input
+              type="date"
+              value={pickupDate ? format(pickupDate, "yyyy-MM-dd") : ""}
+              min={format(getEarliestPickupDate(), "yyyy-MM-dd")}
+              onChange={(e) => {
+                if (e.target.value) {
+                  setPickupDate(new Date(e.target.value));
+                }
+              }}
+              className="w-full p-2 border border-green-200 bg-green-50/70 rounded-md"
+            />
+          </div>
+          
+          {/* Delivery date selector */}
+          {isDeliveryNeeded && (
+            <div className="space-y-2 mt-3">
+              <div className="flex items-center">
+                <CalendarIcon className="h-4 w-4 text-indigo-600 mr-2" />
+                <h4 className="text-sm font-medium">Tanggal Pengiriman</h4>
               </div>
-            </PopoverContent>
-          </Popover>
+              <input
+                type="date"
+                value={deliveryDate ? format(deliveryDate, "yyyy-MM-dd") : ""}
+                min={
+                  pickupDate 
+                    ? (getEstimatedCompletionDate(pickupDate) > pickupDate 
+                      ? format(getEstimatedCompletionDate(pickupDate), "yyyy-MM-dd") 
+                      : format(pickupDate, "yyyy-MM-dd"))
+                    : format(getEarliestPickupDate(), "yyyy-MM-dd")
+                }
+                onChange={(e) => {
+                  if (e.target.value) {
+                    setDeliveryDate(new Date(e.target.value));
+                  }
+                }}
+                className="w-full p-2 border border-indigo-200 bg-indigo-50/70 rounded-md"
+              />
+            </div>
+          )}
         </div>
-      )}
+      </div>
       
       {/* Notes */}
-      <div className="space-y-2">
-        <Label htmlFor="notes">Catatan</Label>
+      <div className="space-y-3">
+        <div className="flex items-center mb-1">
+          <FileTextIcon className="h-5 w-5 text-amber-600 mr-2" />
+          <h3 className="text-base font-semibold">Catatan</h3>
+        </div>
         <Textarea
-          id="notes"
-          placeholder="Catatan untuk pesanan ini..."
+          placeholder="Tambahkan catatan untuk pesanan ini..."
           value={notes}
           onChange={(e) => setNotes(e.target.value)}
           rows={3}
+          className="border-amber-200 bg-amber-50/50 focus-visible:ring-amber-300"
         />
       </div>
       
-      {/* Special Requirements */}
-      <div className="space-y-2">
-        <Label htmlFor="special-requirements">Permintaan Khusus</Label>
+      {/* Special requirements */}
+      <div className="space-y-3">
+        <div className="flex items-center mb-1">
+          <MessageSquareIcon className="h-5 w-5 text-cyan-600 mr-2" />
+          <h3 className="text-base font-semibold">Permintaan Khusus</h3>
+        </div>
         <Textarea
-          id="special-requirements"
-          placeholder="Permintaan khusus untuk penanganan..."
+          placeholder="Tambahkan permintaan khusus (opsional)..."
           value={specialRequirements}
           onChange={(e) => setSpecialRequirements(e.target.value)}
           rows={3}
+          className="border-cyan-200 bg-cyan-50/50 focus-visible:ring-cyan-300"
         />
       </div>
     </div>

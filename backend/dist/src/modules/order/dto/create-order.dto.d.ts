@@ -12,6 +12,7 @@ export declare class PaymentInfoDto {
     amount: number;
     change: number;
     method: PaymentMethod;
+    referenceNumber?: string;
 }
 export declare class CreateOrderDto {
     customerId: string;
@@ -23,6 +24,7 @@ export declare class CreateOrderDto {
     totalWeight?: number;
     pickupDate?: Date;
     deliveryDate?: Date;
+    isDeliveryNeeded?: boolean;
     items: OrderItemDto[];
     payment?: PaymentInfoDto;
 }

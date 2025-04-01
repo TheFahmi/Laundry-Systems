@@ -44,6 +44,7 @@ export interface Order {
   specialRequirements?: string;
   pickupDate?: string;
   deliveryDate?: string;
+  isDeliveryNeeded?: boolean;
   items: OrderItem[];
   createdAt: string;
   updatedAt: string;
@@ -71,6 +72,7 @@ export interface CreateOrderDto {
   specialRequirements?: string;
   pickupDate?: string;
   deliveryDate?: string;
+  isDeliveryNeeded?: boolean;
 }
 
 export interface UpdateOrderDto {
@@ -81,6 +83,7 @@ export interface UpdateOrderDto {
   specialRequirements?: string;
   pickupDate?: string;
   deliveryDate?: string;
+  isDeliveryNeeded?: boolean;
 }
 
 export interface OrderFilters {

@@ -62,6 +62,10 @@ export class Order {
   @Column({ name: 'delivery_date', type: 'timestamp', nullable: true })
   deliveryDate?: Date;
 
+  @ApiProperty({ description: 'Whether delivery is needed or customer will pick up' })
+  @Column({ name: 'is_delivery_needed', default: false })
+  isDeliveryNeeded: boolean;
+
   @ApiProperty({ description: 'The items in the order' })
   @OneToMany(() => OrderItem, item => item.order, { cascade: true })
   items: OrderItem[];

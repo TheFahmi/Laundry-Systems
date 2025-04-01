@@ -65,6 +65,12 @@ __decorate([
 ], UpdateOrderDto.prototype, "deliveryDate", void 0);
 __decorate([
     (0, class_validator_1.IsOptional)(),
+    (0, class_validator_1.IsBoolean)(),
+    (0, swagger_1.ApiProperty)({ description: 'Whether delivery is needed or customer will pick up', required: false }),
+    __metadata("design:type", Boolean)
+], UpdateOrderDto.prototype, "isDeliveryNeeded", void 0);
+__decorate([
+    (0, class_validator_1.IsOptional)(),
     (0, class_validator_1.IsUUID)(),
     (0, swagger_1.ApiProperty)({ description: 'Customer ID', required: false }),
     __metadata("design:type", String)

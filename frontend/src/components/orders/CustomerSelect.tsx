@@ -25,6 +25,8 @@ interface Customer {
 }
 
 const customersPerPage = 10;
+const MAX_DISPLAY_ITEMS = 5;
+const MAX_TOTAL_ITEMS = 10;
 
 export default function CustomerSelect({ onSelectCustomer, selectedCustomerId }: CustomerSelectProps) {
   const [customers, setCustomers] = useState<Customer[]>([]);
@@ -122,7 +124,8 @@ export default function CustomerSelect({ onSelectCustomer, selectedCustomerId }:
       );
     }
     
-    setFilteredCustomers(filtered);
+    // Limit to maximum 10 results total
+    setFilteredCustomers(filtered.slice(0, MAX_TOTAL_ITEMS));
     setPage(1);
   }, [searchQuery, customers]);
 
@@ -228,61 +231,96 @@ export default function CustomerSelect({ onSelectCustomer, selectedCustomerId }:
   }
   
   return (
-    <Card>
-      <CardHeader>
-        <CardTitle>Pilih Pelanggan</CardTitle>
+    <Card className="border border-blue-100 shadow-sm">
+      <CardHeader className="pb-3 border-b border-blue-100">
+        <CardTitle className="flex items-center text-blue-700">
+          <User className="h-5 w-5 mr-2 text-blue-500" />
+          Pilih Pelanggan
+        </CardTitle>
         <CardDescription>
           Pilih pelanggan yang akan membuat pesanan atau tambahkan pelanggan baru
         </CardDescription>
       </CardHeader>
-      <CardContent className="space-y-4">
+      <CardContent className="space-y-4 pt-4">
         <div className="flex gap-2">
           <div className="relative flex-1">
-            <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
+            <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-blue-500" />
             <Input
               placeholder="Cari nama atau nomor telepon..."
               value={searchQuery}
               onChange={handleSearchChange}
-              className="pl-8"
+              className="pl-8 border-blue-200 focus-visible:ring-blue-400"
             />
           </div>
-          <Button onClick={handleAddNewCustomer}>
+          <Button onClick={handleAddNewCustomer} className="bg-blue-500 hover:bg-blue-600 cursor-pointer">
             <Plus className="mr-2 h-4 w-4" />
             Pelanggan Baru
           </Button>
         </div>
         
         {displayedCustomers.length === 0 ? (
-          <div className="py-8 text-center">
-            <User className="mx-auto h-12 w-12 text-muted-foreground opacity-50" />
-            <p className="mt-2 text-muted-foreground">Tidak ada pelanggan yang ditemukan</p>
-            <Button variant="outline" className="mt-4" onClick={handleAddNewCustomer}>
+          <div className="py-8 text-center border border-dashed border-blue-200 rounded-lg bg-blue-50/50">
+            <User className="mx-auto h-12 w-12 text-blue-300 opacity-70" />
+            <p className="mt-2 text-blue-600">Tidak ada pelanggan yang ditemukan</p>
+            <Button variant="outline" className="mt-4 border-blue-300 text-blue-700 hover:bg-blue-100 cursor-pointer" onClick={handleAddNewCustomer}>
+              <Plus className="mr-2 h-4 w-4" />
               Tambah Pelanggan Baru
             </Button>
           </div>
         ) : (
           <div className="space-y-4">
-            <div className="grid grid-cols-1 gap-2">
-              {displayedCustomers.map((customer) => (
-                <div 
-                  key={customer.id}
-                  className={`p-4 border rounded-md cursor-pointer transition-colors ${
-                    selectedCustomerId === customer.id 
-                      ? 'bg-primary/5 border-primary' 
-                      : 'hover:bg-accent'
-                  }`}
-                  onClick={() => {
-                    // Just notify parent of selection but don't trigger automatic progression
-                    onSelectCustomer(customer.id, customer.name);
-                  }}
-                >
-                  <div className="font-medium">{customer.name}</div>
-                  <div className="text-sm text-muted-foreground">{customer.phone}</div>
-                  {customer.email && (
-                    <div className="text-sm text-muted-foreground">{customer.email}</div>
-                  )}
-                </div>
-              ))}
+            {/* Create a scrollable container with fixed height */}
+            <div className="h-[300px] overflow-auto pr-1">
+              <div className="grid grid-cols-1 gap-2">
+                {displayedCustomers.map((customer) => (
+                  <div 
+                    key={customer.id}
+                    className={`p-4 border rounded-md cursor-pointer transition-colors ${
+                      selectedCustomerId === customer.id 
+                        ? 'bg-blue-50 border-blue-300' 
+                        : 'hover:bg-accent'
+                    }`}
+                    onClick={() => onSelectCustomer(customer.id, customer.name)}
+                  >
+                    <div className="flex items-center">
+                      <div className={`flex-shrink-0 w-8 h-8 rounded-full flex items-center justify-center mr-3 ${
+                        selectedCustomerId === customer.id 
+                          ? 'bg-blue-100 text-blue-700' 
+                          : 'bg-gray-100 text-gray-600'
+                      }`}>
+                        <User className="h-4 w-4" />
+                      </div>
+                      <div className="flex-1">
+                        <div className={`font-medium ${selectedCustomerId === customer.id ? 'text-blue-700' : ''}`}>
+                          {customer.name}
+                        </div>
+                        <div className="text-sm text-muted-foreground flex items-center gap-1">
+                          <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                            <path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z"></path>
+                          </svg>
+                          {customer.phone}
+                        </div>
+                        {customer.email && (
+                          <div className="text-sm text-muted-foreground flex items-center gap-1">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                              <path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"></path>
+                              <polyline points="22,6 12,13 2,6"></polyline>
+                            </svg>
+                            {customer.email}
+                          </div>
+                        )}
+                      </div>
+                      {selectedCustomerId === customer.id && (
+                        <div className="flex-shrink-0 w-6 h-6 rounded-full bg-blue-500 flex items-center justify-center">
+                          <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
+                            <polyline points="20 6 9 17 4 12"></polyline>
+                          </svg>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                ))}
+              </div>
             </div>
             
             {totalPages > 1 && (
@@ -291,7 +329,7 @@ export default function CustomerSelect({ onSelectCustomer, selectedCustomerId }:
                   <PaginationItem>
                     <PaginationPrevious 
                       onClick={() => handlePageChange(Math.max(1, page - 1))}
-                      className={page <= 1 ? "pointer-events-none opacity-50" : ""}
+                      className={page <= 1 ? "pointer-events-none opacity-50" : "text-blue-600 hover:text-blue-700"}
                     />
                   </PaginationItem>
                   
@@ -309,6 +347,7 @@ export default function CustomerSelect({ onSelectCustomer, selectedCustomerId }:
                               <PaginationLink
                                 onClick={() => handlePageChange(p)}
                                 isActive={page === p}
+                                className={page === p ? "bg-blue-500 text-white hover:bg-blue-600" : "text-blue-600 hover:text-blue-700"}
                               >
                                 {p}
                               </PaginationLink>
@@ -322,6 +361,7 @@ export default function CustomerSelect({ onSelectCustomer, selectedCustomerId }:
                           <PaginationLink
                             onClick={() => handlePageChange(p)}
                             isActive={page === p}
+                            className={page === p ? "bg-blue-500 text-white hover:bg-blue-600" : "text-blue-600 hover:text-blue-700"}
                           >
                             {p}
                           </PaginationLink>
@@ -332,7 +372,7 @@ export default function CustomerSelect({ onSelectCustomer, selectedCustomerId }:
                   <PaginationItem>
                     <PaginationNext 
                       onClick={() => handlePageChange(Math.min(totalPages, page + 1))}
-                      className={page >= totalPages ? "pointer-events-none opacity-50" : ""}
+                      className={page >= totalPages ? "pointer-events-none opacity-50" : "text-blue-600 hover:text-blue-700"}
                     />
                   </PaginationItem>
                 </PaginationContent>

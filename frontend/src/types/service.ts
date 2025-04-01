@@ -21,6 +21,7 @@ export interface Service {
   price: number;
   priceModel: ServicePriceModel;
   estimatedTime: number; // dalam jam
+  processingTimeHours?: number; // explicitly from API
   category: ServiceCategory;
   isActive: boolean;
   imageUrl?: string;

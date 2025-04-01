@@ -51,6 +51,9 @@ export class Order {
   @Column({ type: 'timestamp', nullable: true })
   deliveryDate: Date;
 
+  @Column({ name: 'is_delivery_needed', default: false })
+  isDeliveryNeeded: boolean;
+
   @OneToMany(() => OrderItem, orderItem => orderItem.order, { cascade: true })
   items: OrderItem[];
 

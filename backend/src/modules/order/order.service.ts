@@ -217,55 +217,12 @@ export class OrderService {
         
         console.log(`Order creation complete. Total items saved: ${savedItems.length}`);
         
-        // Process payment information if provided
-        let paymentRecord = null;
-        if (createOrderDto.payment) {
-          console.log('Processing payment information...');
-          const paymentId = uuidv4();
-          const { method, amount, change, referenceNumber } = createOrderDto.payment;
-          
-          const paymentData: DeepPartial<Payment> = {
-            id: paymentId,
-            orderId: savedOrder.id,
-            customerId: savedOrder.customerId,
-            amount: Number(amount) || totalAmount,
-            paymentMethod: method,
-            status: PaymentStatus.COMPLETED, // Always set status to COMPLETED
-            transactionId: `TRX-${Date.now()}`,
-            referenceNumber: referenceNumber || `PAY-${Date.now()}`,
-            notes: `Change: ${change || 0}`,
-            createdAt: new Date(),
-            updatedAt: new Date()
-          };
-          
-          console.log('Creating payment with data:', JSON.stringify(paymentData));
-          const payment = transactionalEntityManager.create(Payment, paymentData);
-          paymentRecord = await transactionalEntityManager.save(Payment, payment);
-          console.log('Payment saved successfully with ID:', paymentRecord.id);
-          
-          // Update order status to READY instead of PAID (which doesn't exist in the enum)
-          await transactionalEntityManager.update(Order, savedOrder.id, { 
-            status: OrderStatus.READY,
-            updatedAt: new Date()
-          });
-          console.log('Order status updated to READY');
-        }
-        
-        // Fetch the complete order with items and payments
+        // Fetch the complete order with items
         const completeOrder = await transactionalEntityManager.findOne(Order, {
           where: { id: savedOrder.id },
-          relations: ['items', 'payments'],
+          relations: ['items'],
         });
         
-        // Store the payment record in the returned order's payments array
-        if (paymentRecord) {
-          if (!completeOrder.payments) {
-            completeOrder.payments = [];
-          }
-          completeOrder.payments.push(paymentRecord);
-        }
-        
-        // Return the complete order with payment information
         return { data: completeOrder };
       } catch (error) {
         // Log the error but rethrow for proper error handling

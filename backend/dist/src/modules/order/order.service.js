@@ -37,163 +37,151 @@ let OrderService = class OrderService {
         return `ORD-${year}${month}${day}-${random}`;
     }
     async create(createOrderDto) {
-        try {
-            console.log('Starting order creation with data:', JSON.stringify(createOrderDto));
-            const orderId = (0, uuid_1.v4)();
-            console.log('Generated order ID:', orderId);
-            const orderNumber = await this.generateOrderNumber();
-            console.log('Generated order number:', orderNumber);
-            let totalAmount = createOrderDto.totalAmount;
-            if (createOrderDto.total !== undefined) {
-                totalAmount = createOrderDto.total;
-            }
-            if (!totalAmount && createOrderDto.items && Array.isArray(createOrderDto.items)) {
-                totalAmount = this.calculateTotalAmount(createOrderDto.items);
-            }
-            totalAmount = totalAmount || 0;
-            console.log('Calculated total amount:', totalAmount);
-            const orderData = {
-                id: orderId,
-                orderNumber,
-                customerId: createOrderDto.customerId,
-                status: order_entity_1.OrderStatus.NEW,
-                totalAmount,
-                totalWeight: 0,
-                notes: createOrderDto.notes || '',
-                specialRequirements: createOrderDto.specialRequirements || '',
-                pickupDate: createOrderDto.pickupDate || null,
-                deliveryDate: createOrderDto.deliveryDate || null,
-                createdAt: new Date(),
-                updatedAt: new Date()
-            };
-            if (createOrderDto.items && Array.isArray(createOrderDto.items)) {
-                const totalWeight = createOrderDto.items.reduce((sum, item) => {
-                    if (item.weightBased) {
-                        const weight = parseFloat(String(item.weight || item.quantity || '0').replace(',', '.'));
-                        return sum + (isNaN(weight) ? 0 : weight);
+        return this.orderRepository.manager.transaction(async (transactionalEntityManager) => {
+            try {
+                console.log('Starting order creation with data:', JSON.stringify(createOrderDto));
+                const orderId = (0, uuid_1.v4)();
+                console.log('Generated order ID:', orderId);
+                const orderNumber = await this.generateOrderNumber();
+                console.log('Generated order number:', orderNumber);
+                let totalAmount = createOrderDto.totalAmount;
+                if (createOrderDto.total !== undefined) {
+                    totalAmount = createOrderDto.total;
+                }
+                if (!totalAmount && createOrderDto.items && Array.isArray(createOrderDto.items)) {
+                    totalAmount = this.calculateTotalAmount(createOrderDto.items);
+                }
+                totalAmount = totalAmount || 0;
+                console.log('Calculated total amount:', totalAmount);
+                let totalWeight = 0;
+                if (createOrderDto.items && Array.isArray(createOrderDto.items)) {
+                    totalWeight = createOrderDto.items.reduce((sum, item) => {
+                        if (item.weightBased) {
+                            const weight = parseFloat(String(item.weight || item.quantity || '0').replace(',', '.'));
+                            return sum + (isNaN(weight) ? 0 : weight);
+                        }
+                        return sum;
+                    }, 0);
+                    console.log(`Calculated total weight for order: ${totalWeight} kg`);
+                }
+                const orderData = {
+                    id: orderId,
+                    orderNumber,
+                    customerId: createOrderDto.customerId,
+                    status: order_entity_1.OrderStatus.NEW,
+                    totalAmount,
+                    totalWeight,
+                    notes: createOrderDto.notes || '',
+                    specialRequirements: createOrderDto.specialRequirements || '',
+                    pickupDate: createOrderDto.pickupDate || null,
+                    deliveryDate: createOrderDto.deliveryDate || null,
+                    createdAt: new Date(),
+                    updatedAt: new Date()
+                };
+                console.log('Creating order with data:', JSON.stringify(orderData));
+                const order = this.orderRepository.create(orderData);
+                console.log('Saving order to database...');
+                const savedOrder = await transactionalEntityManager.save(order_entity_1.Order, order);
+                console.log('Order saved successfully with ID:', savedOrder.id);
+                let serviceMap = new Map();
+                if (createOrderDto.items && Array.isArray(createOrderDto.items)) {
+                    const serviceIds = createOrderDto.items
+                        .filter(item => item.serviceId)
+                        .map(item => String(item.serviceId));
+                    if (serviceIds.length > 0) {
+                        const uniqueServiceIds = [...new Set(serviceIds)];
+                        const services = await transactionalEntityManager.find(service_entity_1.Service, {
+                            where: { id: (0, typeorm_2.In)(uniqueServiceIds) }
+                        });
+                        serviceMap = new Map(services.map(service => [service.id, service]));
+                        console.log(`Pre-fetched ${services.length} services for item processing`);
                     }
-                    return sum;
-                }, 0);
-                orderData.totalWeight = totalWeight;
-                console.log(`Calculated total weight for order: ${totalWeight} kg`);
-            }
-            console.log('Creating order with data:', JSON.stringify(orderData));
-            const order = this.orderRepository.create(orderData);
-            console.log('Saving order to database...');
-            const savedOrder = await this.orderRepository.save(order);
-            console.log('Order saved successfully with ID:', savedOrder.id);
-            let items = [];
-            if (createOrderDto.items && Array.isArray(createOrderDto.items)) {
-                console.log('Processing order items:', JSON.stringify(createOrderDto.items));
-                for (const item of createOrderDto.items) {
-                    const { weightBased, ...itemData } = item;
-                    try {
-                        let serviceName = itemData.serviceName;
-                        if (!serviceName && itemData.serviceId) {
+                }
+                const BATCH_SIZE = 50;
+                let savedItems = [];
+                if (createOrderDto.items && Array.isArray(createOrderDto.items)) {
+                    console.log(`Processing ${createOrderDto.items.length} order items in batches of ${BATCH_SIZE}`);
+                    for (let i = 0; i < createOrderDto.items.length; i += BATCH_SIZE) {
+                        const itemBatch = createOrderDto.items.slice(i, i + BATCH_SIZE);
+                        console.log(`Processing batch ${Math.floor(i / BATCH_SIZE) + 1} with ${itemBatch.length} items`);
+                        const orderItemsToInsert = [];
+                        for (const item of itemBatch) {
+                            const { weightBased, ...itemData } = item;
                             try {
-                                const serviceId = String(itemData.serviceId);
-                                const service = await this.serviceRepository.findOne({ where: { id: serviceId } });
-                                if (service) {
-                                    serviceName = service.name;
-                                    console.log(`Found service name from database: ${serviceName} for ID: ${serviceId}`);
+                                let serviceName = itemData.serviceName;
+                                if (!serviceName && itemData.serviceId) {
+                                    const service = serviceMap.get(String(itemData.serviceId));
+                                    if (service) {
+                                        serviceName = service.name;
+                                    }
+                                    else {
+                                        serviceName = `Service ${itemData.serviceId}`;
+                                    }
+                                }
+                                if (weightBased) {
+                                    const rawWeight = parseFloat(String(itemData.weight || itemData.quantity || 0.5).replace(',', '.'));
+                                    const itemWeight = Math.max(rawWeight, 0.1);
+                                    const price = parseFloat(String(itemData.price || 0).replace(',', '.'));
+                                    const subtotal = price * itemWeight;
+                                    orderItemsToInsert.push({
+                                        orderId: savedOrder.id,
+                                        serviceId: String(itemData.serviceId || '00000000-0000-0000-0000-000000000000'),
+                                        serviceName: serviceName,
+                                        quantity: 1,
+                                        weight: itemWeight,
+                                        price,
+                                        subtotal,
+                                        unitPrice: price,
+                                        totalPrice: subtotal,
+                                        notes: `Weight: ${itemWeight} kg`,
+                                        createdAt: new Date(),
+                                        updatedAt: new Date()
+                                    });
+                                }
+                                else {
+                                    const parsedQuantity = parseInt(String(itemData.quantity || 1));
+                                    const quantity = Math.max(parsedQuantity, 1);
+                                    const price = parseFloat(String(itemData.price || 0).replace(',', '.'));
+                                    const subtotal = price * quantity;
+                                    orderItemsToInsert.push({
+                                        orderId: savedOrder.id,
+                                        serviceId: String(itemData.serviceId || '00000000-0000-0000-0000-000000000000'),
+                                        serviceName: serviceName,
+                                        quantity,
+                                        price,
+                                        subtotal,
+                                        unitPrice: price,
+                                        totalPrice: subtotal,
+                                        notes: null,
+                                        createdAt: new Date(),
+                                        updatedAt: new Date()
+                                    });
                                 }
                             }
-                            catch (serviceError) {
-                                console.error(`Error finding service name for ID ${itemData.serviceId}:`, serviceError);
-                                serviceName = `Service ${itemData.serviceId}`;
+                            catch (error) {
+                                console.error('Error processing item:', error);
                             }
                         }
-                        let quantity;
-                        let actualQuantity;
-                        if (weightBased) {
-                            const rawWeight = parseFloat(String(itemData.weight || itemData.quantity || 0.5).replace(',', '.'));
-                            const itemWeight = Math.max(rawWeight, 0.1);
-                            quantity = 1;
-                            savedOrder.totalWeight = Number((parseFloat(savedOrder.totalWeight.toString()) + itemWeight).toFixed(2));
-                            await this.orderRepository.save(savedOrder);
-                            console.log(`Processing WEIGHT-BASED item: ${rawWeight} kg → ${itemWeight} kg (stored as weight)`);
-                            console.log(`Updated order totalWeight to: ${savedOrder.totalWeight} kg`);
-                            const price = parseFloat(String(itemData.price || 0).replace(',', '.'));
-                            const subtotal = price * itemWeight;
-                            const result = await this.orderItemRepository.query(`INSERT INTO order_items 
-                (order_id, service_id, service_name, quantity, weight, price, subtotal, unit_price, total_price, notes, created_at, updated_at) 
-                VALUES($1, $2, $3, $4::decimal, $5::decimal, $6::decimal, $7::decimal, $8::decimal, $9::decimal, $10, NOW(), NOW()) 
-                RETURNING *`, [
-                                savedOrder.id,
-                                String(itemData.serviceId || '00000000-0000-0000-0000-000000000000'),
-                                serviceName,
-                                quantity.toString(),
-                                itemWeight.toString(),
-                                price.toString(),
-                                subtotal.toString(),
-                                price.toString(),
-                                subtotal.toString(),
-                                `Weight: ${itemWeight} kg`
-                            ]);
-                            console.log(`Created weight-based item using raw query:`, result && result[0] ? result[0] : 'No result');
-                            if (result && result.length > 0) {
-                                const savedItem = this.orderItemRepository.create(result[0]);
-                                items.push(savedItem);
-                            }
-                        }
-                        else {
-                            const parsedQuantity = parseInt(String(itemData.quantity || 1));
-                            quantity = Math.max(parsedQuantity, 1);
-                            actualQuantity = quantity;
-                            console.log(`Processing PIECE-BASED item: ${quantity} pcs`);
-                            const price = parseFloat(String(itemData.price || 0).replace(',', '.'));
-                            const subtotal = price * quantity;
-                            const orderItem = this.orderItemRepository.create({
-                                orderId: savedOrder.id,
-                                serviceId: String(itemData.serviceId || '00000000-0000-0000-0000-000000000000'),
-                                serviceName: serviceName,
-                                quantity,
-                                price,
-                                subtotal,
-                                unitPrice: price,
-                                totalPrice: subtotal,
-                                notes: null
-                            });
-                            const savedItem = await this.orderItemRepository.save(orderItem);
-                            console.log(`Saved piece-based item:`, savedItem);
-                            items.push(savedItem);
+                        if (orderItemsToInsert.length > 0) {
+                            console.log(`Inserting batch of ${orderItemsToInsert.length} order items...`);
+                            const insertedItems = await transactionalEntityManager.save(order_item_entity_1.OrderItem, orderItemsToInsert);
+                            savedItems = [...savedItems, ...insertedItems];
+                            console.log(`Successfully inserted ${insertedItems.length} items in this batch`);
                         }
                     }
-                    catch (itemError) {
-                        console.error(`Error saving order item:`, itemError);
-                        throw new common_1.BadRequestException(`Failed to create order item: ${itemError.message}`);
-                    }
                 }
-                savedOrder.items = items;
+                console.log(`Order creation complete. Total items saved: ${savedItems.length}`);
+                const completeOrder = await transactionalEntityManager.findOne(order_entity_1.Order, {
+                    where: { id: savedOrder.id },
+                    relations: ['items'],
+                });
+                return { data: completeOrder };
             }
-            if (createOrderDto.payment) {
-                try {
-                    console.log('Creating payment record with data:', JSON.stringify(createOrderDto.payment));
-                    const paymentId = (0, uuid_1.v4)();
-                    const payment = this.paymentRepository.create({
-                        id: paymentId,
-                        orderId: savedOrder.id,
-                        customerId: savedOrder.customerId,
-                        amount: createOrderDto.payment.amount,
-                        paymentMethod: createOrderDto.payment.method,
-                        status: payment_entity_1.PaymentStatus.COMPLETED,
-                        notes: `Payment for order ${savedOrder.orderNumber}`,
-                        transactionId: `CHANGE-${createOrderDto.payment.change}`
-                    });
-                    await this.paymentRepository.save(payment);
-                    console.log('Payment record created successfully with ID:', payment.id);
-                }
-                catch (paymentError) {
-                    console.error('Error creating payment record:', paymentError);
-                }
+            catch (error) {
+                console.error('Error in order creation transaction:', error);
+                throw error;
             }
-            return { data: savedOrder };
-        }
-        catch (error) {
-            console.error(`Error creating order:`, error);
-            console.error('Error stack:', error.stack);
-            throw new common_1.BadRequestException(`Failed to create order: ${error.message}`);
-        }
+        });
     }
     calculateTotalAmount(items) {
         if (!items || !Array.isArray(items))

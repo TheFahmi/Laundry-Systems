@@ -36,8 +36,23 @@ export default function OrderComplete({ orderId, orderData }: OrderCompleteProps
         throw new Error('Failed to fetch order details');
       }
 
-      const data = await response.json();
-      setOrderDetails(data.data || data);
+      const responseData = await response.json();
+      
+      // Handle different response structures
+      let orderData;
+      
+      if (responseData.data?.data) {
+        // Nested data.data structure
+        orderData = responseData.data.data;
+      } else if (responseData.data) {
+        // Single level of nesting
+        orderData = responseData.data;
+      } else {
+        // Direct response
+        orderData = responseData;
+      }
+      
+      setOrderDetails(orderData);
     } catch (error) {
       console.error('Error fetching order details:', error);
     } finally {

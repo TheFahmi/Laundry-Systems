@@ -1,0 +1,34 @@
+/* Cursor pointer fixes for various interactive elements */
+
+/* Fix dialog close buttons */
+[role="dialog"] button {
+  cursor: pointer !important;
+}
+
+/* Fix X buttons */
+button[aria-label="Close"],
+button[aria-label="close"] {
+  cursor: pointer !important;
+}
+
+/* Number input spinner buttons */
+input[type="number"]::-webkit-inner-spin-button,
+input[type="number"]::-webkit-outer-spin-button {
+  opacity: 1;
+  cursor: pointer !important;
+}
+
+/* All React Dialog primitive components */
+[data-radix-dialog-close], 
+[data-radix-dialog-trigger],
+[data-radix-dialog-overlay],
+[data-radix-popper-content-wrapper] button {
+  cursor: pointer !important;
+}
+
+/* Remove the diagonal line from disabled calendar dates */
+.rdp-day_disabled::after,
+button[disabled].rdp-day::after,
+button.rdp-day_disabled::after {
+  display: none !important;
+} 

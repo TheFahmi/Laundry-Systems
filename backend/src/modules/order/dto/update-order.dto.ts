@@ -1,6 +1,6 @@
 import { PartialType } from '@nestjs/mapped-types';
 import { CreateOrderDto, OrderItemDto } from './create-order.dto';
-import { IsEnum, IsOptional, IsString, IsNumber, IsArray, IsDate, ValidateNested, IsUUID } from 'class-validator';
+import { IsEnum, IsOptional, IsString, IsNumber, IsArray, IsDate, ValidateNested, IsUUID, IsBoolean } from 'class-validator';
 import { Type } from 'class-transformer';
 import { OrderStatus } from '../entities/order.entity';
 import { ApiProperty } from '@nestjs/swagger';
@@ -42,6 +42,11 @@ export class UpdateOrderDto extends PartialType(CreateOrderDto) {
   @Type(() => Date)
   @ApiProperty({ description: 'Delivery date', required: false })
   deliveryDate?: Date;
+
+  @IsOptional()
+  @IsBoolean()
+  @ApiProperty({ description: 'Whether delivery is needed or customer will pick up', required: false })
+  isDeliveryNeeded?: boolean;
 
   @IsOptional()
   @IsUUID()

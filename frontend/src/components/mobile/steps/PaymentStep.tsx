@@ -5,7 +5,20 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
-import { AlertCircle, CreditCard, CheckCircle2 } from 'lucide-react';
+import { 
+  AlertCircle, 
+  CreditCard, 
+  CheckCircle2, 
+  Banknote, 
+  CreditCard as CreditCardIcon,
+  Receipt, 
+  Building, 
+  Wallet, 
+  MoreHorizontal,
+  DollarSign,
+  HashIcon,
+  PenIcon
+} from 'lucide-react';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import {
   Select,
@@ -62,6 +75,16 @@ export default function PaymentStep({ orderId, orderData, onComplete }: PaymentS
     [PaymentMethod.BANK_TRANSFER]: 'Transfer Bank',
     [PaymentMethod.EWALLET]: 'E-Wallet',
     [PaymentMethod.OTHER]: 'Lainnya'
+  };
+
+  // Payment method icon map
+  const paymentMethodIcons: Record<string, React.ReactNode> = {
+    [PaymentMethod.CASH]: <Banknote className="h-4 w-4 text-green-500" />,
+    [PaymentMethod.CREDIT_CARD]: <CreditCardIcon className="h-4 w-4 text-blue-500" />,
+    [PaymentMethod.DEBIT_CARD]: <CreditCardIcon className="h-4 w-4 text-purple-500" />,
+    [PaymentMethod.BANK_TRANSFER]: <Building className="h-4 w-4 text-cyan-500" />,
+    [PaymentMethod.EWALLET]: <Wallet className="h-4 w-4 text-amber-500" />,
+    [PaymentMethod.OTHER]: <MoreHorizontal className="h-4 w-4 text-gray-500" />
   };
 
   // Handle input change
@@ -157,11 +180,29 @@ export default function PaymentStep({ orderId, orderData, onComplete }: PaymentS
         <p className="text-muted-foreground">
           Pembayaran sebesar Rp {paymentData.amount.toLocaleString('id-ID')} telah berhasil diproses.
         </p>
-        <div className="bg-muted/30 rounded-lg p-3 text-left mt-4">
-          <p><span className="font-medium">Metode:</span> {paymentMethodLabels[paymentData.paymentMethod]}</p>
-          <p><span className="font-medium">Referensi:</span> {paymentData.referenceNumber}</p>
+        <div className="bg-green-50 border border-green-200 rounded-lg p-3 text-left mt-4">
+          <p className="flex items-center gap-2">
+            <span className="font-medium">Metode:</span> 
+            <span className="flex items-center gap-1">
+              {paymentMethodIcons[paymentData.paymentMethod]}
+              {paymentMethodLabels[paymentData.paymentMethod]}
+            </span>
+          </p>
+          <p className="flex items-center gap-2">
+            <span className="font-medium">Referensi:</span> 
+            <span className="flex items-center gap-1">
+              <Receipt className="h-4 w-4 text-gray-500" />
+              {paymentData.referenceNumber}
+            </span>
+          </p>
           {paymentData.transactionId && (
-            <p><span className="font-medium">ID Transaksi:</span> {paymentData.transactionId}</p>
+            <p className="flex items-center gap-2">
+              <span className="font-medium">ID Transaksi:</span>
+              <span className="flex items-center gap-1">
+                <HashIcon className="h-4 w-4 text-gray-500" />
+                {paymentData.transactionId}
+              </span>
+            </p>
           )}
         </div>
       </div>
@@ -170,7 +211,10 @@ export default function PaymentStep({ orderId, orderData, onComplete }: PaymentS
 
   return (
     <div className="space-y-4">
-      <h2 className="text-xl font-semibold">Pembayaran</h2>
+      <div className="flex items-center mb-2">
+        <CreditCard className="h-5 w-5 text-blue-500 mr-2" />
+        <h2 className="text-xl font-semibold">Pembayaran</h2>
+      </div>
       
       {error && (
         <Alert variant="destructive">
@@ -181,12 +225,15 @@ export default function PaymentStep({ orderId, orderData, onComplete }: PaymentS
       )}
       
       {/* Order Summary */}
-      <div className="bg-muted/30 rounded-lg p-3">
-        <p className="font-medium">Ringkasan Pesanan</p>
+      <div className="bg-blue-50 border border-blue-200 rounded-lg p-3">
+        <p className="font-medium flex items-center">
+          <Receipt className="h-4 w-4 text-blue-500 mr-1" />
+          Ringkasan Pesanan
+        </p>
         <div className="mt-2">
           <p><span className="text-sm text-muted-foreground">ID Pesanan:</span> {orderId}</p>
           <p><span className="text-sm text-muted-foreground">Pelanggan:</span> {orderData.customer?.name}</p>
-          <p className="font-semibold mt-1">Total: Rp {orderData.totalAmount?.toLocaleString('id-ID')}</p>
+          <p className="font-semibold mt-1 text-blue-700">Total: Rp {orderData.totalAmount?.toLocaleString('id-ID')}</p>
         </div>
       </div>
       
@@ -194,30 +241,40 @@ export default function PaymentStep({ orderId, orderData, onComplete }: PaymentS
       <div className="space-y-4">
         {/* Payment Amount */}
         <div className="space-y-2">
-          <Label htmlFor="amount">Jumlah Pembayaran</Label>
+          <Label htmlFor="amount" className="flex items-center">
+            <DollarSign className="h-4 w-4 text-green-500 mr-1" />
+            Jumlah Pembayaran
+          </Label>
           <Input
             id="amount"
             name="amount"
             type="number"
             value={paymentData.amount}
             onChange={handleInputChange}
+            className="border-green-200 bg-green-50/50 focus-visible:ring-green-300"
           />
         </div>
         
         {/* Payment Method */}
         <div className="space-y-2">
-          <Label htmlFor="paymentMethod">Metode Pembayaran</Label>
+          <Label htmlFor="paymentMethod" className="flex items-center">
+            <CreditCard className="h-4 w-4 text-purple-500 mr-1" />
+            Metode Pembayaran
+          </Label>
           <Select
             value={paymentData.paymentMethod}
             onValueChange={(value) => handleSelectChange('paymentMethod', value)}
           >
-            <SelectTrigger id="paymentMethod">
+            <SelectTrigger id="paymentMethod" className="border-purple-200 bg-purple-50/50 focus:ring-purple-300">
               <SelectValue placeholder="Pilih metode pembayaran" />
             </SelectTrigger>
             <SelectContent>
               {Object.entries(PaymentMethod).map(([key, value]) => (
                 <SelectItem key={value} value={value}>
-                  {paymentMethodLabels[value]}
+                  <div className="flex items-center gap-2">
+                    {paymentMethodIcons[value]}
+                    {paymentMethodLabels[value]}
+                  </div>
                 </SelectItem>
               ))}
             </SelectContent>
@@ -227,59 +284,66 @@ export default function PaymentStep({ orderId, orderData, onComplete }: PaymentS
         {/* Transaction ID - only for non-cash payments */}
         {paymentData.paymentMethod !== PaymentMethod.CASH && (
           <div className="space-y-2">
-            <Label htmlFor="transactionId">ID Transaksi</Label>
+            <Label htmlFor="transactionId" className="flex items-center">
+              <HashIcon className="h-4 w-4 text-amber-500 mr-1" />
+              ID Transaksi
+            </Label>
             <Input
               id="transactionId"
               name="transactionId"
               placeholder="ID Transaksi dari penyedia pembayaran"
               value={paymentData.transactionId}
               onChange={handleInputChange}
+              className="border-amber-200 bg-amber-50/50 focus-visible:ring-amber-300"
             />
           </div>
         )}
         
         {/* Reference Number */}
         <div className="space-y-2">
-          <Label htmlFor="referenceNumber">Nomor Referensi</Label>
+          <Label htmlFor="referenceNumber" className="flex items-center">
+            <Receipt className="h-4 w-4 text-cyan-500 mr-1" />
+            Nomor Referensi
+          </Label>
           <Input
             id="referenceNumber"
             name="referenceNumber"
             value={paymentData.referenceNumber}
             onChange={handleInputChange}
+            className="border-cyan-200 bg-cyan-50/50 focus-visible:ring-cyan-300"
           />
         </div>
         
         {/* Notes */}
         <div className="space-y-2">
-          <Label htmlFor="notes">Catatan Pembayaran</Label>
+          <Label htmlFor="notes" className="flex items-center">
+            <PenIcon className="h-4 w-4 text-gray-500 mr-1" />
+            Catatan Pembayaran
+          </Label>
           <Textarea
             id="notes"
             name="notes"
-            placeholder="Catatan tambahan untuk pembayaran ini..."
+            placeholder="Catatan tambahan (opsional)"
             value={paymentData.notes}
             onChange={handleInputChange}
-            rows={3}
+            className="border-gray-200 bg-gray-50/50 focus-visible:ring-gray-300"
           />
         </div>
       </div>
       
-      {/* Submit Button */}
       <Button 
-        className="w-full mt-4" 
-        onClick={processPayment}
-        disabled={isLoading}
+        onClick={processPayment} 
+        disabled={isLoading} 
+        className="w-full mt-4 bg-green-600 hover:bg-green-700"
       >
         {isLoading ? (
-          <span className="flex items-center">
-            <svg className="animate-spin -ml-1 mr-2 h-4 w-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-              <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-              <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-            </svg>
+          <>
+            <AlertCircle className="h-4 w-4 mr-2 animate-spin" />
             Memproses...
-          </span>
+          </>
         ) : (
           <>
-            <CreditCard className="mr-2 h-4 w-4" />
+            <CheckCircle2 className="h-4 w-4 mr-2" />
             Proses Pembayaran
           </>
         )}

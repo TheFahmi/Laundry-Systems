@@ -3,10 +3,8 @@
 import { useState, useEffect } from 'react';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
-import { Search, Plus, User, X } from 'lucide-react';
-import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
+import { Search, Plus, User, X, Phone, Mail, Home, UserPlus, UserCircle } from 'lucide-react';
 import { Label } from '@/components/ui/label';
-import { ScrollArea } from '@/components/ui/scroll-area';
 import { Avatar } from '@/components/ui/avatar';
 import { Separator } from '@/components/ui/separator';
 import { 
@@ -36,9 +34,7 @@ export default function CustomerSelection({ orderData, updateOrderData }: Custom
   const [searchQuery, setSearchQuery] = useState('');
   const [customers, setCustomers] = useState<Customer[]>([]);
   const [loading, setLoading] = useState(false);
-  const [selectedCustomerId, setSelectedCustomerId] = useState<string | null>(
-    orderData.customer?.id || null
-  );
+  const [selectedCustomerId, setSelectedCustomerId] = useState<string | null>(null);
   
   // State for new customer dialog
   const [showNewCustomerDialog, setShowNewCustomerDialog] = useState(false);
@@ -49,6 +45,14 @@ export default function CustomerSelection({ orderData, updateOrderData }: Custom
     address: ''
   });
   const [isCreating, setIsCreating] = useState(false);
+
+  // Initialize selectedCustomerId from orderData only once on mount
+  useEffect(() => {
+    if (orderData.customerId && !selectedCustomerId) {
+      setSelectedCustomerId(orderData.customerId);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []); // Empty dependency array ensures this only runs once on mount
 
   // Fetch customers on component mount
   useEffect(() => {
@@ -110,10 +114,16 @@ export default function CustomerSelection({ orderData, updateOrderData }: Custom
 
   // Handle customer selection
   const handleSelectCustomer = (customerId: string) => {
+    // Skip if already selected
+    if (customerId === selectedCustomerId) return;
+    
     setSelectedCustomerId(customerId);
     const selectedCustomer = customers.find(c => c.id === customerId);
     if (selectedCustomer) {
-      updateOrderData({ customer: selectedCustomer });
+      updateOrderData({ 
+        customer: selectedCustomer,
+        customerId: customerId
+      });
     }
   };
   
@@ -166,9 +176,16 @@ export default function CustomerSelection({ orderData, updateOrderData }: Custom
         // Update customer list
         setCustomers(prev => [createdCustomer, ...prev]);
         
-        // Select the new customer
+        // Select the new customer - set state only once
         setSelectedCustomerId(createdCustomer.id);
-        updateOrderData({ customer: createdCustomer });
+        
+        // Update order data separately to avoid sync issues
+        setTimeout(() => {
+          updateOrderData({ 
+            customer: createdCustomer,
+            customerId: createdCustomer.id 
+          });
+        }, 0);
         
         // Close dialog and reset form
         setShowNewCustomerDialog(false);
@@ -196,17 +213,17 @@ export default function CustomerSelection({ orderData, updateOrderData }: Custom
       {/* Search box */}
       <div className="flex space-x-2">
         <div className="relative flex-1">
-          <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
+          <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-blue-500" />
           <Input
             type="text"
             placeholder="Cari pelanggan..."
-            className="pl-8"
+            className="pl-8 border-blue-200 focus-visible:ring-blue-300"
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             onKeyDown={(e) => e.key === 'Enter' && handleSearch()}
           />
         </div>
-        <Button variant="outline" onClick={handleSearch}>
+        <Button variant="outline" className="border-blue-200 hover:bg-blue-50" onClick={handleSearch}>
           Cari
         </Button>
       </div>
@@ -214,70 +231,104 @@ export default function CustomerSelection({ orderData, updateOrderData }: Custom
       {/* New Customer button */}
       <Button 
         variant="outline" 
-        className="w-full" 
+        className="w-full border-green-200 bg-green-50 hover:bg-green-100 text-green-700" 
         onClick={() => setShowNewCustomerDialog(true)}
       >
-        <Plus className="mr-2 h-4 w-4" />
+        <UserPlus className="mr-2 h-4 w-4 text-green-600" />
         Pelanggan Baru
       </Button>
       
-      <Separator />
+      <Separator className="bg-gray-200" />
       
       {/* Customer list */}
       {loading ? (
         <div className="flex justify-center py-4">
-          <div className="h-6 w-6 animate-spin rounded-full border-2 border-primary border-t-transparent"></div>
+          <div className="h-6 w-6 animate-spin rounded-full border-2 border-blue-500 border-t-transparent"></div>
         </div>
       ) : customers.length > 0 ? (
-        <ScrollArea className="h-[300px] pr-4">
-          <RadioGroup
-            value={selectedCustomerId || undefined}
-            onValueChange={handleSelectCustomer}
-            className="space-y-2"
-          >
+        <div className="h-[300px] overflow-y-auto pr-4">
+          <div className="space-y-2">
             {customers.map((customer) => (
               <div
                 key={customer.id}
-                className="flex items-center space-x-2 border rounded-md p-3"
+                className={`flex items-center space-x-2 border rounded-md p-3 transition-colors cursor-pointer ${
+                  selectedCustomerId === customer.id
+                    ? 'border-blue-300 bg-blue-50'
+                    : 'hover:bg-gray-50'
+                }`}
+                onClick={() => handleSelectCustomer(customer.id)}
               >
-                <RadioGroupItem value={customer.id} id={customer.id} />
-                <Avatar className="h-9 w-9 border">
-                  <User className="h-5 w-5" />
+                <div className="flex-shrink-0 w-4 h-4 rounded-full border border-blue-400 flex items-center justify-center">
+                  {selectedCustomerId === customer.id && 
+                    <div className="w-2 h-2 rounded-full bg-blue-500" />
+                  }
+                </div>
+                <Avatar className="h-9 w-9 border bg-blue-100 text-blue-500">
+                  <UserCircle className="h-6 w-6" />
                 </Avatar>
                 <div className="flex-1 min-w-0">
                   <Label
-                    htmlFor={customer.id}
                     className="text-sm font-medium leading-none cursor-pointer"
                   >
                     {customer.name}
                   </Label>
-                  {customer.phone && (
-                    <p className="text-xs text-muted-foreground truncate">
-                      {customer.phone}
-                    </p>
-                  )}
-                  {customer.email && (
-                    <p className="text-xs text-muted-foreground truncate">
-                      {customer.email}
-                    </p>
-                  )}
+                  <div className="flex flex-col mt-1 text-xs text-muted-foreground truncate">
+                    {customer.phone && (
+                      <span className="flex items-center">
+                        <Phone className="h-3 w-3 mr-1 text-blue-400" />
+                        {customer.phone}
+                      </span>
+                    )}
+                    {customer.email && (
+                      <span className="flex items-center">
+                        <Mail className="h-3 w-3 mr-1 text-blue-400" />
+                        {customer.email}
+                      </span>
+                    )}
+                  </div>
                 </div>
               </div>
             ))}
-          </RadioGroup>
-        </ScrollArea>
+          </div>
+        </div>
       ) : (
-        <div className="py-4 text-center text-muted-foreground">
-          Tidak ada pelanggan ditemukan. Silahkan buat pelanggan baru.
+        <div className="text-center py-4 border rounded-md border-dashed p-6">
+          <UserCircle className="h-10 w-10 mx-auto text-gray-300 mb-2" />
+          <p className="text-muted-foreground">Tidak ada pelanggan ditemukan</p>
+          <Button 
+            variant="outline" 
+            size="sm" 
+            className="mt-2 border-green-200 hover:bg-green-50"
+            onClick={() => setShowNewCustomerDialog(true)}
+          >
+            <UserPlus className="mr-2 h-3 w-3 text-green-600" />
+            Tambah Pelanggan Baru
+          </Button>
         </div>
       )}
       
-      {/* Selected Customer Summary */}
-      {selectedCustomerId && orderData.customer && (
-        <div className="mt-4 border rounded-md p-3 bg-muted/20">
-          <p className="font-semibold">Pelanggan Terpilih:</p>
-          <p>{orderData.customer.name}</p>
-          {orderData.customer.phone && <p className="text-sm">{orderData.customer.phone}</p>}
+      {/* Selected customer summary */}
+      {selectedCustomerId && (
+        <div className="mt-4 border border-blue-200 rounded-md bg-blue-50 p-3">
+          <div className="flex items-center gap-2 mb-2">
+            <UserCircle className="h-5 w-5 text-blue-500" />
+            <h3 className="font-medium">Pelanggan Terpilih</h3>
+          </div>
+          <div className="space-y-1 text-sm">
+            <p className="font-medium">{orderData.customer?.name}</p>
+            {orderData.customer?.phone && (
+              <p className="text-muted-foreground flex items-center">
+                <Phone className="h-3.5 w-3.5 mr-1 text-blue-400" />
+                {orderData.customer.phone}
+              </p>
+            )}
+            {orderData.customer?.email && (
+              <p className="text-muted-foreground flex items-center">
+                <Mail className="h-3.5 w-3.5 mr-1 text-blue-400" />
+                {orderData.customer.email}
+              </p>
+            )}
+          </div>
         </div>
       )}
       
@@ -285,76 +336,98 @@ export default function CustomerSelection({ orderData, updateOrderData }: Custom
       <Dialog open={showNewCustomerDialog} onOpenChange={setShowNewCustomerDialog}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Tambah Pelanggan Baru</DialogTitle>
+            <DialogTitle className="flex items-center gap-2">
+              <UserPlus className="h-5 w-5 text-green-500" />
+              Tambah Pelanggan Baru
+            </DialogTitle>
             <DialogDescription>
-              Masukkan data pelanggan baru untuk melanjutkan
+              Masukkan informasi pelanggan baru di bawah ini.
             </DialogDescription>
           </DialogHeader>
           
           <div className="space-y-4 py-2">
             <div className="space-y-2">
-              <Label htmlFor="name">Nama Pelanggan <span className="text-red-500">*</span></Label>
+              <Label htmlFor="name" className="flex items-center">
+                <UserCircle className="h-4 w-4 text-blue-500 mr-1" />
+                Nama
+              </Label>
               <Input
                 id="name"
                 name="name"
                 value={newCustomer.name}
                 onChange={handleNewCustomerChange}
-                placeholder="Masukkan nama pelanggan"
+                className="border-blue-200 focus-visible:ring-blue-300"
               />
             </div>
             
             <div className="space-y-2">
-              <Label htmlFor="phone">Nomor Telepon</Label>
+              <Label htmlFor="phone" className="flex items-center">
+                <Phone className="h-4 w-4 text-green-500 mr-1" />
+                Telepon
+              </Label>
               <Input
                 id="phone"
                 name="phone"
                 value={newCustomer.phone}
                 onChange={handleNewCustomerChange}
-                placeholder="Masukkan nomor telepon"
+                className="border-green-200 focus-visible:ring-green-300"
               />
             </div>
             
             <div className="space-y-2">
-              <Label htmlFor="email">Email</Label>
+              <Label htmlFor="email" className="flex items-center">
+                <Mail className="h-4 w-4 text-amber-500 mr-1" />
+                Email
+              </Label>
               <Input
                 id="email"
                 name="email"
                 type="email"
                 value={newCustomer.email}
                 onChange={handleNewCustomerChange}
-                placeholder="Masukkan email"
+                className="border-amber-200 focus-visible:ring-amber-300"
               />
             </div>
             
             <div className="space-y-2">
-              <Label htmlFor="address">Alamat</Label>
+              <Label htmlFor="address" className="flex items-center">
+                <Home className="h-4 w-4 text-purple-500 mr-1" />
+                Alamat
+              </Label>
               <Input
                 id="address"
                 name="address"
                 value={newCustomer.address}
                 onChange={handleNewCustomerChange}
-                placeholder="Masukkan alamat"
+                className="border-purple-200 focus-visible:ring-purple-300"
               />
             </div>
           </div>
           
           <DialogFooter>
-            <Button
-              variant="outline"
+            <Button 
+              variant="outline" 
               onClick={() => setShowNewCustomerDialog(false)}
             >
+              <X className="h-4 w-4 mr-2" />
               Batal
             </Button>
             <Button 
-              onClick={handleCreateCustomer}
+              onClick={handleCreateCustomer} 
               disabled={isCreating || !newCustomer.name.trim()}
+              className="bg-green-600 hover:bg-green-700"
             >
               {isCreating ? (
                 <>
-                  <div className="h-4 w-4 animate-spin rounded-full border-2 border-white border-t-transparent mr-2"></div>
+                  <div className="mr-2 h-4 w-4 animate-spin rounded-full border-2 border-white border-t-transparent"></div>
                   Menyimpan...
                 </>
-              ) : 'Simpan Pelanggan'}
+              ) : (
+                <>
+                  <UserPlus className="h-4 w-4 mr-2" />
+                  Simpan Pelanggan
+                </>
+              )}
             </Button>
           </DialogFooter>
         </DialogContent>

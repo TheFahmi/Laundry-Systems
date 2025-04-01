@@ -9,6 +9,7 @@ export declare class UpdateOrderDto extends UpdateOrderDto_base {
     totalWeight?: number;
     pickupDate?: Date;
     deliveryDate?: Date;
+    isDeliveryNeeded?: boolean;
     customerId?: string;
     items?: OrderItemDto[];
 }

@@ -75,6 +75,12 @@ __decorate([
     (0, swagger_1.ApiProperty)({ enum: payment_entity_1.PaymentMethod, description: 'Payment method', example: payment_entity_1.PaymentMethod.CASH }),
     __metadata("design:type", String)
 ], PaymentInfoDto.prototype, "method", void 0);
+__decorate([
+    (0, class_validator_1.IsOptional)(),
+    (0, class_validator_1.IsString)(),
+    (0, swagger_1.ApiProperty)({ description: 'Reference number for the payment', example: 'REF-12345', required: false }),
+    __metadata("design:type", String)
+], PaymentInfoDto.prototype, "referenceNumber", void 0);
 class CreateOrderDto {
 }
 exports.CreateOrderDto = CreateOrderDto;
@@ -136,6 +142,12 @@ __decorate([
     (0, swagger_1.ApiProperty)({ description: 'Delivery date', required: false }),
     __metadata("design:type", Date)
 ], CreateOrderDto.prototype, "deliveryDate", void 0);
+__decorate([
+    (0, class_validator_1.IsOptional)(),
+    (0, class_validator_1.IsBoolean)(),
+    (0, swagger_1.ApiProperty)({ description: 'Whether delivery is needed or customer will pick up', default: false, required: false }),
+    __metadata("design:type", Boolean)
+], CreateOrderDto.prototype, "isDeliveryNeeded", void 0);
 __decorate([
     (0, class_validator_1.IsArray)(),
     (0, class_validator_1.ValidateNested)({ each: true }),
