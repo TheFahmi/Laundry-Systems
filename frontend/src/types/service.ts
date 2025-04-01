@@ -1,32 +1,42 @@
-// Service categories
-export enum ServiceCategory {
-  CUCI = 'cuci',
-  SETRIKA = 'setrika',
-  PREMIUM = 'premium',
-  LAINNYA = 'lainnya'
-}
-
-// Service price models
+// Enum for service price models
 export enum ServicePriceModel {
+  PER_UNIT = 'per_unit',
   PER_KG = 'per_kg',
   PER_PIECE = 'per_piece',
   FLAT_RATE = 'flat_rate'
 }
 
+// Enum for service categories
+export enum ServiceCategory {
+  UNCATEGORIZED = 'uncategorized',
+  CUCI = 'cuci',
+  SETRIKA = 'setrika',
+  LAUNDRY = 'laundry',
+  DRY_CLEAN = 'dry clean',
+  EXPRESS = 'express',
+  PREMIUM = 'premium',
+  LAINNYA = 'lainnya'
+}
+
 // Service interface
 export interface Service {
-  id: string;
+  id?: string;
   name: string;
-  description: string;
+  description?: string;
   price: number;
-  priceModel: ServicePriceModel;
-  estimatedTime: number; // dalam jam
+  priceModel?: ServicePriceModel;
+  estimatedTime?: number; // in hours
   processingTimeHours?: number; // explicitly from API
-  category: ServiceCategory;
-  isActive: boolean;
+  category?: string;
+  isActive?: boolean;
   imageUrl?: string;
-  createdAt: string;
-  updatedAt: string;
+  createdAt?: string;
+  updatedAt?: string;
+  
+  // Legacy properties for backward compatibility
+  priceUnit?: 'item' | 'kg';
+  estimatedDuration?: number;
+  unit?: string;
 }
 
 // Default services
@@ -91,14 +101,19 @@ export const defaultServices: Partial<Service>[] = [
 
 // Category labels in Indonesian
 export const categoryLabels: Record<ServiceCategory, string> = {
+  [ServiceCategory.UNCATEGORIZED]: 'Tanpa Kategori',
   [ServiceCategory.CUCI]: 'Cuci',
   [ServiceCategory.SETRIKA]: 'Setrika',
+  [ServiceCategory.LAUNDRY]: 'Laundry',
+  [ServiceCategory.DRY_CLEAN]: 'Dry Clean',
+  [ServiceCategory.EXPRESS]: 'Express',
   [ServiceCategory.PREMIUM]: 'Premium',
   [ServiceCategory.LAINNYA]: 'Lainnya'
 };
 
 // Price model labels in Indonesian
 export const priceModelLabels: Record<ServicePriceModel, string> = {
+  [ServicePriceModel.PER_UNIT]: 'Per Unit',
   [ServicePriceModel.PER_KG]: 'Per Kilogram',
   [ServicePriceModel.PER_PIECE]: 'Per Item',
   [ServicePriceModel.FLAT_RATE]: 'Harga Tetap'

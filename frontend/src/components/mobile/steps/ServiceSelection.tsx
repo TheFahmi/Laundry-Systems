@@ -21,31 +21,16 @@ import {
 import { Card, CardContent, CardFooter } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Separator } from '@/components/ui/separator';
-import { 
-  Dialog, 
-  DialogContent, 
-  DialogHeader, 
-  DialogTitle, 
-  DialogFooter,
-  DialogClose
-} from '@/components/ui/dialog';
 import { Badge } from '@/components/ui/badge';
 import { toast } from 'sonner';
+import ServiceFormSheet from '../ServiceFormSheet';
+import ServiceDetailSheet from '../ServiceDetailSheet';
+import BottomSheet from '../BottomSheet';
+import { Service, ServicePriceModel } from '@/types/service';
 
-// Add service price model enum matching the desktop component
-enum ServicePriceModel {
-  PER_UNIT = 'per_unit',
-  PER_KG = 'per_kg'
-}
-
-interface Service {
-  id: string;
-  name: string;
-  price: number;
-  description?: string;
-  category?: string;
-  priceModel?: ServicePriceModel;
-}
+// Add type aliases to ensure compatibility with imported components
+type DetailService = Service;
+type FormService = Service;
 
 interface OrderItem {
   serviceId: string;
@@ -69,15 +54,16 @@ function ServiceSelection({ orderData, updateOrderData }: ServiceSelectionProps)
   const [loading, setLoading] = useState(false);
   const [selectedCategory, setSelectedCategory] = useState('all');
   const [items, setItems] = useState<OrderItem[]>(orderData.items || []);
-  const [isDetailDialogOpen, setIsDetailDialogOpen] = useState(false);
-  const [selectedService, setSelectedService] = useState<Service | null>(null);
+  
+  // State for bottom sheets
+  const [isDetailSheetOpen, setIsDetailSheetOpen] = useState(false);
+  const [isServiceFormOpen, setIsServiceFormOpen] = useState(false);
+  const [isQuantitySheetOpen, setIsQuantitySheetOpen] = useState(false);
+  const [selectedService, setSelectedService] = useState<DetailService | null>(null);
   const [quantityValue, setQuantityValue] = useState(1);
   const [weightValue, setWeightValue] = useState(0.5);
-
-  // Fetch services on component mount
-  useEffect(() => {
-    fetchServices();
-  }, []);
+  const [serviceFormData, setServiceFormData] = useState<FormService | undefined>(undefined);
+  const [editingItemIndex, setEditingItemIndex] = useState<number | null>(null);
 
   // Update order data when items change
   useEffect(() => {
@@ -93,6 +79,11 @@ function ServiceSelection({ orderData, updateOrderData }: ServiceSelectionProps)
       });
     }
   }, [items, updateOrderData, orderData.totalAmount, orderData.items]);
+
+  // Fetch services on component mount
+  useEffect(() => {
+    fetchServices();
+  }, []);
 
   // Fetch services function
   const fetchServices = async (query: string = '') => {
@@ -154,70 +145,146 @@ function ServiceSelection({ orderData, updateOrderData }: ServiceSelectionProps)
     ? services 
     : services.filter(service => (service.category || 'uncategorized') === selectedCategory);
 
-  // Open detail dialog for adding an item
-  const openAddDialog = (service: Service) => {
+  // Open quantity/weight sheet for adding a service
+  const openQuantitySheet = (service: Service) => {
     setSelectedService(service);
     const isWeightBased = service.priceModel === ServicePriceModel.PER_KG;
     setQuantityValue(1);
     setWeightValue(0.5);
-    setIsDetailDialogOpen(true);
+    setEditingItemIndex(null);
+    setIsQuantitySheetOpen(true);
   };
 
-  // Add item to the order with weight or quantity
-  const addItemWithDetail = () => {
-    if (!selectedService) return;
+  // Open service detail sheet
+  const handleOpenServiceDetail = (service: Service) => {
+    setSelectedService(service);
+    setIsDetailSheetOpen(true);
+  };
+
+  // Open service form sheet for adding a new service
+  const handleAddService = () => {
+    setServiceFormData(undefined);
+    setIsServiceFormOpen(true);
+  };
+
+  // Open service form sheet for editing an existing service
+  const handleEditService = (service: Service) => {
+    // For ServiceFormSheet, ensure all required fields are provided
+    setServiceFormData({
+      id: service.id,
+      name: service.name,
+      price: service.price,
+      description: service.description || '',
+      category: service.category || 'uncategorized',
+      priceModel: service.priceModel || ServicePriceModel.PER_UNIT
+    });
+    setIsServiceFormOpen(true);
+    setIsDetailSheetOpen(false);
+  };
+
+  // Handle service creation or update success
+  const handleServiceSaved = (service: Service) => {
+    // Make sure service has all required fields for our local state
+    const savedService: Service = {
+      ...service,
+      id: service.id || ''
+    };
+    
+    // Check if this is an update or a new service
+    if (savedService.id && services.some(s => s.id === savedService.id)) {
+      // Update existing service in the list
+      setServices(prevServices => 
+        prevServices.map(s => s.id === savedService.id ? savedService : s)
+      );
+    } else {
+      // Add new service to the list
+      setServices(prevServices => [savedService, ...prevServices]);
+    }
+
+    toast.success(`Layanan berhasil ${service.id ? 'diperbarui' : 'ditambahkan'}`);
+  };
+
+  // Handle service deletion
+  const handleDeleteService = (serviceId: string) => {
+    // Remove from services list
+    setServices(prevServices => prevServices.filter(s => s.id !== serviceId));
+    
+    // Also remove from order items if present
+    setItems(prevItems => prevItems.filter(item => item.serviceId !== serviceId));
+    
+    toast.success('Layanan berhasil dihapus');
+  };
+
+  // Add/update item to order from quantity sheet
+  const handleAddToOrder = () => {
+    if (!selectedService || !selectedService.id) return;
     
     const isWeightBased = selectedService.priceModel === ServicePriceModel.PER_KG;
-    const existingItemIndex = items.findIndex(item => 
-      item.serviceId === selectedService.id && 
-      !!item.weightBased === isWeightBased
-    );
-    
     const quantity = isWeightBased ? 1 : quantityValue;
     const weight = isWeightBased ? weightValue : undefined;
     const subtotal = isWeightBased 
-      ? weight! * selectedService.price 
-      : quantity * selectedService.price;
+      ? Math.round(selectedService.price * weightValue) 
+      : selectedService.price * quantityValue;
     
-    let newItems;
-    if (existingItemIndex !== -1) {
-      // Update existing item
-      newItems = [...items];
-      if (isWeightBased) {
-        // For weight-based, update the weight
-        const newWeight = (newItems[existingItemIndex].weight || 0) + weight!;
-        newItems[existingItemIndex] = {
-          ...newItems[existingItemIndex],
-          weight: newWeight,
-          subtotal: newWeight * selectedService.price
-        };
-      } else {
-        // For quantity-based, update the quantity
-        const newQuantity = newItems[existingItemIndex].quantity + quantity;
-        newItems[existingItemIndex] = {
-          ...newItems[existingItemIndex],
-          quantity: newQuantity,
-          subtotal: newQuantity * selectedService.price
-        };
-      }
-    } else {
-      // Add new item
-      const newItem: OrderItem = {
-        serviceId: selectedService.id,
-        serviceName: selectedService.name,
-        price: selectedService.price,
-        quantity: quantity,
-        weightBased: isWeightBased,
-        weight: weight,
-        subtotal: subtotal,
-        serviceType: selectedService.category
+    // If we're editing an existing item
+    if (editingItemIndex !== null && editingItemIndex >= 0 && editingItemIndex < items.length) {
+      const updatedItems = [...items];
+      updatedItems[editingItemIndex] = {
+        ...updatedItems[editingItemIndex],
+        quantity: isWeightBased ? 1 : quantityValue,
+        weight: isWeightBased ? weightValue : undefined,
+        subtotal: subtotal
       };
-      newItems = [...items, newItem];
+      setItems(updatedItems);
+      toast.success(`${selectedService.name} diperbarui dalam pesanan`);
+    } else {
+      // Check if service already exists in order
+      const existingItemIndex = items.findIndex(item => item.serviceId === selectedService.id);
+      
+      if (existingItemIndex >= 0) {
+        // Update existing item
+        const updatedItems = [...items];
+        const existingItem = updatedItems[existingItemIndex];
+        
+        if (isWeightBased) {
+          updatedItems[existingItemIndex] = {
+            ...existingItem,
+            weight: weight,
+            subtotal: subtotal
+          };
+        } else {
+          updatedItems[existingItemIndex] = {
+            ...existingItem,
+            quantity: existingItem.quantity + quantity,
+            subtotal: existingItem.subtotal + subtotal
+          };
+        }
+        
+        setItems(updatedItems);
+        toast.success(`${selectedService.name} diperbarui dalam pesanan`);
+      } else {
+        // Add new item
+        const newItem: OrderItem = {
+          serviceId: selectedService.id,
+          serviceName: selectedService.name,
+          serviceType: selectedService.category || 'uncategorized',
+          quantity: quantity,
+          weight: weight,
+          price: selectedService.price,
+          subtotal: subtotal,
+          weightBased: isWeightBased
+        };
+        
+        setItems([...items, newItem]);
+        toast.success(`${selectedService.name} ditambahkan ke pesanan`);
+      }
     }
     
-    // Batch state updates to reduce renders
-    setItems(newItems);
-    setIsDetailDialogOpen(false);
+    // Reset form values
+    setQuantityValue(1);
+    setWeightValue(0.5);
+    setEditingItemIndex(null);
+    setIsQuantitySheetOpen(false);
   };
 
   // Remove item from the order
@@ -247,7 +314,8 @@ function ServiceSelection({ orderData, updateOrderData }: ServiceSelectionProps)
       setQuantityValue(item.quantity);
     }
     
-    setIsDetailDialogOpen(true);
+    setEditingItemIndex(index);
+    setIsQuantitySheetOpen(true);
   };
 
   // Category icon mapping
@@ -289,6 +357,16 @@ function ServiceSelection({ orderData, updateOrderData }: ServiceSelectionProps)
         </Button>
       </div>
 
+      {/* Add Service button */}
+      <Button 
+        variant="outline" 
+        className="w-full border-green-200 bg-green-50 hover:bg-green-100 text-green-700" 
+        onClick={handleAddService}
+      >
+        <Plus className="mr-2 h-4 w-4 text-green-600" />
+        Tambah Layanan Baru
+      </Button>
+
       {/* Category tabs */}
       <Tabs defaultValue="all" value={selectedCategory} onValueChange={setSelectedCategory}>
         <div className="w-full overflow-x-auto pb-2">
@@ -329,6 +407,7 @@ function ServiceSelection({ orderData, updateOrderData }: ServiceSelectionProps)
           <div className="h-[300px] overflow-y-auto">
             <div className="space-y-2 pr-4">
               {filteredServices.map(service => {
+                if (!service.id) return null;
                 const category = service.category?.toLowerCase() || 'uncategorized';
                 const hasDescription = !!service.description;
                 const isWeightBased = service.priceModel === ServicePriceModel.PER_KG;
@@ -378,14 +457,26 @@ function ServiceSelection({ orderData, updateOrderData }: ServiceSelectionProps)
                             </p>
                           )}
                         </div>
-                        <Button
-                          size="sm"
-                          className="h-8 text-sm bg-green-500 hover:bg-green-600"
-                          onClick={() => openAddDialog(service)}
-                        >
-                          <Plus className="h-3.5 w-3.5 mr-1" />
-                          {isWeightBased ? 'Tambah (kg)' : 'Tambah'}
-                        </Button>
+                        <div className="flex flex-col gap-1">
+                          <Button
+                            onClick={() => handleOpenServiceDetail(service)}
+                            variant="ghost"
+                            size="sm"
+                            className="h-8 px-2 text-xs"
+                          >
+                            <FileText className="h-3.5 w-3.5 mr-1" />
+                            Detail
+                          </Button>
+                          <Button
+                            onClick={() => openQuantitySheet(service)}
+                            variant="default"
+                            size="sm"
+                            className="h-8 px-2 text-xs"
+                          >
+                            <Plus className="h-3.5 w-3.5 mr-1" />
+                            Pilih
+                          </Button>
+                        </div>
                       </div>
                     </CardContent>
                   </Card>
@@ -460,120 +551,144 @@ function ServiceSelection({ orderData, updateOrderData }: ServiceSelectionProps)
         </div>
       )}
 
-      {/* Add item dialog */}
-      <Dialog 
-        open={isDetailDialogOpen} 
-        onOpenChange={(open) => {
-          // Only update state if it's actually changing
-          if (open !== isDetailDialogOpen) {
-            setIsDetailDialogOpen(open);
-          }
-        }}
+      {/* Quantity/Weight Sheet */}
+      <BottomSheet
+        isOpen={isQuantitySheetOpen}
+        onClose={() => setIsQuantitySheetOpen(false)}
+        title={`${editingItemIndex !== null ? 'Edit' : 'Tambah'} ${selectedService?.name || 'Layanan'}`}
+        description={`${editingItemIndex !== null ? 'Perbarui' : 'Tentukan'} jumlah atau berat untuk layanan ini`}
       >
-        <DialogContent className="sm:max-w-[425px]">
-          <DialogHeader>
-            <DialogTitle>
-              {selectedService?.name}
-            </DialogTitle>
-          </DialogHeader>
-          <div className="py-4 space-y-4">
-            {selectedService && selectedService.priceModel === ServicePriceModel.PER_KG ? (
-              <div className="space-y-2">
-                <div className="flex items-center justify-between">
-                  <label className="text-sm font-medium">Berat (kg):</label>
-                  <div className="flex items-center space-x-2">
-                    <Button
-                      variant="outline"
-                      size="icon"
-                      className="h-7 w-7 text-sm"
-                      onClick={() => setWeightValue(Math.max(0.5, weightValue - 0.5))}
-                    >
-                      <Minus className="h-3 w-3" />
-                    </Button>
-                    <Input
-                      type="number"
-                      value={weightValue}
-                      onChange={(e) => {
-                        const val = parseFloat(e.target.value);
-                        if (!isNaN(val) && val >= 0.1) {
-                          setWeightValue(val);
-                        }
-                      }}
-                      step="0.1"
-                      min="0.1"
-                      max="100"
-                      className="w-20 h-8 text-center"
-                    />
-                    <Button
-                      variant="outline"
-                      size="icon"
-                      className="h-7 w-7 text-sm"
-                      onClick={() => setWeightValue(weightValue + 0.5)}
-                    >
-                      <Plus className="h-3 w-3" />
-                    </Button>
-                  </div>
+        <div className="p-4 space-y-4">
+          {selectedService && selectedService.priceModel === ServicePriceModel.PER_KG ? (
+            <div className="space-y-3">
+              <div className="flex items-center justify-between">
+                <label className="text-sm font-medium">Berat (kg):</label>
+                <div className="flex items-center space-x-2">
+                  <Button
+                    variant="outline"
+                    size="icon"
+                    className="h-8 w-8 text-sm"
+                    onClick={() => setWeightValue(Math.max(0.5, weightValue - 0.5))}
+                  >
+                    <Minus className="h-4 w-4" />
+                  </Button>
+                  <Input
+                    type="number"
+                    value={weightValue}
+                    onChange={(e) => {
+                      const val = parseFloat(e.target.value);
+                      if (!isNaN(val) && val >= 0.1) {
+                        setWeightValue(val);
+                      }
+                    }}
+                    step="0.1"
+                    min="0.1"
+                    max="100"
+                    className="w-24 h-10 text-center"
+                  />
+                  <Button
+                    variant="outline"
+                    size="icon"
+                    className="h-8 w-8 text-sm"
+                    onClick={() => setWeightValue(weightValue + 0.5)}
+                  >
+                    <Plus className="h-4 w-4" />
+                  </Button>
                 </div>
-                <p className="text-sm text-muted-foreground">
-                  Harga per kg: Rp {selectedService.price.toLocaleString('id-ID')}
-                </p>
-                <p className="text-sm font-medium">
-                  Subtotal: Rp {(weightValue * selectedService.price).toLocaleString('id-ID')}
+              </div>
+              <p className="text-sm text-muted-foreground">
+                Harga per kg: Rp {selectedService.price.toLocaleString('id-ID')}
+              </p>
+              <div className="bg-green-50 border border-green-100 rounded-lg p-3 mt-3">
+                <p className="text-sm text-green-600">Subtotal:</p>
+                <p className="text-lg font-bold text-green-700">
+                  Rp {(weightValue * selectedService.price).toLocaleString('id-ID')}
                 </p>
               </div>
-            ) : (
-              <div className="space-y-2">
-                <div className="flex items-center justify-between">
-                  <label className="text-sm font-medium">Jumlah:</label>
-                  <div className="flex items-center space-x-2">
-                    <Button
-                      variant="outline"
-                      size="icon"
-                      className="h-7 w-7 text-sm"
-                      onClick={() => setQuantityValue(Math.max(1, quantityValue - 1))}
-                    >
-                      <Minus className="h-3 w-3" />
-                    </Button>
-                    <Input
-                      type="number"
-                      value={quantityValue}
-                      onChange={(e) => {
-                        const val = parseInt(e.target.value);
-                        if (!isNaN(val) && val >= 1) {
-                          setQuantityValue(val);
-                        }
-                      }}
-                      min="1"
-                      max="100"
-                      className="w-16 h-8 text-center"
-                    />
-                    <Button
-                      variant="outline"
-                      size="icon"
-                      className="h-7 w-7 text-sm"
-                      onClick={() => setQuantityValue(quantityValue + 1)}
-                    >
-                      <Plus className="h-3 w-3" />
-                    </Button>
-                  </div>
+            </div>
+          ) : (
+            <div className="space-y-3">
+              <div className="flex items-center justify-between">
+                <label className="text-sm font-medium">Jumlah:</label>
+                <div className="flex items-center space-x-2">
+                  <Button
+                    variant="outline"
+                    size="icon"
+                    className="h-8 w-8 text-sm"
+                    onClick={() => setQuantityValue(Math.max(1, quantityValue - 1))}
+                  >
+                    <Minus className="h-4 w-4" />
+                  </Button>
+                  <Input
+                    type="number"
+                    value={quantityValue}
+                    onChange={(e) => {
+                      const val = parseInt(e.target.value);
+                      if (!isNaN(val) && val >= 1) {
+                        setQuantityValue(val);
+                      }
+                    }}
+                    min="1"
+                    max="100"
+                    className="w-20 h-10 text-center"
+                  />
+                  <Button
+                    variant="outline"
+                    size="icon"
+                    className="h-8 w-8 text-sm"
+                    onClick={() => setQuantityValue(quantityValue + 1)}
+                  >
+                    <Plus className="h-4 w-4" />
+                  </Button>
                 </div>
-                <p className="text-sm text-muted-foreground">
-                  Harga per item: Rp {selectedService?.price.toLocaleString('id-ID')}
-                </p>
-                <p className="text-sm font-medium">
-                  Subtotal: Rp {((selectedService?.price || 0) * quantityValue).toLocaleString('id-ID')}
+              </div>
+              <p className="text-sm text-muted-foreground">
+                Harga per item: Rp {selectedService?.price.toLocaleString('id-ID')}
+              </p>
+              <div className="bg-green-50 border border-green-100 rounded-lg p-3 mt-3">
+                <p className="text-sm text-green-600">Subtotal:</p>
+                <p className="text-lg font-bold text-green-700">
+                  Rp {((selectedService?.price || 0) * quantityValue).toLocaleString('id-ID')}
                 </p>
               </div>
-            )}
-          </div>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setIsDetailDialogOpen(false)}>Batal</Button>
-            <Button onClick={addItemWithDetail} className="bg-green-500 hover:bg-green-600">
-              Tambahkan
+            </div>
+          )}
+          <div className="pt-4 border-t flex gap-3">
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => setIsQuantitySheetOpen(false)}
+              className="flex-1"
+            >
+              Batal
             </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+            <Button
+              type="button"
+              onClick={handleAddToOrder}
+              className="flex-1 bg-green-600 hover:bg-green-700 text-white"
+            >
+              {editingItemIndex !== null ? 'Perbarui' : 'Tambahkan'}
+            </Button>
+          </div>
+        </div>
+      </BottomSheet>
+
+      {/* Service detail sheet */}
+      <ServiceDetailSheet
+        isOpen={isDetailSheetOpen}
+        onClose={() => setIsDetailSheetOpen(false)}
+        service={selectedService}
+        onEdit={handleEditService}
+        onDelete={handleDeleteService}
+      />
+
+      {/* Service form sheet */}
+      <ServiceFormSheet
+        isOpen={isServiceFormOpen}
+        onClose={() => setIsServiceFormOpen(false)}
+        onSuccess={handleServiceSaved}
+        service={serviceFormData}
+      />
     </div>
   );
 }
