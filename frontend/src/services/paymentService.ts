@@ -40,6 +40,9 @@ export interface PaymentResponse {
   timestamp: string;
 }
 
+const generateCacheBuster = () => {
+  return `_v=${Date.now()}`;
+};
 // Get payments with filtering and pagination
 export async function getPayments(filters: PaymentFilters = {}): Promise<PaymentListResponse> {
   const queryParams = new URLSearchParams();
@@ -69,7 +72,7 @@ export async function getPayments(filters: PaymentFilters = {}): Promise<Payment
 
 // Get a single payment by ID
 export async function getPayment(id: string): Promise<Payment> {
-  const response = await fetch(`/api/payments/${id}`, {
+  const response = await fetch(`/api/payments/${id}?${generateCacheBuster()}`, {
     method: 'GET',
     headers: {
       'Content-Type': 'application/json',
@@ -136,7 +139,7 @@ export async function createPayment(payment: Partial<Payment>): Promise<Payment>
 export async function updatePayment(id: string, payment: Partial<Payment>): Promise<Payment> {
   const backendPayment = convertToBackendPayment(payment);
   
-  const response = await fetch(`/api/payments/${id}`, {
+  const response = await fetch(`/api/payments/${id}?${generateCacheBuster()}`, {
     method: 'PUT',
     headers: {
       'Content-Type': 'application/json',
@@ -149,13 +152,22 @@ export async function updatePayment(id: string, payment: Partial<Payment>): Prom
     throw new Error(error.message || `Failed to update payment: ${response.status}`);
   }
   
-  const data = await response.json();
-  return convertToFrontendPayment(data);
+  const responseData = await response.json();
+  
+  // Handle different response structures
+  let paymentData;
+  if (responseData.data) {
+    paymentData = responseData.data;
+  } else {
+    paymentData = responseData;
+  }
+  
+  return convertToFrontendPayment(paymentData);
 }
 
 // Delete a payment
 export async function deletePayment(id: string): Promise<void> {
-  const response = await fetch(`/api/payments/${id}`, {
+  const response = await fetch(`/api/payments/${id}?${generateCacheBuster()}`, {
     method: 'DELETE',
     headers: {
       'Content-Type': 'application/json',

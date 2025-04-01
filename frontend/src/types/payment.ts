@@ -68,25 +68,25 @@ export interface BackendPayment {
 export function convertToFrontendPayment(backendPayment: BackendPayment): Payment {
   return {
     id: backendPayment.id,
-    orderId: backendPayment.order_id,
-    customerId: backendPayment.customer_id,
-    amount: backendPayment.amount,
-    paymentMethod: backendPayment.payment_method as PaymentMethod,
-    status: backendPayment.payment_status as PaymentStatus,
-    transactionId: backendPayment.transaction_id,
-    referenceNumber: backendPayment.reference_number,
-    notes: backendPayment.notes,
-    createdAt: backendPayment.created_at,
-    updatedAt: backendPayment.updated_at,
+    orderId: backendPayment.orderId || backendPayment.order_id || '',
+    customerId: backendPayment.customerId || backendPayment.customer_id || '',
+    amount: Number(backendPayment.amount) || 0,
+    paymentMethod: (backendPayment.paymentMethod || backendPayment.payment_method || 'cash') as PaymentMethod,
+    status: (backendPayment.status || backendPayment.payment_status || 'pending') as PaymentStatus,
+    transactionId: backendPayment.transactionId || backendPayment.transaction_id || '',
+    referenceNumber: backendPayment.referenceNumber || backendPayment.reference_number || '',
+    notes: backendPayment.notes || '',
+    createdAt: backendPayment.createdAt || backendPayment.created_at || new Date().toISOString(),
+    updatedAt: backendPayment.updatedAt || backendPayment.updated_at || new Date().toISOString(),
     // Keep original snake_case properties
-    order_id: backendPayment.order_id,
-    customer_id: backendPayment.customer_id,
-    payment_method: backendPayment.payment_method as PaymentMethod,
-    payment_status: backendPayment.payment_status as PaymentStatus,
-    transaction_id: backendPayment.transaction_id,
-    reference_number: backendPayment.reference_number,
-    created_at: backendPayment.created_at,
-    updated_at: backendPayment.updated_at
+    order_id: backendPayment.order_id || backendPayment.orderId || '',
+    customer_id: backendPayment.customer_id || backendPayment.customerId || '',
+    payment_method: (backendPayment.payment_method || backendPayment.paymentMethod || 'cash') as PaymentMethod,
+    payment_status: (backendPayment.payment_status || backendPayment.status || 'pending') as PaymentStatus,
+    transaction_id: backendPayment.transaction_id || backendPayment.transactionId || '',
+    reference_number: backendPayment.reference_number || backendPayment.referenceNumber || '',
+    created_at: backendPayment.created_at || backendPayment.createdAt || new Date().toISOString(),
+    updated_at: backendPayment.updated_at || backendPayment.updatedAt || new Date().toISOString(),
   };
 }
 
@@ -99,7 +99,7 @@ export function convertToBackendPayment(frontendPayment: Partial<Payment>): Part
   if (frontendPayment.customerId !== undefined) result.customer_id = frontendPayment.customerId;
   if (frontendPayment.amount !== undefined) result.amount = frontendPayment.amount;
   if (frontendPayment.paymentMethod !== undefined) result.payment_method = frontendPayment.paymentMethod;
-  if (frontendPayment.status !== undefined) result.payment_status = frontendPayment.status;
+  if (frontendPayment.status !== undefined) result.status = frontendPayment.status;
   if (frontendPayment.transactionId !== undefined) result.transaction_id = frontendPayment.transactionId;
   if (frontendPayment.referenceNumber !== undefined) result.reference_number = frontendPayment.referenceNumber;
   if (frontendPayment.notes !== undefined) result.notes = frontendPayment.notes;
