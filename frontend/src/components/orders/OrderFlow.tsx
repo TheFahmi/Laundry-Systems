@@ -518,16 +518,39 @@ export default function OrderFlow({ onComplete }: OrderFlowProps) {
         createdAt: orderResult.createdAt || new Date().toISOString()
       });
       
-      // Update payment data with completed status
-      setPaymentData((prev: PaymentData) => ({
-        ...prev,
-        status: 'completed'
-      }));
-      
-      toast({
-        description: 'Pembayaran berhasil!',
-        variant: "default"
-      });
+      // Check if payment data is returned with the order
+      if (orderResult.payments && orderResult.payments.length > 0) {
+        const paymentResult = orderResult.payments[0];
+        // Update payment data with the data from the API response
+        setPaymentData({
+          amount: paymentResult.amount,
+          change: paymentData.change, // Keep local change amount as the API doesn't return it directly
+          method: paymentResult.paymentMethod,
+          status: paymentResult.status,
+          referenceNumber: paymentResult.referenceNumber
+        });
+        
+        console.log('Payment data received from API:', paymentResult);
+        
+        // Show completed payment message for all payment methods
+        toast({
+          description: 'Pembayaran berhasil dikonfirmasi! Pesanan telah dibuat.',
+          variant: "default"
+        });
+      } else {
+        // If no payment data is returned, just update the status
+        setPaymentData((prev: PaymentData) => ({
+          ...prev,
+          status: 'pending' // Keep as pending since API didn't confirm payment
+        }));
+        
+        console.warn('No payment data received in the API response');
+        
+        toast({
+          description: 'Pembayaran diproses. Pesanan berhasil dibuat!',
+          variant: "default"
+        });
+      }
       
       // Go to completion step
       setDirection('forward');

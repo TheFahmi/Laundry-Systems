@@ -72,12 +72,12 @@ export class OrderService {
           console.log(`Calculated total weight for order: ${totalWeight} kg`);
         }
         
-        // Create order entity
+        // Create order entity - always set status to NEW or PENDING, not COMPLETED
         const orderData: DeepPartial<Order> = {
           id: orderId,
           orderNumber,
           customerId: createOrderDto.customerId,
-          status: OrderStatus.NEW,
+          status: OrderStatus.NEW, // Order always starts as NEW
           totalAmount,
           totalWeight,
           notes: createOrderDto.notes || '',
@@ -95,6 +95,50 @@ export class OrderService {
         console.log('Saving order to database...');
         const savedOrder = await transactionalEntityManager.save(Order, order);
         console.log('Order saved successfully with ID:', savedOrder.id);
+        
+        // Process payment if provided in the DTO
+        let payment = null;
+        if (createOrderDto.payment) {
+          console.log('Payment data provided:', createOrderDto.payment);
+          const paymentId = uuidv4();
+          
+          // Convert payment method string to enum
+          let paymentMethod = PaymentMethod.CASH;
+          if (createOrderDto.payment.method) {
+            paymentMethod = createOrderDto.payment.method as PaymentMethod;
+          }
+          
+          // Format notes to include change if applicable
+          let paymentNotes = '';
+          if (createOrderDto.payment.change > 0) {
+            paymentNotes = `Change amount: ${createOrderDto.payment.change}`;
+          }
+          
+          // Set all payment methods to COMPLETED status
+          const paymentStatus = PaymentStatus.COMPLETED;
+          
+          const paymentData: DeepPartial<Payment> = {
+            id: paymentId,
+            orderId: savedOrder.id,
+            customerId: createOrderDto.customerId,
+            amount: createOrderDto.payment.amount || totalAmount,
+            paymentMethod: paymentMethod,
+            status: paymentStatus, // Always set to COMPLETED regardless of payment method
+            referenceNumber: createOrderDto.payment.referenceNumber || `REF-${Date.now()}`,
+            transactionId: `TRX-${Date.now()}`,
+            notes: paymentNotes,
+            createdAt: new Date(),
+            updatedAt: new Date()
+          };
+          
+          console.log('Creating payment with data:', JSON.stringify(paymentData));
+          payment = this.paymentRepository.create(paymentData);
+          
+          // Save payment using transaction manager
+          console.log('Saving payment to database...');
+          payment = await transactionalEntityManager.save(Payment, payment);
+          console.log('Payment saved successfully with ID:', payment.id);
+        }
         
         // Pre-fetch all services needed for the items to avoid N+1 queries
         let serviceMap = new Map<string, Service>();
@@ -217,13 +261,16 @@ export class OrderService {
         
         console.log(`Order creation complete. Total items saved: ${savedItems.length}`);
         
-        // Fetch the complete order with items
+        // Fetch the complete order with items and payment
         const completeOrder = await transactionalEntityManager.findOne(Order, {
           where: { id: savedOrder.id },
-          relations: ['items'],
+          relations: ['items', 'payments'],
         });
         
-        return { data: completeOrder };
+        // Return both order and payment data
+        return { 
+          data: completeOrder 
+        };
       } catch (error) {
         // Log the error but rethrow for proper error handling
         console.error('Error in order creation transaction:', error);

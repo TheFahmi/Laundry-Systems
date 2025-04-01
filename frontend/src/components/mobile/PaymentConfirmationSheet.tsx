@@ -112,6 +112,36 @@ export default function PaymentConfirmationSheet({
                 <div className="font-medium mt-1 text-purple-700">{paymentData.referenceNumber}</div>
               </div>
             )}
+            
+            {/* Payment Status Indicator */}
+            <div className={`p-3 rounded-lg border ${
+              paymentData.status === 'completed' 
+                ? 'bg-green-50 border-green-100' 
+                : paymentData.status === 'pending'
+                  ? 'bg-yellow-50 border-yellow-100'
+                  : 'bg-gray-50 border-gray-100'
+            }`}>
+              <div className={`text-sm ${
+                paymentData.status === 'completed' 
+                  ? 'text-green-600' 
+                  : paymentData.status === 'pending'
+                    ? 'text-yellow-600'
+                    : 'text-gray-600'
+              }`}>Status Pembayaran</div>
+              <div className={`font-medium mt-1 ${
+                paymentData.status === 'completed' 
+                  ? 'text-green-700' 
+                  : paymentData.status === 'pending'
+                    ? 'text-yellow-700'
+                    : 'text-gray-700'
+              }`}>
+                {paymentData.status === 'completed' 
+                  ? 'Selesai' 
+                  : paymentData.status === 'pending'
+                    ? 'Menunggu Konfirmasi'
+                    : 'Belum Diproses'}
+              </div>
+            </div>
           </div>
         </div>
         
