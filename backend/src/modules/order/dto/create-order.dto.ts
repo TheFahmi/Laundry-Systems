@@ -51,6 +51,11 @@ export class PaymentInfoDto {
   @IsEnum(PaymentMethod)
   @ApiProperty({ enum: PaymentMethod, description: 'Payment method', example: PaymentMethod.CASH })
   method: PaymentMethod;
+  
+  @IsOptional()
+  @IsString()
+  @ApiProperty({ description: 'Reference number for the payment', example: 'REF-12345', required: false })
+  referenceNumber?: string;
 }
 
 export class CreateOrderDto {
@@ -102,6 +107,11 @@ export class CreateOrderDto {
   @Type(() => Date)
   @ApiProperty({ description: 'Delivery date', required: false })
   deliveryDate?: Date;
+
+  @IsOptional()
+  @IsBoolean()
+  @ApiProperty({ description: 'Whether delivery is needed or customer will pick up', default: false, required: false })
+  isDeliveryNeeded?: boolean;
 
   @IsArray()
   @ValidateNested({ each: true })
