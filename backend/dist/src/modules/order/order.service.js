@@ -83,6 +83,38 @@ let OrderService = class OrderService {
                 console.log('Saving order to database...');
                 const savedOrder = await transactionalEntityManager.save(order_entity_1.Order, order);
                 console.log('Order saved successfully with ID:', savedOrder.id);
+                let payment = null;
+                if (createOrderDto.payment) {
+                    console.log('Payment data provided:', createOrderDto.payment);
+                    const paymentId = (0, uuid_1.v4)();
+                    let paymentMethod = payment_entity_1.PaymentMethod.CASH;
+                    if (createOrderDto.payment.method) {
+                        paymentMethod = createOrderDto.payment.method;
+                    }
+                    let paymentNotes = '';
+                    if (createOrderDto.payment.change > 0) {
+                        paymentNotes = `Change amount: ${createOrderDto.payment.change}`;
+                    }
+                    const paymentStatus = payment_entity_1.PaymentStatus.COMPLETED;
+                    const paymentData = {
+                        id: paymentId,
+                        orderId: savedOrder.id,
+                        customerId: createOrderDto.customerId,
+                        amount: createOrderDto.payment.amount || totalAmount,
+                        paymentMethod: paymentMethod,
+                        status: paymentStatus,
+                        referenceNumber: createOrderDto.payment.referenceNumber || `REF-${Date.now()}`,
+                        transactionId: `TRX-${Date.now()}`,
+                        notes: paymentNotes,
+                        createdAt: new Date(),
+                        updatedAt: new Date()
+                    };
+                    console.log('Creating payment with data:', JSON.stringify(paymentData));
+                    payment = this.paymentRepository.create(paymentData);
+                    console.log('Saving payment to database...');
+                    payment = await transactionalEntityManager.save(payment_entity_1.Payment, payment);
+                    console.log('Payment saved successfully with ID:', payment.id);
+                }
                 let serviceMap = new Map();
                 if (createOrderDto.items && Array.isArray(createOrderDto.items)) {
                     const serviceIds = createOrderDto.items
@@ -173,9 +205,11 @@ let OrderService = class OrderService {
                 console.log(`Order creation complete. Total items saved: ${savedItems.length}`);
                 const completeOrder = await transactionalEntityManager.findOne(order_entity_1.Order, {
                     where: { id: savedOrder.id },
-                    relations: ['items'],
+                    relations: ['items', 'payments'],
                 });
-                return { data: completeOrder };
+                return {
+                    data: completeOrder
+                };
             }
             catch (error) {
                 console.error('Error in order creation transaction:', error);
