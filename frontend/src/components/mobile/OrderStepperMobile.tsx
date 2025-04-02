@@ -1,5 +1,6 @@
 'use client';
 
+import { useState, useEffect } from 'react';
 import { Check, User, ShoppingCart, ListChecks, CreditCard, ClipboardCheck } from 'lucide-react';
 
 // Step names

@@ -53,9 +53,10 @@ interface PaymentStepProps {
   orderId: string | null;
   orderData: any;
   onComplete: () => void;
+  onPaymentComplete?: (paymentStatus: string) => void;
 }
 
-export default function PaymentStep({ orderId, orderData, onComplete }: PaymentStepProps) {
+export default function PaymentStep({ orderId, orderData, onComplete, onPaymentComplete }: PaymentStepProps) {
   const { toast } = useToast();
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -88,52 +89,28 @@ export default function PaymentStep({ orderId, orderData, onComplete }: PaymentS
     try {
       setIsLoading(true);
       
-      // Update status to PENDING for "Bayar Nanti" option
-      const payLaterData = {
-        ...paymentData,
-        status: PaymentStatus.PENDING,
-        notes: (paymentData.notes || '') + ' (Bayar Nanti)'
-      };
-      
-      // Create a pending payment record
-      const response = await fetch('/api/payments', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          ...createAuthHeaders()
-        },
-        body: JSON.stringify({
-          orderId: orderId,
-          amount: Number(payLaterData.amount),
-          paymentMethod: payLaterData.paymentMethod,
-          status: payLaterData.status, // Use pending status
-          transactionId: payLaterData.transactionId,
-          referenceNumber: payLaterData.referenceNumber,
-          notes: payLaterData.notes
-        }),
-      });
-      
-      if (!response.ok) {
-        const errorData = await response.json().catch(() => ({ message: 'Unknown error' }));
-        throw new Error(errorData.message || `Failed to process payment: ${response.status}`);
-      }
-      
-      // Update local state with pending status
+      // Hanya update status lokal menjadi PENDING
       setPaymentData(prev => ({
         ...prev,
-        status: PaymentStatus.PENDING
+        status: PaymentStatus.PENDING,
+        notes: (prev.notes || '') + ' (Bayar Nanti)'
       }));
       
-      // Show success state with pending info
+      // Tampilkan status sukses dengan status menunggu
       setIsSuccess(true);
       
-      // Show success notification
+      // Tampilkan notifikasi sukses
       toast({
         title: "Order dibuat",
         description: "Pesanan telah dibuat dengan status pembayaran menunggu.",
       });
+
+      // Panggil callback onPaymentComplete jika tersedia
+      if (onPaymentComplete) {
+        onPaymentComplete(PaymentStatus.PENDING);
+      }
       
-      // Complete the payment flow after a delay to show the success state
+      // Lanjutkan ke langkah berikutnya setelah delay
       setTimeout(() => {
         onComplete();
       }, 2000);
@@ -256,6 +233,11 @@ export default function PaymentStep({ orderId, orderData, onComplete }: PaymentS
         title: "Pembayaran Berhasil",
         description: `Pembayaran sebesar Rp ${paymentData.amount.toLocaleString('id-ID')} telah berhasil diproses.`,
       });
+      
+      // Panggil callback onPaymentComplete jika tersedia
+      if (onPaymentComplete) {
+        onPaymentComplete(PaymentStatus.COMPLETED);
+      }
       
       // Move to next step after delay
       setTimeout(() => {

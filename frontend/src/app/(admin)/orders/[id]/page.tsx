@@ -32,6 +32,7 @@ import {
 } from "@/components/ui/select";
 import { Label } from "@/components/ui/label";
 import { Separator } from "@/components/ui/separator";
+import { Loader2 } from "lucide-react";
 
 // Tipe data untuk Order
 interface Customer {
@@ -172,6 +173,8 @@ export default function OrderDetailPage() {
   const [updateError, setUpdateError] = useState('');
   const [updateSuccess, setUpdateSuccess] = useState('');
   const [isMobile, setIsMobile] = useState(false);
+  const [selectedPaymentMethod, setSelectedPaymentMethod] = useState<string>('');
+  const [showPaymentMethodSelect, setShowPaymentMethodSelect] = useState(false);
   
   // Generate a helper function for creating cache busters
   const generateCacheBuster = () => {
@@ -198,12 +201,19 @@ export default function OrderDetailPage() {
   const refreshOrderDetails = async () => {
     setLoading(true);
     setError(null);
+    
+    if (!params || !params.id) {
+      setError('ID pesanan tidak valid');
+      setLoading(false);
+      return;
+    }
+
     try {
       const headers = createAuthHeaders();
       // Generate a fresh cache buster each time we refresh
       const freshCacheBuster = generateCacheBuster();
       
-      const response = await fetch(`/api/orders/${encodeURIComponent(params.id as string)}?${freshCacheBuster}`, {
+      const response = await fetch(`/api/orders/${encodeURIComponent(params?.id as string)}?${freshCacheBuster}`, {
         headers: {
           ...headers,
           'Content-Type': 'application/json',
@@ -227,8 +237,8 @@ export default function OrderDetailPage() {
       }
 
       // Fetch payments by order ID using dedicated endpoint
-      console.log(`Fetching payments for order: ${params.id}`);
-      const paymentsResponse = await fetch(`/api/payments/order/${encodeURIComponent(params.id as string)}?${generateCacheBuster()}`, {
+      console.log(`Fetching payments for order: ${params?.id}`);
+      const paymentsResponse = await fetch(`/api/payments/order/${encodeURIComponent(params?.id as string)}?${generateCacheBuster()}`, {
         headers: {
           ...headers,
           'Content-Type': 'application/json',
@@ -307,7 +317,7 @@ export default function OrderDetailPage() {
   // Call refresh on mount and when returning from payment page
   useEffect(() => {
     refreshOrderDetails();
-  }, [params.id]);
+  }, [params?.id]);
 
   // Add event listener for focus to refresh data
   useEffect(() => {
@@ -347,7 +357,7 @@ export default function OrderDetailPage() {
       const cacheBuster = generateCacheBuster();
       const headers = createAuthHeaders();
       
-      const response = await fetch(`/api/orders/${encodeURIComponent(params.id as string)}/status?${cacheBuster}`, {
+      const response = await fetch(`/api/orders/${encodeURIComponent(params?.id as string)}/status?${cacheBuster}`, {
         method: 'PATCH',
         headers: {
           ...headers,
@@ -389,6 +399,87 @@ export default function OrderDetailPage() {
   const handleConfirmStatusChange = () => {
     if (!selectedStatus) return;
     handleUpdateStatus();
+  };
+
+  // Fungsi untuk menyelesaikan pembayaran dengan existing payment data
+  const handleCompletePayment = async () => {
+    if (!params || !params.id) {
+      setUpdateError('ID pesanan tidak valid');
+      return;
+    }
+    
+    try {
+      setIsUpdating(true);
+      
+      if (!selectedPaymentMethod) {
+        setUpdateError('Silakan pilih metode pembayaran terlebih dahulu');
+        setIsUpdating(false);
+        return;
+      }
+      
+      // Memanggil API untuk menyelesaikan pembayaran
+      const response = await fetch(`/api/orders/${params.id}/completed-payment`, {
+        method: 'PATCH',
+        headers: {
+          'Content-Type': 'application/json',
+          ...createAuthHeaders()
+        },
+        body: JSON.stringify({
+          paymentMethod: selectedPaymentMethod // Mengirimkan metode pembayaran yang dipilih
+        })
+      });
+      
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({ message: 'Unknown error' }));
+        throw new Error(errorData.message || `Failed to complete payment: ${response.status}`);
+      }
+      
+      // Refresh data setelah update pembayaran
+      refreshOrderDetails();
+      
+      // Tutup dialog pemilihan metode pembayaran
+      setShowPaymentMethodSelect(false);
+      
+      // Tampilkan pesan sukses
+      setUpdateSuccess('Pembayaran berhasil diselesaikan');
+      
+      // Hilangkan pesan sukses setelah beberapa detik
+      setTimeout(() => {
+        setUpdateSuccess('');
+      }, 3000);
+      
+    } catch (error: any) {
+      console.error('Error completing payment:', error);
+      setUpdateError(error.message || 'Gagal menyelesaikan pembayaran');
+      
+      // Hilangkan pesan error setelah beberapa detik
+      setTimeout(() => {
+        setUpdateError('');
+      }, 3000);
+    } finally {
+      setIsUpdating(false);
+    }
+  };
+
+  // Daftar metode pembayaran
+  const paymentMethods = [
+    { value: 'cash', label: 'Tunai' },
+    { value: 'bank_transfer', label: 'Transfer Bank' },
+    { value: 'card', label: 'Kartu Kredit/Debit' },
+    { value: 'ewallet', label: 'E-Wallet' },
+    { value: 'other', label: 'Lainnya' }
+  ];
+
+  const handleSelectPaymentMethod = (method: string) => {
+    setSelectedPaymentMethod(method);
+  };
+
+  const handleOpenPaymentMethodSelect = () => {
+    setShowPaymentMethodSelect(true);
+  };
+
+  const handleClosePaymentMethodSelect = () => {
+    setShowPaymentMethodSelect(false);
   };
 
   if (loading) {
@@ -634,7 +725,7 @@ export default function OrderDetailPage() {
               variant="default"
               asChild
             >
-              <Link href={`/orders/${params.id}/payment`}>
+              <Link href={`/orders/${params?.id}/payment`}>
                 💰 Proses Pembayaran
               </Link>
             </Button>
@@ -869,13 +960,14 @@ export default function OrderDetailPage() {
                 </Alert>
               </div>
               
-              {/* Payment action button for larger screens */}
+              {/* Jika pesanan belum lunas dan ada pembayaran, tampilkan tombol proses pembayaran */}
               {!isFullyPaid && (
                 <div className="mt-4 flex justify-end">
-                  <Button asChild>
-                    <Link href={`/orders/${params.id}/payment`}>
-                      💰 Proses Pembayaran
-                    </Link>
+                  <Button
+                    onClick={handleOpenPaymentMethodSelect}
+                    disabled={isUpdating}
+                  >
+                    Proses Pembayaran
                   </Button>
                 </div>
               )}
@@ -888,7 +980,7 @@ export default function OrderDetailPage() {
               
               <div className="mt-6 flex justify-end">
                 <Button asChild>
-                  <Link href={`/orders/${params.id}/payment`}>
+                  <Link href={`/orders/${params?.id}/payment`}>
                     💰 Tambah Pembayaran
                   </Link>
                 </Button>
@@ -897,6 +989,52 @@ export default function OrderDetailPage() {
           )}
         </CardContent>
       </Card>
+
+      {/* Payment Method Dialog */}
+      <Dialog open={showPaymentMethodSelect} onOpenChange={(open) => !open && handleClosePaymentMethodSelect()}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Pilih Metode Pembayaran</DialogTitle>
+            <DialogDescription>
+              Pilih metode pembayaran untuk menyelesaikan pembayaran pesanan ini.
+            </DialogDescription>
+          </DialogHeader>
+          
+          <div className="py-4">
+            <Label htmlFor="payment-method">Metode Pembayaran</Label>
+            <Select
+              value={selectedPaymentMethod}
+              onValueChange={(value) => handleSelectPaymentMethod(value)}
+            >
+              <SelectTrigger>
+                <SelectValue placeholder="Pilih metode pembayaran" />
+              </SelectTrigger>
+              <SelectContent>
+                {paymentMethods.map((method) => (
+                  <SelectItem key={method.value} value={method.value}>{method.label}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+          
+          <DialogFooter>
+            <Button variant="outline" onClick={handleClosePaymentMethodSelect}>Batal</Button>
+            <Button
+              onClick={handleCompletePayment}
+              disabled={!selectedPaymentMethod || isUpdating}
+            >
+              {isUpdating ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  Memproses...
+                </>
+              ) : (
+                'Selesaikan Pembayaran'
+              )}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

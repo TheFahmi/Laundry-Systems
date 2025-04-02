@@ -87,7 +87,10 @@ export default function OrderComplete({ orderId, orderData }: OrderCompleteProps
       <div>
         <h2 className="text-xl font-semibold">Pesanan Berhasil Dibuat!</h2>
         <p className="text-muted-foreground mt-1">
-          Pesanan telah dibuat dan pembayaran telah diproses.
+          {orderData.payments && orderData.payments.length > 0 && 
+           orderData.payments[0].status === 'completed' 
+            ? "Pesanan telah dibuat dan pembayaran telah diproses."
+            : "Pesanan telah dibuat dan akan dibayar nanti."}
         </p>
       </div>
 
@@ -103,9 +106,17 @@ export default function OrderComplete({ orderId, orderData }: OrderCompleteProps
           <p className="font-semibold">Rp {orderData.totalAmount?.toLocaleString('id-ID')}</p>
           
           <p className="text-sm text-muted-foreground mt-2">Status:</p>
-          <div className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">
-            Lunas
-          </div>
+          {(orderData.payments && orderData.payments.length > 0 && 
+            orderData.payments[0].status === 'completed') || 
+            orderData.isPaid === true ? (
+            <div className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">
+              Lunas
+            </div>
+          ) : (
+            <div className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-yellow-100 text-yellow-800">
+              Belum Lunas
+            </div>
+          )}
         </div>
       </div>
 

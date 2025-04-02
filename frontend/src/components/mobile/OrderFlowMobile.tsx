@@ -372,6 +372,14 @@ export default function OrderFlowMobile() {
                 orderId={createdOrderId}
                 orderData={orderData}
                 onComplete={() => setCurrentStep(4)}
+                onPaymentComplete={(paymentStatus) => {
+                  // Update orderData berdasarkan status pembayaran
+                  setOrderData(prev => ({
+                    ...prev,
+                    isPaid: paymentStatus === 'completed',
+                    paymentStatus: paymentStatus === 'completed' ? 'paid' : 'pending'
+                  }));
+                }}
                />;
       case 4:
         return <OrderComplete 
