@@ -64,7 +64,7 @@ api.interceptors.response.use(
         // Clear auth data
         Cookies.remove('token');
         
-        // Redirect to login page
+        // Redirect to login page (updated to App Router path)
         window.location.href = '/login?expired=true';
         return Promise.reject(error);
       }
@@ -75,7 +75,7 @@ api.interceptors.response.use(
         return Promise.reject(error);
       }
       
-      // Default behavior - clear token and redirect
+      // Default behavior - clear token and redirect (updated to App Router path)
       console.log('Default 401 handling - redirecting to login');
       Cookies.remove('token');
       window.location.href = '/login';
