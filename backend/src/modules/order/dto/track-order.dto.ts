@@ -59,4 +59,11 @@ export class TrackOrderResponseDto {
     example: 'completed'
   })
   paymentStatus: string;
+
+  @ApiProperty({
+    description: 'Order items',
+    example: '[{ "id": "123", "serviceName": "Cuci Express", "quantity": 2 }]',
+    required: false
+  })
+  items?: any[];
 } 
