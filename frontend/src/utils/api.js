@@ -30,15 +30,54 @@ api.interceptors.request.use(
 // Add a response interceptor to handle auth errors
 api.interceptors.response.use(
   (response) => {
+    // Check if this is a token regeneration response
+    if (response.data && response.data.regenerated === true && response.data.token) {
+      console.log('Received regenerated token from API');
+      
+      // Store the new token in cookies
+      Cookies.set('token', response.data.token, { 
+        expires: 30, // 30 days
+        path: '/',
+        sameSite: 'Lax'
+      });
+      
+      // Check if we need to redirect or reload
+      const currentUrl = window.location.href;
+      if (currentUrl.includes('/orders') || currentUrl.includes('/work-order')) {
+        console.log('Reloading page to apply new token');
+        window.location.reload();
+        return response;
+      }
+    }
+    
     return response;
   },
   async (error) => {
     // Handle 401 Unauthorized errors (e.g., expired token)
     if (error.response && error.response.status === 401) {
-      // Clear auth data
-      Cookies.remove('token');
+      console.log('Received 401 error from API', error.response.data);
       
-      // Redirect to login page
+      // Check if token was regenerated but still failed (needs login)
+      if (error.response.data && error.response.data.needsLogin) {
+        console.log('Authentication failed after token regeneration, redirecting to login');
+        
+        // Clear auth data
+        Cookies.remove('token');
+        
+        // Redirect to login page
+        window.location.href = '/login?expired=true';
+        return Promise.reject(error);
+      }
+      
+      // Check if this is a debugging response (don't redirect)
+      if (error.response.data && error.response.data.debug === true) {
+        console.log('Received debugging response, not redirecting');
+        return Promise.reject(error);
+      }
+      
+      // Default behavior - clear token and redirect
+      console.log('Default 401 handling - redirecting to login');
+      Cookies.remove('token');
       window.location.href = '/login';
     }
     

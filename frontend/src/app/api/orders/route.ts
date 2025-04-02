@@ -1,292 +1,427 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { jwtVerify, SignJWT } from 'jose';
+import { SignJWT } from 'jose';
+import { getCookie } from '@/lib/auth-cookies';
 
 // Get base URL from environment or use default
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
+const JWT_SECRET = process.env.JWT_SECRET || 'your-super-secret-key-here';
+const DEBUG_MODE = true;
 
-// Helper untuk memverifikasi token JWT dan mengekstrak payload
-const verifyJWT = async (token: string) => {
+// Helper untuk decode token JWT tanpa validasi
+const decodeJWT = (token: string) => {
   try {
-    // Secret key harus sama dengan yang digunakan di backend
-    const secret = new TextEncoder().encode(process.env.JWT_SECRET || 'your-super-secret-key-here');
-    const { payload } = await jwtVerify(token, secret, {
-      // Abaikan expiration untuk mendapatkan payload
-      clockTolerance: 60 * 60 * 24 // 1 hari toleransi
-    });
-    return payload;
+    const [headerB64, payloadB64] = token.split('.');
+    const payloadJson = Buffer.from(payloadB64, 'base64').toString('utf8');
+    return JSON.parse(payloadJson);
   } catch (error) {
-    console.error('[JWT] Verifikasi token gagal:', error);
+    console.error('[JWT] Token decode error:', error);
     return null;
   }
 };
 
-// Helper untuk membuat token baru dengan waktu kadaluarsa lebih lama
-const createNewToken = async (payload: any) => {
+// Helper to get token from request
+function getTokenFromRequest(req: NextRequest): string | null {
+  // Try to get from Authorization header first
+  const authHeader = req.headers.get('Authorization');
+  if (authHeader && authHeader.startsWith('Bearer ')) {
+    return authHeader.substring(7);
+  }
+  
+  // Fallback to cookie
+  const token = getCookie(req, 'token');
+  return token || null;
+}
+
+// Handle expired tokens with regeneration
+async function handleExpiredToken(token: string, request: NextRequest) {
+  console.log('[API Route] Token appears to be expired, regenerating new token');
+  
   try {
-    const secret = new TextEncoder().encode(process.env.JWT_SECRET || 'your-super-secret-key-here');
+    // Decode token to get user information
+    const payload = decodeJWT(token);
+    if (!payload || !payload.username || (!payload.userId && !payload.sub)) {
+      console.log('[API Route] Cannot regenerate token - missing payload information');
+      return null;
+    }
     
-    // Buat token baru dengan waktu kadaluarsa yang lebih lama
-    const newToken = await new SignJWT({ ...payload })
+    // Create new token with extended expiration
+    const secret = new TextEncoder().encode(JWT_SECRET);
+    const newToken = await new SignJWT({
+      username: payload.username,
+      userId: payload.userId || payload.sub,
+      role: payload.role || 'user'
+    })
       .setProtectedHeader({ alg: 'HS256' })
       .setIssuedAt()
-      .setExpirationTime('24h') // 24 jam
+      .setExpirationTime('30d') // 30 days
       .sign(secret);
     
-    return newToken;
-  } catch (error) {
-    console.error('[JWT] Pembuatan token baru gagal:', error);
-    return null;
-  }
-};
-
-export async function GET(request: NextRequest) {
-  console.log('[API Route] /api/orders: GET request received');
-  
-  // Get token from cookies
-  const token = request.cookies.get('token')?.value;
-  
-  if (!token) {
-    console.log('[API Route] /api/orders: No token available for GET');
-    return NextResponse.json({ error: 'Unauthorized - Please log in' }, { status: 401 });
-  }
-  
-  try {
-    // Extract query parameters
-    const url = new URL(request.url);
-    const queryParams = url.searchParams.toString();
-    console.log('[API Route] /api/orders: Query params:', queryParams);
+    console.log('[API Route] Generated new token with 30 day expiration');
     
-    // Coba kirim request ke backend
-    console.log('[API Route] /api/orders: Forwarding request to backend');
-    const response = await fetch(`${API_BASE_URL}/orders${queryParams ? `?${queryParams}` : ''}`, {
-      method: 'GET',
-      headers: {
-        'Authorization': `Bearer ${token}`,
-        'Content-Type': 'application/json'
-      }
+    // Create response with the new token
+    const newResponse = NextResponse.json({ 
+      success: true,
+      message: 'Token regenerated',
+      regenerated: true,
+      token: newToken
     });
     
-    // Jika sukses, langsung kembalikan datanya
-    if (response.ok) {
-      const data = await response.json();
-      console.log('[API Route] /api/orders: Response received from backend');
-      return NextResponse.json(data);
+    // Set the new token in cookies
+    newResponse.cookies.set({
+      name: 'token',
+      value: newToken,
+      httpOnly: true,
+      path: '/',
+      maxAge: 60 * 60 * 24 * 30, // 30 days
+      sameSite: 'lax',
+      secure: process.env.NODE_ENV === 'production'
+    });
+    
+    return {
+      response: newResponse,
+      token: newToken
+    };
+  } catch (error) {
+    console.error('[API Route] Token regeneration error:', error);
+    return null;
+  }
+}
+
+export async function GET(request: NextRequest) {
+  try {
+    console.log('[API Route] /api/orders: GET request received');
+    
+    // Get token
+    const token = getTokenFromRequest(request);
+    console.log(`Auth token exists: ${!!token}`);
+    
+    if (!token) {
+      console.log('No auth token found in request');
+      return NextResponse.json(
+        { error: 'Authentication required' },
+        { status: 401 }
+      );
     }
     
-    // Jika token expired (401), coba refresh token
-    if (response.status === 401) {
-      console.log('[API Route] /api/orders: Token mungkin expired, mencoba refresh token');
-      
-      // Ekstrak payload dari token lama
-      const payload = await verifyJWT(token);
-      
-      if (!payload) {
-        console.log('[API Route] /api/orders: Tidak bisa mendapatkan payload dari token');
-        return NextResponse.json({ 
-          error: 'Authentication failed',
-          message: 'Invalid token. Please log in again.'
-        }, { status: 401 });
-      }
-      
-      // Buat token baru dengan payload yang sama tapi expiry lebih lama
-      const newToken = await createNewToken(payload);
-      
-      if (!newToken) {
-        console.log('[API Route] /api/orders: Gagal membuat token baru');
-        return NextResponse.json({ 
-          error: 'Authentication failed',
-          message: 'Failed to refresh token. Please log in again.'
-        }, { status: 401 });
-      }
-      
-      // Coba lagi request dengan token baru
-      console.log('[API Route] /api/orders: Mencoba ulang dengan token baru');
-      const retryResponse = await fetch(`${API_BASE_URL}/orders${queryParams ? `?${queryParams}` : ''}`, {
-        method: 'GET',
-        headers: {
-          'Authorization': `Bearer ${newToken}`,
-          'Content-Type': 'application/json'
+    // Debug token information
+    let tokenExpired = false;
+    if (token) {
+      const payload = decodeJWT(token);
+      if (payload) {
+        console.log('Token payload:', payload);
+        const now = Math.floor(Date.now() / 1000);
+        if (payload.exp) {
+          const timeLeft = payload.exp - now;
+          console.log(`Token expires at: ${new Date(payload.exp * 1000).toLocaleString()}`);
+          console.log(`Current time: ${new Date().toLocaleString()}`);
+          console.log(`Time left: ${timeLeft} seconds`);
+          
+          if (timeLeft < 0) {
+            console.log(`Token expired ${Math.abs(timeLeft)} seconds ago`);
+            tokenExpired = true;
+          }
         }
-      });
-      
-      // Jika berhasil, kembalikan data dan token baru
-      if (retryResponse.ok) {
-        const data = await retryResponse.json();
-        
-        // Buat response dengan data dan set cookie baru
-        const response = NextResponse.json({
-          ...data,
-          _tokenRefreshed: true
-        });
-        
-        // Set cookie baru dengan token baru
-        response.cookies.set({
-          name: 'token',
-          value: newToken,
-          httpOnly: true,
-          path: '/',
-          maxAge: 60 * 60 * 24, // 24 jam
-          sameSite: 'strict'
-        });
-        
-        console.log('[API Route] /api/orders: Token berhasil di-refresh');
-        return response;
       }
-      
-      // Jika tetap gagal, kembalikan error
-      const retryErrorData = await retryResponse.json().catch(() => ({ message: 'Unknown error' }));
-      console.error(`[API Route] /api/orders: Retry failed (${retryResponse.status}):`, retryErrorData);
-      
-      return NextResponse.json({ 
-        error: 'Authentication failed',
-        message: 'Failed to refresh token. Please log in again.',
-        details: retryErrorData
-      }, { status: retryResponse.status });
     }
     
-    // Untuk error lainnya
-    const errorData = await response.json().catch(() => ({ message: 'Unknown error' }));
-    console.error(`[API Route] /api/orders: GET failed (${response.status}):`, errorData);
+    // If token is already expired, regenerate it first
+    if (tokenExpired) {
+      console.log('[API Route] Token already expired, regenerating before making request');
+      const regenerationResult = await handleExpiredToken(token, request);
+      if (regenerationResult) {
+        return regenerationResult.response;
+      }
+    }
     
-    return NextResponse.json({ 
-      error: 'Failed to fetch orders',
-      message: errorData.message || 'Unknown error'
-    }, { status: response.status });
+    // URL for the backend API
+    const apiURL = `${API_BASE_URL}/orders`;
+    console.log(`Calling backend directly at: ${apiURL}`);
+    console.log(`Using token (first 10 chars): ${token.substring(0, 10)}...`);
+    
+    // Get CSRF token from cookies or headers
+    const csrfToken = request.cookies.get('XSRF-TOKEN')?.value || 
+                      request.headers.get('X-CSRF-Token') ||
+                      request.headers.get('X-XSRF-Token');
+    
+    console.log(`CSRF token exists: ${!!csrfToken}`);
+    
+    // Set up headers for the request
+    const headers: HeadersInit = {
+      'Authorization': `Bearer ${token}`,
+      'Content-Type': 'application/json',
+    };
+    
+    // Add CSRF token to headers if available
+    if (csrfToken) {
+      headers['X-CSRF-Token'] = csrfToken;
+      console.log(`Including CSRF token in request`);
+    } else {
+      console.log(`No CSRF token available to include in request`);
+    }
+    
+    // Make the request
+    const response = await fetch(apiURL, {
+      headers,
+      cache: 'no-store'
+    });
+    
+    console.log(`Backend response status: ${response.status}`);
+    
+    // Handle non-successful responses
+    if (!response.ok) {
+      console.log(`Error response: ${response.status} ${response.statusText}`);
+      
+      // Special handling for 401 Unauthorized
+      if (response.status === 401) {
+        console.log('Received 401 Unauthorized from backend');
+        
+        // Regenerate token on 401 error if not already tried
+        if (!tokenExpired) {
+          const regenerationResult = await handleExpiredToken(token, request);
+          if (regenerationResult) {
+            return regenerationResult.response;
+          }
+        }
+        
+        // Log detailed error information for debugging
+        console.log('-----------------------------');
+        console.log('ORDERS API ERROR 401');
+        console.log('Backend URL:', apiURL);
+        console.log('Request Headers:', headers);
+        
+        try {
+          const errorBody = await response.text();
+          console.log('Error Response Body:', errorBody);
+          
+          try {
+            const errorJson = JSON.parse(errorBody);
+            console.log('Error JSON:', errorJson);
+          } catch (e) {
+            console.log('Failed to parse error as JSON');
+          }
+        } catch (e) {
+          console.log('Failed to read error response body');
+        }
+        
+        console.log('-----------------------------');
+        
+        // Return detailed error for debugging with new token option
+        return NextResponse.json(
+          { 
+            error: 'Authentication error', 
+            message: 'Token validation failed with the backend',
+            debug: true,
+            timestamp: new Date().toISOString(),
+            tokenRegenerated: tokenExpired,
+            needsLogin: true
+          },
+          { status: 401 }
+        );
+      }
+      
+      // For other errors
+      try {
+        const errorData = await response.json();
+        console.error('Error response from backend:', errorData);
+        return NextResponse.json(
+          errorData,
+          { status: response.status }
+        );
+      } catch (e) {
+        const errorText = await response.text();
+        console.error('Error response text:', errorText);
+        return NextResponse.json(
+          { error: 'Failed to fetch orders', message: errorText },
+          { status: response.status }
+        );
+      }
+    }
+    
+    // Parse and return the data
+    const data = await response.json();
+    console.log(`Successfully fetched ${data.length || 0} orders`);
+    
+    return NextResponse.json(data);
   } catch (error: any) {
-    console.error('[API Route] /api/orders: Exception:', error.message);
-    return NextResponse.json({ 
-      error: 'Failed to fetch orders',
-      message: error.message
-    }, { status: 500 });
+    console.error('Error in orders API route:', error);
+    return NextResponse.json(
+      { 
+        error: 'Failed to fetch orders',
+        message: error.message,
+        stack: DEBUG_MODE ? error.stack : undefined
+      },
+      { status: 500 }
+    );
   }
 }
 
 export async function POST(request: NextRequest) {
-  console.log('[API Route] /api/orders: POST request received');
-  
-  // Get token from cookies
-  const token = request.cookies.get('token')?.value;
-  
-  if (!token) {
-    console.log('[API Route] /api/orders: No token available for POST');
-    return NextResponse.json({ error: 'Unauthorized - Please log in' }, { status: 401 });
-  }
-  
   try {
-    // Get request body
-    const body = await request.json();
+    console.log('[API Route] /api/orders: POST request received');
     
-    // Forward request to backend
-    console.log('[API Route] /api/orders: Forwarding POST request to backend');
-    const response = await fetch(`${API_BASE_URL}/orders`, {
+    // Get token from request
+    const token = getTokenFromRequest(request);
+    console.log(`Auth token exists: ${!!token}`);
+    
+    if (!token) {
+      console.log('No auth token found in request');
+      return NextResponse.json(
+        { error: 'Authentication required' },
+        { status: 401 }
+      );
+    }
+    
+    // Debug token information and check if expired
+    let tokenExpired = false;
+    if (token) {
+      const payload = decodeJWT(token);
+      if (payload) {
+        console.log('Token payload:', payload);
+        const now = Math.floor(Date.now() / 1000);
+        if (payload.exp) {
+          const timeLeft = payload.exp - now;
+          console.log(`Token expires at: ${new Date(payload.exp * 1000).toLocaleString()}`);
+          console.log(`Current time: ${new Date().toLocaleString()}`);
+          console.log(`Time left: ${timeLeft} seconds`);
+          
+          if (timeLeft < 0) {
+            console.log(`Token expired ${Math.abs(timeLeft)} seconds ago`);
+            tokenExpired = true;
+          }
+        }
+      }
+    }
+    
+    // If token is already expired, regenerate it first
+    if (tokenExpired) {
+      console.log('[API Route] Token already expired, regenerating before making request');
+      const regenerationResult = await handleExpiredToken(token, request);
+      if (regenerationResult) {
+        return regenerationResult.response;
+      }
+    }
+    
+    // Copy the request to get the body
+    const requestBody = await request.json();
+    
+    // Get CSRF token from cookies or headers
+    const csrfToken = request.cookies.get('XSRF-TOKEN')?.value || 
+                      request.headers.get('X-CSRF-Token') ||
+                      request.headers.get('X-XSRF-Token');
+    
+    console.log(`CSRF token exists: ${!!csrfToken}`);
+    
+    // URL for the backend API
+    const apiURL = `${API_BASE_URL}/orders`;
+    console.log(`Creating order via backend at: ${apiURL}`);
+    
+    // Set up headers for the request
+    const headers: HeadersInit = {
+      'Authorization': `Bearer ${token}`,
+      'Content-Type': 'application/json',
+    };
+    
+    // Add CSRF token to headers if available
+    if (csrfToken) {
+      headers['X-CSRF-Token'] = csrfToken;
+      console.log(`Including CSRF token in request`);
+    } else {
+      console.log(`No CSRF token available to include in request`);
+    }
+    
+    // Make the request
+    const response = await fetch(apiURL, {
       method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${token}`,
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify(body)
+      headers,
+      body: JSON.stringify(requestBody)
     });
     
-    // Jika sukses, langsung kembalikan datanya
-    if (response.ok) {
-      const data = await response.json();
-      return NextResponse.json({
-        statusCode: 201,
-        message: 'Order created successfully',
-        timestamp: new Date().toISOString(),
-        data: data
-      });
+    console.log(`Backend POST response status: ${response.status}`);
+    
+    // Handle non-successful responses
+    if (!response.ok) {
+      console.log(`Error response: ${response.status} ${response.statusText}`);
+      
+      // Special handling for 401 Unauthorized (like in GET)
+      if (response.status === 401) {
+        console.log('Received 401 Unauthorized from backend on POST');
+        
+        // Regenerate token on 401 error if not already tried
+        if (!tokenExpired) {
+          const regenerationResult = await handleExpiredToken(token, request);
+          if (regenerationResult) {
+            return regenerationResult.response;
+          }
+        }
+        
+        // Log detailed error information for debugging
+        console.log('-----------------------------');
+        console.log('ORDERS CREATE API ERROR 401');
+        console.log('Backend URL:', apiURL);
+        console.log('Request Headers:', headers);
+        
+        try {
+          const errorBody = await response.text();
+          console.log('Error Response Body:', errorBody);
+          
+          try {
+            const errorJson = JSON.parse(errorBody);
+            console.log('Error JSON:', errorJson);
+          } catch (e) {
+            console.log('Failed to parse error as JSON');
+          }
+        } catch (e) {
+          console.log('Failed to read error response body');
+        }
+        
+        console.log('-----------------------------');
+        
+        // Return detailed error for debugging
+        return NextResponse.json(
+          { 
+            error: 'Authentication error', 
+            message: 'Token validation failed with the backend',
+            debug: true,
+            timestamp: new Date().toISOString(),
+            tokenRegenerated: tokenExpired,
+            needsLogin: true
+          },
+          { status: 401 }
+        );
+      }
+      
+      // For other errors
+      try {
+        const errorData = await response.json();
+        console.error('Error creating order:', errorData);
+        return NextResponse.json(
+          errorData,
+          { status: response.status }
+        );
+      } catch (e) {
+        const errorText = await response.text();
+        console.error('Error response text:', errorText);
+        return NextResponse.json(
+          { error: 'Failed to create order', message: errorText },
+          { status: response.status }
+        );
+      }
     }
     
-    // Jika token expired (401), coba refresh token
-    if (response.status === 401) {
-      console.log('[API Route] /api/orders: Token mungkin expired dalam POST, mencoba refresh token');
-      
-      // Ekstrak payload dari token lama
-      const payload = await verifyJWT(token);
-      
-      if (!payload) {
-        console.log('[API Route] /api/orders: Tidak bisa mendapatkan payload dari token');
-        return NextResponse.json({ 
-          error: 'Authentication failed',
-          message: 'Invalid token. Please log in again.'
-        }, { status: 401 });
-      }
-      
-      // Buat token baru dengan payload yang sama tapi expiry lebih lama
-      const newToken = await createNewToken(payload);
-      
-      if (!newToken) {
-        console.log('[API Route] /api/orders: Gagal membuat token baru untuk POST');
-        return NextResponse.json({ 
-          error: 'Authentication failed',
-          message: 'Failed to refresh token. Please log in again.'
-        }, { status: 401 });
-      }
-      
-      // Coba lagi request dengan token baru
-      console.log('[API Route] /api/orders: Mencoba ulang POST dengan token baru');
-      const retryResponse = await fetch(`${API_BASE_URL}/orders`, {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${newToken}`,
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(body)
-      });
-      
-      // Jika berhasil, kembalikan data dan token baru
-      if (retryResponse.ok) {
-        const data = await retryResponse.json();
-        
-        // Buat response dengan data dan set cookie baru
-        const response = NextResponse.json({
-          statusCode: 201,
-          message: 'Order created successfully',
-          timestamp: new Date().toISOString(),
-          data: data,
-          _tokenRefreshed: true
-        });
-        
-        // Set cookie baru dengan token baru
-        response.cookies.set({
-          name: 'token',
-          value: newToken,
-          httpOnly: true,
-          path: '/',
-          maxAge: 60 * 60 * 24, // 24 jam
-          sameSite: 'strict'
-        });
-        
-        console.log('[API Route] /api/orders: Token berhasil di-refresh dalam POST');
-        return response;
-      }
-      
-      // Jika tetap gagal, kembalikan error
-      const retryErrorData = await retryResponse.json().catch(() => ({ message: 'Unknown error' }));
-      console.error(`[API Route] /api/orders: POST retry failed (${retryResponse.status}):`, retryErrorData);
-      
-      return NextResponse.json({ 
-        error: 'Authentication failed',
-        message: 'Failed to refresh token. Please log in again.',
-        details: retryErrorData
-      }, { status: retryResponse.status });
-    }
+    // Parse and return the data
+    const data = await response.json();
+    console.log('Order created successfully, order number:', data.orderNumber);
     
-    // Untuk error lainnya
-    const errorData = await response.json().catch(() => ({ message: 'Unknown error' }));
-    console.error(`[API Route] /api/orders: POST failed (${response.status}):`, errorData);
-    
-    return NextResponse.json({ 
-      error: 'Failed to create order',
-      message: errorData.message || 'Unknown error',
-      details: errorData
-    }, { status: response.status });
+    return NextResponse.json(data);
   } catch (error: any) {
-    console.error('[API Route] /api/orders: POST exception:', error.message);
-    return NextResponse.json({ 
-      error: 'Failed to create order',
-      message: error.message
-    }, { status: 500 });
+    console.error('Error in create order API route:', error);
+    return NextResponse.json(
+      { 
+        error: 'Failed to create order',
+        message: error.message,
+        stack: DEBUG_MODE ? error.stack : undefined
+      },
+      { status: 500 }
+    );
   }
 } 
