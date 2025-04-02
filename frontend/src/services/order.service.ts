@@ -15,6 +15,14 @@ export interface TrackOrderResponse {
   paymentStatus: string;
 }
 
+// API wrapper response format
+interface ApiResponse<T> {
+  data: T;
+  statusCode: number;
+  message: string;
+  timestamp: string;
+}
+
 export class OrderService {
   /**
    * Track an order by its order number
@@ -24,11 +32,16 @@ export class OrderService {
    */
   static async trackOrder(orderNumber: string): Promise<TrackOrderResponse> {
     try {
-      const response = await apiClient.post('/public/orders/track', {
+      const response = await apiClient.post<ApiResponse<TrackOrderResponse>>('/public/orders/track', {
         orderNumber
       });
       
-      return response.data;
+      // Extract the data from the wrapper response
+      if (response.data && response.data.data) {
+        return response.data.data;
+      } else {
+        throw new Error('Invalid response format from API');
+      }
     } catch (error) {
       console.error('Failed to track order:', error);
       throw error;

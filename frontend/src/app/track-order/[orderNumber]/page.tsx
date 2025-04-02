@@ -236,7 +236,7 @@ export default function TrackOrderPage() {
                     {statusLabel}
                   </Badge>
                   <p className="text-sm text-gray-500 mt-1">
-                    Last updated: {new Date(order.createdAt).toLocaleString()}
+                    Last updated: {order?.createdAt ? new Date(order.createdAt).toLocaleString() : 'Unknown'}
                   </p>
                 </div>
               </div>
@@ -254,14 +254,14 @@ export default function TrackOrderPage() {
                       </div>
                       <div className="ml-4">
                         <h3 className="text-sm font-medium">Order Created</h3>
-                        <p className="text-xs text-gray-500">{formatDate(order.createdAt)}</p>
+                        <p className="text-xs text-gray-500">{formatDate(order?.createdAt)}</p>
                       </div>
                     </div>
                     
                     <div className="flex">
                       <div className="flex-shrink-0 z-10">
-                        <div className={`h-8 w-8 rounded-full ${order.status !== 'new' ? 'bg-green-500' : 'bg-gray-200'} flex items-center justify-center`}>
-                          {order.status !== 'new' ? (
+                        <div className={`h-8 w-8 rounded-full ${orderStatus !== 'new' ? 'bg-green-500' : 'bg-gray-200'} flex items-center justify-center`}>
+                          {orderStatus !== 'new' ? (
                             <CheckCircle2 className="h-4 w-4 text-white" />
                           ) : (
                             <Clock className="h-4 w-4 text-white" />
@@ -271,15 +271,15 @@ export default function TrackOrderPage() {
                       <div className="ml-4">
                         <h3 className="text-sm font-medium">Processing</h3>
                         <p className="text-xs text-gray-500">
-                          {order.status !== 'new' ? 'Processing started' : 'Waiting for processing'}
+                          {orderStatus !== 'new' ? 'Processing started' : 'Waiting for processing'}
                         </p>
                       </div>
                     </div>
                     
                     <div className="flex">
                       <div className="flex-shrink-0 z-10">
-                        <div className={`h-8 w-8 rounded-full ${order.status === 'ready' || order.status === 'delivered' ? 'bg-green-500' : 'bg-gray-200'} flex items-center justify-center`}>
-                          {order.status === 'ready' || order.status === 'delivered' ? (
+                        <div className={`h-8 w-8 rounded-full ${orderStatus === 'ready' || orderStatus === 'delivered' ? 'bg-green-500' : 'bg-gray-200'} flex items-center justify-center`}>
+                          {orderStatus === 'ready' || orderStatus === 'delivered' ? (
                             <CheckCircle2 className="h-4 w-4 text-white" />
                           ) : (
                             <Package className="h-4 w-4 text-white" />
@@ -289,17 +289,17 @@ export default function TrackOrderPage() {
                       <div className="ml-4">
                         <h3 className="text-sm font-medium">Ready for Pickup/Delivery</h3>
                         <p className="text-xs text-gray-500">
-                          {order.status === 'ready' || order.status === 'delivered' ? 
+                          {orderStatus === 'ready' || orderStatus === 'delivered' ? 
                             'Your order is ready' : 
-                            'Estimated: ' + (order.deliveryDate ? formatDate(order.deliveryDate) : 'To be determined')}
+                            'Estimated: ' + (order?.deliveryDate ? formatDate(order.deliveryDate) : 'To be determined')}
                         </p>
                       </div>
                     </div>
                     
                     <div className="flex">
                       <div className="flex-shrink-0 z-10">
-                        <div className={`h-8 w-8 rounded-full ${order.status === 'delivered' ? 'bg-green-500' : 'bg-gray-200'} flex items-center justify-center`}>
-                          {order.status === 'delivered' ? (
+                        <div className={`h-8 w-8 rounded-full ${orderStatus === 'delivered' ? 'bg-green-500' : 'bg-gray-200'} flex items-center justify-center`}>
+                          {orderStatus === 'delivered' ? (
                             <CheckCircle2 className="h-4 w-4 text-white" />
                           ) : (
                             <Truck className="h-4 w-4 text-white" />
@@ -309,7 +309,7 @@ export default function TrackOrderPage() {
                       <div className="ml-4">
                         <h3 className="text-sm font-medium">Delivered/Picked Up</h3>
                         <p className="text-xs text-gray-500">
-                          {order.status === 'delivered' ? 'Completed' : 'Pending'}
+                          {orderStatus === 'delivered' ? 'Completed' : 'Pending'}
                         </p>
                       </div>
                     </div>
