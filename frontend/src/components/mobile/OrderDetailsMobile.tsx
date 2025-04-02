@@ -12,6 +12,15 @@ import PaymentConfirmationSheet from './PaymentConfirmationSheet';
 import BottomSheet from './BottomSheet';
 import ActionSheet, { ActionItem } from './ActionSheet';
 
+// Tipe data untuk PaymentData
+interface PaymentData {
+  amount: number;
+  change: number;
+  method: string;
+  status: string;
+  referenceNumber?: string;
+}
+
 interface OrderDetailsMobileProps {
   order: any;
   onRefresh: () => void;
@@ -22,7 +31,7 @@ export default function OrderDetailsMobile({ order, onRefresh }: OrderDetailsMob
   const [isUpdating, setIsUpdating] = useState(false);
   const [openStatusDialog, setOpenStatusDialog] = useState(false);
   const [showPaymentSheet, setShowPaymentSheet] = useState(false);
-  const [paymentData, setPaymentData] = useState({
+  const [paymentData, setPaymentData] = useState<PaymentData>({
     amount: Number(order.totalAmount) || 0,
     change: 0,
     method: 'cash',
@@ -91,7 +100,46 @@ export default function OrderDetailsMobile({ order, onRefresh }: OrderDetailsMob
     }
   };
 
+  const handleCompleteExistingPayment = async () => {
+    setIsProcessingPayment(true);
+    
+    try {
+      // Memanggil API untuk menyelesaikan pembayaran dengan metode yang dipilih
+      const response = await fetch(`/api/orders/${order.id}/completed-payment`, {
+        method: 'PATCH',
+        headers: {
+          'Content-Type': 'application/json',
+          ...createAuthHeaders()
+        },
+        body: JSON.stringify({
+          paymentMethod: paymentData.method
+        })
+      });
+      
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({ message: 'Unknown error' }));
+        throw new Error(errorData.message || `Failed to complete payment: ${response.status}`);
+      }
+      
+      toast.success('Pembayaran berhasil diselesaikan!');
+      setShowPaymentSheet(false);
+      onRefresh();
+    } catch (error: any) {
+      console.error('Error completing payment:', error);
+      toast.error(error.message || 'Gagal menyelesaikan pembayaran');
+    } finally {
+      setIsProcessingPayment(false);
+    }
+  };
+
   const handleConfirmPayment = async () => {
+    // Jika ada pembayaran tertunda, selesaikan pembayaran tersebut
+    if (order.payments && order.payments.some((p: any) => p.status === 'pending')) {
+      await handleCompleteExistingPayment();
+      return;
+    }
+    
+    // Jika tidak ada pembayaran tertunda, buat pembayaran baru
     setIsProcessingPayment(true);
     
     try {
@@ -126,7 +174,8 @@ export default function OrderDetailsMobile({ order, onRefresh }: OrderDetailsMob
         },
         body: JSON.stringify({
           paymentStatus: 'paid',
-          isPaid: true
+          isPaid: true,
+          paymentMethod: paymentData.method
         }),
       });
 
@@ -323,6 +372,7 @@ export default function OrderDetailsMobile({ order, onRefresh }: OrderDetailsMob
         onClose={() => setShowPaymentSheet(false)}
         onConfirm={handleConfirmPayment}
         paymentData={paymentData}
+        setPaymentData={setPaymentData}
         orderTotal={order.totalAmount || 0}
         isLoading={isProcessingPayment}
       />

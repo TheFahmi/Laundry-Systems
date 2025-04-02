@@ -42,7 +42,8 @@ export async function PATCH(
       },
       body: JSON.stringify({
         paymentStatus: data.paymentStatus || 'paid',
-        isPaid: data.isPaid !== undefined ? data.isPaid : true
+        isPaid: data.isPaid !== undefined ? data.isPaid : true,
+        paymentMethod: data.paymentMethod
       })
     });
     
