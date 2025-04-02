@@ -454,7 +454,7 @@ export default function OrderFlowMobile() {
       </div>
       
       {/* Footer with navigation buttons */}
-      {currentStep < 5 && (
+      {currentStep < 4 && (
         <div className="fixed bottom-0 left-0 right-0 bg-background border-t p-4 flex space-x-2">
           <Button 
             variant="outline" 
@@ -483,22 +483,9 @@ export default function OrderFlowMobile() {
             ) : (
               <>
                 {currentStep === 3 ? 'Buat Pesanan' : 'Selanjutnya'}
-                {currentStep === 5 ? <Check className="ml-2 h-4 w-4" /> : <ArrowRight className="ml-2 h-4 w-4" />}
+                <ArrowRight className="ml-2 h-4 w-4" />
               </>
             )}
-          </Button>
-        </div>
-      )}
-      
-      {/* Final actions */}
-      {currentStep === 5 && (
-        <div className="fixed bottom-0 left-0 right-0 bg-background border-t p-4">
-          <Button 
-            variant="default" 
-            className="w-full"
-            onClick={() => router.push('/orders')}
-          >
-            Kembali ke Daftar Pesanan
           </Button>
         </div>
       )}

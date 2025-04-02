@@ -84,6 +84,30 @@ export class DashboardService {
   ) {}
 
   /**
+   * Utility method to calculate order total - matches the calculation in report service
+   * This ensures consistent revenue calculations across the application
+   */
+  private calculateOrderTotal(order: Order): number {
+    try {
+      if (!order.items || !Array.isArray(order.items)) {
+        return 0;
+      }
+      
+      return order.items.reduce((sum, item) => {
+        // Handle possible undefined or null values
+        if (!item) return sum;
+        
+        // Use subtotal if available (already calculated), otherwise calculate from price * quantity
+        const itemValue = item.subtotal || (item.price * item.quantity) || 0;
+        return sum + Number(itemValue);
+      }, 0);
+    } catch (error) {
+      this.logger.warn(`Error calculating order total for order ${order.id}: ${error.message}`);
+      return 0;
+    }
+  }
+
+  /**
    * Get dashboard summary with total revenue, orders, completed orders, and active customers
    */
   async getSummary(): Promise<DashboardSummary> {
@@ -96,12 +120,21 @@ export class DashboardService {
         where: { status: OrderStatus.DELIVERED }
       });
       
-      // Get total revenue (sum of all payments)
-      const paymentsResult = await this.paymentRepository
-        .createQueryBuilder('payment')
-        .select('SUM(payment.amount)', 'total')
-        .getRawOne();
-      const totalRevenue = Number(paymentsResult?.total || 0);
+      // Get total revenue from order items - using the same calculation method as reports
+      const orders = await this.orderRepository.find({
+        relations: ['items']
+      });
+      
+      let totalRevenue = 0;
+      
+      // Process each order using the same calculation as reports
+      orders.forEach(order => {
+        if (!order.items || !Array.isArray(order.items)) return;
+        
+        const orderTotal = this.calculateOrderTotal(order);
+        
+        totalRevenue += isNaN(orderTotal) ? 0 : orderTotal;
+      });
       
       // Get active customers (customers with at least one order)
       const activeCustomers = await this.customerRepository
@@ -141,26 +174,58 @@ export class DashboardService {
       const queryStartDate = startDate ? parseISO(startDate) : subMonths(today, 6);
       const queryEndDate = endDate ? parseISO(endDate) : today;
       
-      // Build query based on interval
-      let query = this.paymentRepository
-        .createQueryBuilder('payment')
-        .select(`DATE_FORMAT(payment.created_at, '${interval === 'daily' ? '%Y-%m-%d' : '%Y-%m'}')`, 'date')
-        .addSelect('SUM(payment.amount)', 'amount')
-        .where('payment.created_at BETWEEN :start AND :end', {
-          start: formatISO(queryStartDate),
-          end: formatISO(queryEndDate)
-        })
-        .andWhere('payment.status = :status', { status: 'completed' })
-        .groupBy('date')
-        .orderBy('date', 'ASC');
+      // Get orders in date range with their items
+      const orders = await this.orderRepository.find({
+        where: {
+          createdAt: Between(
+            new Date(queryStartDate),
+            new Date(queryEndDate)
+          )
+        },
+        relations: ['items'],
+        order: {
+          createdAt: 'ASC'
+        }
+      });
       
-      const results = await query.getRawMany();
+      // Group orders by date and calculate revenue
+      const dateFormat = interval === 'daily' ? 'yyyy-MM-dd' : 'yyyy-MM';
+      const revenueByDate = new Map<string, number>();
       
-      // Format the results
-      return results.map(item => ({
-        tanggal: item.date,
-        pendapatan: Number(item.amount) || 0
-      }));
+      // Initialize all dates in range with 0 revenue
+      let currentDate = new Date(queryStartDate);
+      while (currentDate <= queryEndDate) {
+        const dateKey = format(currentDate, dateFormat);
+        revenueByDate.set(dateKey, 0);
+        
+        // Increment date based on interval
+        if (interval === 'daily') {
+          currentDate.setDate(currentDate.getDate() + 1);
+        } else {
+          currentDate.setMonth(currentDate.getMonth() + 1);
+        }
+      }
+      
+      // Calculate revenue for each order and add to appropriate date
+      orders.forEach(order => {
+        if (!order.createdAt) return;
+        
+        // Calculate order total using the same method as in reports and summary
+        let orderTotal = this.calculateOrderTotal(order);
+        
+        if (isNaN(orderTotal) || orderTotal <= 0) return;
+        
+        // Add to appropriate date bucket
+        const dateKey = format(new Date(order.createdAt), dateFormat);
+        if (revenueByDate.has(dateKey)) {
+          revenueByDate.set(dateKey, revenueByDate.get(dateKey) + orderTotal);
+        }
+      });
+      
+      // Convert map to array of chart data
+      return Array.from(revenueByDate.entries())
+        .map(([tanggal, pendapatan]) => ({ tanggal, pendapatan }))
+        .sort((a, b) => a.tanggal.localeCompare(b.tanggal));
     } catch (error) {
       this.logger.error(`Error getting revenue chart: ${error.message}`);
       

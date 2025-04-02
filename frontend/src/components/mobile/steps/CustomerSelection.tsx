@@ -5,7 +5,7 @@ import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Search, Plus, User, X, Phone, Mail, Home, UserPlus, UserCircle } from 'lucide-react';
 import { Label } from '@/components/ui/label';
-import { Avatar } from '@/components/ui/avatar';
+import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { Separator } from '@/components/ui/separator';
 import { toast } from 'sonner';
 import CustomerFormSheet from '../CustomerFormSheet';
@@ -189,7 +189,9 @@ export default function CustomerSelection({ orderData, updateOrderData }: Custom
                   }
                 </div>
                 <Avatar className="h-9 w-9 border bg-blue-100 text-blue-500">
-                  <UserCircle className="h-6 w-6" />
+                  <AvatarFallback>
+                    {customer.name.charAt(0).toUpperCase()}
+                  </AvatarFallback>
                 </Avatar>
                 <div className="flex-1 min-w-0">
                   <Label
@@ -218,7 +220,11 @@ export default function CustomerSelection({ orderData, updateOrderData }: Custom
         </div>
       ) : (
         <div className="text-center py-4 border rounded-md border-dashed p-6">
-          <UserCircle className="h-10 w-10 mx-auto text-gray-300 mb-2" />
+          <Avatar className="h-10 w-10 mx-auto bg-gray-100 text-gray-400">
+            <AvatarFallback>
+              <UserCircle className="h-6 w-6" />
+            </AvatarFallback>
+          </Avatar>
           <p className="text-muted-foreground">Tidak ada pelanggan ditemukan</p>
           <Button 
             variant="outline" 
@@ -236,7 +242,11 @@ export default function CustomerSelection({ orderData, updateOrderData }: Custom
       {selectedCustomerId && (
         <div className="mt-4 border border-blue-200 rounded-md bg-blue-50 p-3">
           <div className="flex items-center gap-2 mb-2">
-            <UserCircle className="h-5 w-5 text-blue-500" />
+            <Avatar className="h-7 w-7 bg-blue-100 text-blue-500">
+              <AvatarFallback>
+                {orderData.customer?.name.charAt(0).toUpperCase()}
+              </AvatarFallback>
+            </Avatar>
             <h3 className="font-medium">Pelanggan Terpilih</h3>
           </div>
           <div className="space-y-1 text-sm">
