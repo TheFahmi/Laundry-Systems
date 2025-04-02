@@ -271,12 +271,12 @@ export default function OrdersPage() {
               Login
             </Button>
           )} */}
-          <Link href="/orders/new">
-            <Button>
+          <Button asChild>
+            <Link href="/admin/orders/new">
               <Plus className="mr-2 h-4 w-4" />
               New Order
-            </Button>
-          </Link>
+            </Link>
+          </Button>
         </div>
       </div>
 

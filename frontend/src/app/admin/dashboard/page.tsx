@@ -193,7 +193,7 @@ export default function DashboardPage() {
         <h2 className="text-3xl font-bold tracking-tight">Dashboard</h2>
         <div className="flex items-center gap-2">
           <Button size="sm" asChild>
-            <Link href="/calendar">
+            <Link href="/admin/calendar">
               <Calendar className="mr-2 h-4 w-4" />
               View Calendar
             </Link>
@@ -350,7 +350,7 @@ export default function DashboardPage() {
           </CardContent>
           <CardFooter>
             <Button variant="outline" size="sm" className="w-full" asChild>
-              <Link href="/activities">View All Activity</Link>
+              <Link href="/admin/activities">View All Activity</Link>
             </Button>
           </CardFooter>
         </Card>

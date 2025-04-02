@@ -30,7 +30,8 @@ import {
   Message as MessageIcon,
   LocalShipping as ShippingIcon,
   Email as EmailIcon,
-  Phone as PhoneIcon
+  Phone as PhoneIcon,
+  ArrowLeft
 } from '@mui/icons-material';
 import Link from 'next/link';
 import { 
@@ -46,6 +47,7 @@ import {
   TableHeader,
   TableRow
 } from "@/components/ui/table";
+import { Button } from "@/components/ui/button";
 
 // Data dummy status pesanan
 const OrderStatus = {
@@ -189,7 +191,7 @@ export default function OrderDetailPage() {
       <CardContent>
         <Box sx={{ mb: 3 }}>
           <Breadcrumbs sx={{ mb: 2 }}>
-            <Link href="/orders">
+            <Link href="/admin/orders">
               <Typography color="text.primary" sx={{ display: 'flex', alignItems: 'center' }}>
                 <ArrowBackIcon sx={{ mr: 0.5, fontSize: 18 }} />
                 Kembali ke Daftar Pesanan
@@ -504,15 +506,12 @@ export default function OrderDetailPage() {
         )}
         
         <Box sx={{ mt: 3, display: 'flex', justifyContent: 'space-between' }}>
-          <MuiButton 
-            variant="outlined" 
-            color="primary"
-            startIcon={<ArrowBackIcon />}
-            component={Link}
-            href="/orders"
-          >
-            Kembali ke Daftar
-          </MuiButton>
+          <Button variant="outline" asChild className="mr-2">
+            <Link href="/admin/orders">
+              <ArrowLeft className="mr-2 h-4 w-4" />
+              Back to Order List
+            </Link>
+          </Button>
           
           {order.status === OrderStatus.READY && (
             <MuiButton 

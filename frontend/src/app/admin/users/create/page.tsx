@@ -84,7 +84,7 @@ export default function CreateUserPage() {
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-2">
-          <Link href="/users">
+          <Link href="/admin/users">
             <Button variant="outline" size="icon">
               <ArrowLeft className="h-4 w-4" />
             </Button>
@@ -227,9 +227,9 @@ export default function CreateUserPage() {
             </CardContent>
             
             <CardFooter className="flex justify-between border-t p-6">
-              <Link href="/users">
-                <Button variant="outline">Cancel</Button>
-              </Link>
+              <Button variant="outline" asChild>
+                <Link href="/admin/users">Cancel</Link>
+              </Button>
               <Button type="submit" disabled={isSubmitting}>
                 {isSubmitting ? (
                   <>

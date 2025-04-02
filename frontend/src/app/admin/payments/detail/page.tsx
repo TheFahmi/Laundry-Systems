@@ -27,7 +27,8 @@ import {
   Link as LinkIcon,
   CheckCircle as CheckCircleIcon,
   Warning as WarningIcon,
-  Error as ErrorIcon
+  Error as ErrorIcon,
+  ArrowLeft
 } from '@mui/icons-material';
 import Link from 'next/link';
 
@@ -110,7 +111,7 @@ export default function PaymentDetailPage() {
       <CardContent>
         <Box sx={{ mb: 3 }}>
           <Breadcrumbs sx={{ mb: 2 }}>
-            <Link href="/payments">
+            <Link href="/admin/payments">
               <Typography color="text.primary" sx={{ display: 'flex', alignItems: 'center' }}>
                 <ArrowBackIcon sx={{ mr: 0.5, fontSize: 18 }} />
                 Kembali ke Daftar Pembayaran
@@ -369,7 +370,7 @@ export default function PaymentDetailPage() {
                   ID Pesanan
                 </Typography>
                 <Typography variant="body1">
-                  <Link href={`/orders/detail?id=${payment.orderId}`} style={{ 
+                  <Link href={`/admin/orders/detail?id=${payment.orderId}`} style={{ 
                     display: 'inline-flex', 
                     alignItems: 'center',
                     textDecoration: 'none',
@@ -392,7 +393,7 @@ export default function PaymentDetailPage() {
                   fullWidth 
                   startIcon={<ReceiptIcon />}
                   component={Link}
-                  href={`/orders/detail?id=${payment.orderId}`}
+                  href={`/admin/orders/detail?id=${payment.orderId}`}
                 >
                   Lihat Detail Pesanan
                 </Button>
@@ -408,7 +409,7 @@ export default function PaymentDetailPage() {
                   Nama Pelanggan
                 </Typography>
                 <Typography variant="body1">
-                  <Link href={`/customers/detail?id=${payment.customerId}`} style={{ 
+                  <Link href={`/admin/customers/detail?id=${payment.customerId}`} style={{ 
                     textDecoration: 'none',
                     color: 'inherit'
                   }}>
@@ -469,7 +470,7 @@ export default function PaymentDetailPage() {
             color="primary"
             startIcon={<ArrowBackIcon />}
             component={Link}
-            href="/payments"
+            href="/admin/payments"
           >
             Kembali ke Daftar
           </Button>

@@ -235,9 +235,9 @@ export default function EditUserPage({ params }: { params: { id: string } }) {
           </AlertDescription>
         </Alert>
         <Button asChild>
-          <Link href="/users">
+          <Link href="/admin/users">
             <ArrowLeft className="mr-2 h-4 w-4" />
-            Back to Users
+            Back
           </Link>
         </Button>
       </div>
@@ -253,7 +253,7 @@ export default function EditUserPage({ params }: { params: { id: string } }) {
           asChild
           className="h-8 w-8"
         >
-          <Link href="/users">
+          <Link href="/admin/users">
             <ArrowLeft className="h-4 w-4" />
           </Link>
         </Button>
@@ -412,7 +412,7 @@ export default function EditUserPage({ params }: { params: { id: string } }) {
             <Button
               variant="outline"
               type="button"
-              onClick={() => router.push('/users')}
+              onClick={() => router.push('/admin/users')}
               disabled={isSubmitting}
             >
               Cancel

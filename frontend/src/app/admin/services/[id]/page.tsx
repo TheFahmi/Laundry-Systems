@@ -64,9 +64,11 @@ export default function ServiceDetailPage() {
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
-        <Button variant="outline" onClick={() => router.back()}>
-          <ArrowLeft className="mr-2 h-4 w-4" />
-          Back to Services
+        <Button variant="outline" asChild>
+          <Link href="/admin/services">
+            <ArrowLeft className="mr-2 h-4 w-4" />
+            Back
+          </Link>
         </Button>
         {!loading && service && (
           <div className="flex space-x-2">
@@ -142,9 +144,9 @@ export default function ServiceDetailPage() {
             </div>
           </CardContent>
           <CardFooter className="flex justify-end border-t p-4">
-            <Link href="/services">
-              <Button variant="ghost">Return to Services List</Button>
-            </Link>
+            <Button variant="outline" asChild>
+              <Link href="/admin/services">View All Services</Link>
+            </Button>
           </CardFooter>
         </Card>
       ) : (

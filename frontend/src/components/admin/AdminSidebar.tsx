@@ -30,18 +30,18 @@ interface MenuItem {
 }
 
 const menuItems: MenuItem[] = [
-  { name: "Dashboard", path: "/dashboard", icon: <LayoutDashboard className="h-5 w-5" /> },
-  { name: "Orders", path: "/orders", icon: <ShoppingCart className="h-5 w-5" /> },
-  { name: "Job Queue", path: "/job-queue", icon: <ClipboardList className="h-5 w-5" /> },
-  { name: "Work Order", path: "/work-order", icon: <Calendar className="h-5 w-5" /> },
-  { name: "Customers", path: "/customers", icon: <Users className="h-5 w-5" /> },
-  { name: "Payments", path: "/payments", icon: <CreditCard className="h-5 w-5" /> },
-  { name: "Services", path: "/services", icon: <Package className="h-5 w-5" /> },
-  { name: "Users", path: "/users", icon: <UserCircle className="h-5 w-5" /> },
-  { name: "Inventory", path: "/inventory", icon: <Layers className="h-5 w-5" /> },
-  { name: "Employees", path: "/employees", icon: <UserCog className="h-5 w-5" /> },
-  { name: "Reports", path: "/reports", icon: <BarChart className="h-5 w-5" /> },
-  { name: "Settings", path: "/settings", icon: <Settings className="h-5 w-5" /> },
+  { name: "Dashboard", path: "/admin/dashboard", icon: <LayoutDashboard className="h-5 w-5" /> },
+  { name: "Orders", path: "/admin/orders", icon: <ShoppingCart className="h-5 w-5" /> },
+  { name: "Job Queue", path: "/admin/job-queue", icon: <ClipboardList className="h-5 w-5" /> },
+  { name: "Work Order", path: "/admin/work-order", icon: <Calendar className="h-5 w-5" /> },
+  { name: "Customers", path: "/admin/customers", icon: <Users className="h-5 w-5" /> },
+  { name: "Payments", path: "/admin/payments", icon: <CreditCard className="h-5 w-5" /> },
+  { name: "Services", path: "/admin/services", icon: <Package className="h-5 w-5" /> },
+  { name: "Users", path: "/admin/users", icon: <UserCircle className="h-5 w-5" /> },
+  { name: "Inventory", path: "/admin/inventory", icon: <Layers className="h-5 w-5" /> },
+  { name: "Employees", path: "/admin/employees", icon: <UserCog className="h-5 w-5" /> },
+  { name: "Reports", path: "/admin/reports", icon: <BarChart className="h-5 w-5" /> },
+  { name: "Settings", path: "/admin/settings", icon: <Settings className="h-5 w-5" /> },
 ]
 
 interface AdminSidebarProps {
@@ -68,13 +68,14 @@ export function AdminSidebar({ className }: AdminSidebarProps) {
   }, [])
 
   const isActive = (path: string) => {
-    return pathname.includes(path)
+    if (!pathname) return false;
+    return pathname.includes(path);
   }
 
   const SidebarContent = (
     <div className="flex h-full flex-col border-r bg-background">
       <div className="flex h-14 items-center border-b px-4">
-        <Link href="/dashboard" className="flex items-center gap-2 font-semibold">
+        <Link href="/admin/dashboard" className="flex items-center gap-2 font-semibold">
           <svg
             xmlns="http://www.w3.org/2000/svg"
             viewBox="0 0 24 24"

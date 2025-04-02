@@ -125,12 +125,12 @@ export default function ServicesPage() {
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <h2 className="text-3xl font-bold tracking-tight">Services</h2>
-        <Link href="/services/new">
-          <Button>
+        <Button asChild>
+          <Link href="/admin/services/new">
             <Plus className="mr-2 h-4 w-4" />
             Add Service
-          </Button>
-        </Link>
+          </Link>
+        </Button>
       </div>
 
       <div className="flex flex-col sm:flex-row items-center gap-4">

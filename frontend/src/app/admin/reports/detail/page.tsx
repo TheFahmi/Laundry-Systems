@@ -23,7 +23,8 @@ import {
 import {
   Download as DownloadIcon,
   Print as PrintIcon,
-  ArrowBack as ArrowBackIcon
+  ArrowBack as ArrowBackIcon,
+  ArrowLeft
 } from '@mui/icons-material';
 import Link from 'next/link';
 
@@ -113,7 +114,7 @@ export default function ReportDetailPage() {
       <CardContent>
         <Box sx={{ mb: 3 }}>
           <Breadcrumbs sx={{ mb: 2 }}>
-            <Link href="/reports">
+            <Link href="/admin/reports">
               <Typography color="text.primary" sx={{ display: 'flex', alignItems: 'center' }}>
                 <ArrowBackIcon sx={{ mr: 0.5, fontSize: 18 }} />
                 Kembali ke Laporan
