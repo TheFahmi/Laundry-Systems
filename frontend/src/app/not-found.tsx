@@ -1,9 +1,11 @@
 'use client';
 
 import { useEffect } from 'react';
-import { Box, Typography, Button, Container, Paper } from '@mui/material';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
+import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardFooter, CardHeader } from "@/components/ui/card";
+import { AlertCircle } from "lucide-react";
 
 export default function NotFound() {
   const router = useRouter();
@@ -14,36 +16,37 @@ export default function NotFound() {
   }, []);
 
   return (
-    <Container maxWidth="md" sx={{ py: 8 }}>
-      <Paper elevation={3} sx={{ p: 5, textAlign: 'center' }}>
-        <Typography variant="h1" component="h1" sx={{ mb: 2, fontSize: { xs: '4rem', md: '6rem' } }}>
-          404
-        </Typography>
-        <Typography variant="h4" component="h2" sx={{ mb: 4 }}>
-          Halaman Tidak Ditemukan
-        </Typography>
-        <Typography variant="body1" sx={{ mb: 4 }}>
-          Halaman yang Anda cari tidak ditemukan atau mungkin telah dipindahkan.
-        </Typography>
-        <Box sx={{ display: 'flex', justifyContent: 'center', gap: 2 }}>
-          <Button
-            variant="contained"
-            color="primary"
+    <div className="min-h-screen flex items-center justify-center p-4 bg-gray-50">
+      <Card className="max-w-md w-full shadow-lg border-none">
+        <CardHeader className="pb-0 flex flex-col items-center">
+          <div className="w-20 h-20 rounded-full bg-red-100 flex items-center justify-center mb-4">
+            <AlertCircle className="h-10 w-10 text-red-600" />
+          </div>
+          <h1 className="text-6xl font-bold text-red-600 mb-2">404</h1>
+          <h2 className="text-2xl font-semibold text-gray-800">Halaman Tidak Ditemukan</h2>
+        </CardHeader>
+        <CardContent className="pt-4 pb-6 text-center">
+          <p className="text-gray-600">
+            Halaman yang Anda cari tidak ditemukan atau mungkin telah dipindahkan.
+          </p>
+        </CardContent>
+        <CardFooter className="flex justify-center gap-3 pb-6">
+          <Button 
+            variant="outline" 
             onClick={() => router.back()}
-            sx={{ px: 3, py: 1 }}
+            className="px-5"
           >
             Kembali
           </Button>
-          <Button
-            variant="outlined"
-            component={Link}
-            href="/dashboard"
-            sx={{ px: 3, py: 1 }}
+          <Button 
+            variant="default"
+            className="px-5 bg-indigo-600 hover:bg-indigo-700"
+            asChild
           >
-            Ke Dashboard
+            <Link href="/dashboard">Ke Dashboard</Link>
           </Button>
-        </Box>
-      </Paper>
-    </Container>
+        </CardFooter>
+      </Card>
+    </div>
   );
 } 

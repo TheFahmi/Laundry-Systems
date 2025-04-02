@@ -28,103 +28,79 @@ axios.interceptors.response.use(
   async (error) => {
     // Check if there's a response from the server
     if (!error.response) {
+      console.error('Network error - no response from server:', error.message);
       return Promise.reject(error);
     }
     
     // For invalid JWT token (401)
     if (error.response?.status === 401) {
-      console.log('[Axios] Received 401 error:', error.response.data);
+      // Debug info - buat lebih mudah troubleshooting
+      console.log('%c[401 Unauthorized Error]', 'background: red; color: white; padding: 2px 5px; border-radius: 3px;');
+      console.log('Error Response Data:', error.response.data);
+      console.log('Request URL:', error.config.url);
+      console.log('Request Method:', error.config.method);
+      console.log('Request Headers:', error.config.headers);
       
-      // Handle tokenExpired flag specifically
-      if (error.response?.data?.tokenExpired) {
-        console.log('[Axios] Token expired flag detected, attempting refresh');
+      // Cek apakah ada token
+      const token = Cookies.get('token');
+      console.log('Current token exists:', !!token);
+      
+      if (token) {
         try {
-          // Try to refresh the token using our enhanced function
-          const refreshed = await refreshToken();
-          
-          if (refreshed && error.config) {
-            console.log('[Axios] Token refreshed successfully, retrying request');
-            // Get the latest token
-            const newToken = Cookies.get('token');
-            // Update the Authorization header with the new token
-            error.config.headers['Authorization'] = `Bearer ${newToken}`;
-            // Mark as retried to prevent infinite loops
-            error.config._isRetry = true;
-            // Retry the request with the new token
-            return axios(error.config);
-          } else {
-            console.log('[Axios] Token refresh failed, logging out');
-            // Force logout and redirect to login page
-            await forceLogout();
-            return Promise.reject(new Error('Authentication failed. Please log in again.'));
+          // Decode token untuk debug (tanpa validasi)
+          const parts = token.split('.');
+          if (parts.length === 3) {
+            const payload = JSON.parse(atob(parts[1]));
+            console.log('Token payload:', payload);
+            
+            // Cek waktu expired
+            const now = Math.floor(Date.now() / 1000);
+            const timeLeft = payload.exp - now;
+            console.log('Token expiry time:', new Date(payload.exp * 1000).toLocaleString());
+            console.log('Current time:', new Date().toLocaleString());
+            console.log('Time left (seconds):', timeLeft);
+            
+            if (timeLeft < 0) {
+              console.log('Token telah expired:', Math.abs(timeLeft), 'detik yang lalu');
+              
+              // Attempt to regenerate token automatically if it's expired
+              console.log('Attempting to regenerate token automatically...');
+              const newToken = await regenerateToken(token);
+              
+              if (newToken && error.config) {
+                console.log('Token regenerated, retrying original request');
+                
+                // Update the failed request with the new token
+                error.config.headers['Authorization'] = `Bearer ${newToken}`;
+                
+                // Try the request again with the new token
+                return axios(error.config);
+              } else {
+                console.log('Token regeneration failed, cannot retry request');
+              }
+            }
           }
-        } catch (refreshError) {
-          console.error('[Axios] Error during token refresh:', refreshError);
-          // Force logout and redirect
-          await forceLogout();
-          return Promise.reject(new Error('Authentication failed. Please log in again.'));
+        } catch (e) {
+          console.error('Error decoding token:', e);
         }
       }
       
-      // Check for token fix suggestion
-      if (error.response?.data?.fixToken && error.response?.data?.username) {
-        try {
-          const username = error.response.data.username;
-          
-          // Use the fix-token endpoint to get a new token
-          const result = await fixToken(username);
-          
-          if (result && result.success && error.config) {
-            // Update the token for this request
-            const newToken = result.token;
-            error.config.headers['Authorization'] = `Bearer ${newToken}`;
-            // Retry the request with the new token
-            return axios(error.config);
-          }
-        } catch (fixError) {
-          // Force logout as fallback
-          await forceLogout();
-          return Promise.reject(new Error('Token fix failed. Please log in again.'));
-        }
-      }
+      // Sebelumnya kita akan redirect ke login, sekarang kita tambahkan property debugInfo
+      // dan biarkan aplikasi menangani error tanpa redirect
       
-      // Special handling for redirectToLogin property
-      if (error.response?.data?.redirectToLogin) {
-        // Force logout and redirect
-        await forceLogout();
-        return Promise.reject(error);
-      }
+      // Display error dialog instead of redirecting
+      error.debugInfo = {
+        message: "Token authentication error (401)",
+        tokenExists: !!token,
+        errorData: error.response.data,
+        url: error.config.url
+      };
       
-      // Check if we can refresh the token
-      if (error.config && !error.config._isRetry) {
-        try {
-          // Try to refresh the token
-          const refreshed = await refreshToken();
-          if (refreshed) {
-            // Mark as retried to prevent infinite loops
-            error.config._isRetry = true;
-            // Retry the original request
-            return axios(error.config);
-          } else {
-            // Force logout and redirect to login page
-            await forceLogout();
-            return Promise.reject(new Error('Authentication failed. Please log in again.'));
-          }
-        } catch (refreshError) {
-          // Force logout and redirect
-          await forceLogout();
-          return Promise.reject(new Error('Authentication failed. Please log in again.'));
-        }
-      } else {
-        // Token refresh failed or wasn't attempted
-        // Clean up and redirect to login
-        await forceLogout();
-        
-        // Return a rejected promise to stop the execution chain
-        return Promise.reject(new Error('Authentication required. Please log in.'));
-      }
+      // Jangan redirect ke login - biarkan aplikasi menampilkan error
+      return Promise.reject(error);
     }
     
+    // For other errors
     return Promise.reject(error);
   }
 );
@@ -352,7 +328,8 @@ export {
   getCurrentUser,
   clearAuthData,
   fixToken,
-  refreshToken
+  refreshToken,
+  regenerateToken
 };
 
 // Export a function for retrying requests with token fix
@@ -377,5 +354,54 @@ export const clearAuthCookies = async (): Promise<void> => {
     }
   } catch (error) {
     // Remove console.error
+  }
+};
+
+// Function to manually regenerate expired token
+const regenerateToken = async (expiredToken: string): Promise<string | null> => {
+  try {
+    // Decode the expired token to get user information
+    const parts = expiredToken.split('.');
+    if (parts.length !== 3) {
+      console.error('[Auth Service] Invalid token format for regeneration');
+      return null;
+    }
+    
+    // Parse payload without validation
+    const payload = JSON.parse(atob(parts[1]));
+    console.log('[Auth Service] Regenerating token for payload:', payload);
+    
+    if (!payload.username || (!payload.userId && !payload.sub)) {
+      console.error('[Auth Service] Token payload missing required fields for regeneration');
+      return null;
+    }
+    
+    // Call the token regeneration endpoint with the expired token and user info
+    const response = await axios.post('/api/auth/regenerate-token', {
+      username: payload.username,
+      userId: payload.userId || payload.sub,
+      role: payload.role || 'user'
+    }, {
+      headers: {
+        // Include the expired token so the server can verify the request is legitimate
+        'Authorization': `Bearer ${expiredToken}`
+      }
+    });
+    
+    if (response.data?.token) {
+      console.log('[Auth Service] Token successfully regenerated');
+      // Update stored token with the new one
+      Cookies.set('token', response.data.token, { 
+        expires: 14, // 14 days
+        path: '/' 
+      });
+      return response.data.token;
+    }
+    
+    console.log('[Auth Service] No token in regeneration response');
+    return null;
+  } catch (error) {
+    console.error('[Auth Service] Token regeneration error:', error);
+    return null;
   }
 }; 

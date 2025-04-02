@@ -35,33 +35,33 @@ export default function OrderDetails({ orderData, updateOrderData }: OrderDetail
 
   // Get maximum processing time from all services in the order
   const getMaxProcessingTime = () => {
-    if (!orderData.items || orderData.items.length === 0) return 24; // Default 24 hours
+    // If no items selected, return minimum processing time
+    if (!orderData.items || orderData.items.length === 0) {
+      return 24; // Default 1 day if no items
+    }
 
-    // Map service types to estimated processing times (in hours)
-    const processingTimes = {
-      "cuci-setrika": 48, // 2 days for washing and ironing
-      "cuci-lipat": 36,   // 1.5 days for washing and folding
-      "setrika": 24,      // 1 day for ironing only
-      "dry-clean": 72     // 3 days for dry cleaning
-    };
-
-    // Find the maximum processing time among all items
-    let maxTime = 24; // Default minimum processing time (24 hours)
-    
+    // Find the maximum processing time from selected items
+    let maxTime = 0;
     for (const item of orderData.items) {
-      const serviceType = item.serviceType || "default";
-      const serviceTime = processingTimes[serviceType as keyof typeof processingTimes] || 24;
+      const serviceTime = item.service?.processingTimeHours || 24;
       maxTime = Math.max(maxTime, serviceTime);
     }
     
-    return maxTime;
+    return maxTime || 24; // Return at least 24 hours if no valid time found
   };
 
   // Calculate the earliest possible pickup date based on processing time
   const getEarliestPickupDate = () => {
-    const processingHours = getMaxProcessingTime();
     const now = new Date();
-    return addDays(now, Math.ceil(processingHours / 24));
+    // For self-pickup, earliest date is today + processing time
+    if (!isDeliveryNeeded) {
+      const processingHours = getMaxProcessingTime();
+      const minPickupDate = addDays(now, Math.ceil(processingHours / 24));
+      minPickupDate.setHours(0, 0, 0, 0);
+      return minPickupDate;
+    }
+    // For delivery orders, allow same day pickup
+    return now;
   };
 
   // Calculate estimated completion date based on pickup date + processing time
@@ -156,17 +156,32 @@ export default function OrderDetails({ orderData, updateOrderData }: OrderDetail
   return (
     <div className="space-y-6">
       {/* Processing time alert */}
-      <Alert variant="default" className="bg-blue-50 text-blue-800 border-blue-200">
-        <div className="flex items-start">
-          <AlertCircleIcon className="h-5 w-5 text-blue-600 mr-2 mt-0.5" />
-          <AlertDescription className="text-blue-800">
-            <div className="space-y-1">
-              <p><span className="font-medium">Estimasi waktu pengerjaan:</span> <strong>{formatProcessingTime()}</strong></p>
-              <p><span className="font-medium">Pengiriman tersedia:</span> Minimal <strong className="text-blue-700">{formatProcessingTime()}</strong> setelah tanggal pengambilan</p>
-            </div>
-          </AlertDescription>
+      <div className="rounded-lg bg-blue-50 border border-blue-200 overflow-hidden">
+        <div className="p-3 bg-blue-100/50 border-b border-blue-200">
+          <h4 className="text-sm font-semibold text-blue-800 flex items-center">
+            <ClockIcon className="h-4 w-4 text-blue-600 mr-1.5" />
+            Informasi Waktu
+          </h4>
         </div>
-      </Alert>
+        <div className="p-3 space-y-3">
+          <div className="flex items-center">
+            <div className="w-2 h-2 rounded-full bg-blue-600 mr-2"></div>
+            <p className="text-sm text-blue-800">
+              <span className="font-medium">Estimasi waktu pengerjaan:</span>
+              <span className="ml-1.5 bg-blue-100 text-blue-800 font-medium py-0.5 px-2 rounded-md inline-block">{formatProcessingTime()}</span>
+            </p>
+          </div>
+          <div className="flex items-center">
+            <div className="w-2 h-2 rounded-full bg-blue-600 mr-2"></div>
+            <p className="text-sm text-blue-800">
+              <span className="font-medium">Pengiriman tersedia:</span>
+              <span className="ml-1.5 bg-blue-100 text-blue-800 font-medium py-0.5 px-2 rounded-md inline-block">
+                Minimal {formatProcessingTime()} setelah tanggal pengambilan
+              </span>
+            </p>
+          </div>
+        </div>
+      </div>
       
       {/* Delivery options */}
       <div className="space-y-3">

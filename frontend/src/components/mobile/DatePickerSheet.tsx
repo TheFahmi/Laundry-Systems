@@ -93,11 +93,6 @@ export default function DatePickerSheet({
       return true;
     }
     
-    // Disable Sundays
-    if (date.getDay() === 0) {
-      return true;
-    }
-    
     // Disable dates in the disabledDates array
     if (disabledDates.some(disabledDate => isSameDay(date, disabledDate))) {
       return true;
@@ -214,17 +209,32 @@ export default function DatePickerSheet({
 
         {/* Delivery time notice */}
         {minIntervalAfterDate && (
-          <div className="mt-4 p-3 bg-blue-50 rounded-md border border-blue-100 flex items-start">
-            <Info className="h-4 w-4 text-blue-500 mr-2 mt-0.5 flex-shrink-0" />
-            <div className="text-sm text-blue-700 space-y-1.5">
-              <p>
-                <span className="font-medium block mb-0.5">Estimasi waktu pengerjaan:</span>
-                <Badge variant="outline" className="bg-blue-100 text-blue-700 font-medium">{minIntervalAfterDate.days} hari</Badge>
-              </p>
-              <p>
-                <span className="font-medium block mb-0.5">Tanggal pengiriman minimal:</span>
-                <Badge variant="outline" className="bg-blue-100 text-blue-700 font-medium">{minIntervalAfterDate.days} hari setelah pengambilan</Badge>
-              </p>
+          <div className="mt-4 rounded-lg bg-blue-50 border border-blue-200 overflow-hidden">
+            <div className="p-2 bg-blue-100/50 border-b border-blue-200">
+              <h4 className="text-sm font-semibold text-blue-800 flex items-center">
+                <Clock className="h-4 w-4 text-blue-600 mr-1.5" />
+                Informasi Waktu
+              </h4>
+            </div>
+            <div className="p-3 space-y-3">
+              <div className="flex items-center">
+                <div className="w-2 h-2 rounded-full bg-blue-600 mr-2"></div>
+                <p className="text-sm text-blue-800">
+                  <span className="font-medium">Estimasi waktu pengerjaan:</span>
+                  <span className="ml-1.5 bg-blue-100 text-blue-800 font-medium py-0.5 px-2 rounded-md inline-block">
+                    {minIntervalAfterDate.days} hari
+                  </span>
+                </p>
+              </div>
+              <div className="flex items-center">
+                <div className="w-2 h-2 rounded-full bg-blue-600 mr-2"></div>
+                <p className="text-sm text-blue-800">
+                  <span className="font-medium">Pengiriman tersedia:</span>
+                  <span className="ml-1.5 bg-blue-100 text-blue-800 font-medium py-0.5 px-2 rounded-md inline-block">
+                    Minimal {minIntervalAfterDate.days} hari setelah pengambilan
+                  </span>
+                </p>
+              </div>
             </div>
           </div>
         )}
