@@ -3,8 +3,8 @@
 > A comprehensive laundry management solution for managing orders, customers, payments, and operations for laundry businesses of all sizes.
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
-[![NextJS](https://img.shields.io/badge/Next.js-13.5-black)](https://nextjs.org/)
-[![NestJS](https://img.shields.io/badge/NestJS-10.0-red)](https://nestjs.com/)
+[![NextJS](https://img.shields.io/badge/Next.js-15.2.3-black)](https://nextjs.org/)
+[![NestJS](https://img.shields.io/badge/NestJS-10.0.0-red)](https://nestjs.com/)
 
 **Website:** [https://laundry-systems.com](https://laundry-systems.com)
 
@@ -68,7 +68,7 @@ The Laundry Management System is an end-to-end solution for laundry businesses d
 ## Technologies Used
 
 ### Backend
-- **NestJS**: Node.js framework for backend
+- **NestJS 10.0.0**: Node.js framework for backend development
 - **TypeScript**: Static typing for safer development
 - **PostgreSQL**: Relational database for data storage
 - **TypeORM**: ORM for database management
@@ -76,7 +76,7 @@ The Laundry Management System is an end-to-end solution for laundry businesses d
 - **Swagger**: Integrated API documentation
 
 ### Frontend
-- **Next.js**: React framework with server-side rendering
+- **Next.js 15.2.3**: React framework with server-side rendering
 - **React**: UI library for user interfaces
 - **Shadcn UI**: UI components with dark mode support
 - **Tailwind CSS**: CSS framework for responsive styling
