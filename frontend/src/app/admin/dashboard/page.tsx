@@ -38,14 +38,14 @@ interface RecentActivity {
 }
 
 const menuItems = [
-  { name: "Orders", path: "/orders", icon: <ShoppingCart className="h-6 w-6" />, color: "bg-blue-100 text-blue-700 dark:bg-blue-900 dark:text-blue-300" },
-  { name: "Customers", path: "/customers", icon: <Users className="h-6 w-6" />, color: "bg-green-100 text-green-700 dark:bg-green-900 dark:text-green-300" },
-  { name: "Payments", path: "/payments", icon: <CreditCard className="h-6 w-6" />, color: "bg-purple-100 text-purple-700 dark:bg-purple-900 dark:text-purple-300" },
-  { name: "Services", path: "/services", icon: <Package className="h-6 w-6" />, color: "bg-yellow-100 text-yellow-700 dark:bg-yellow-900 dark:text-yellow-300" },
-  { name: "Users", path: "/users", icon: <UserCircle className="h-6 w-6" />, color: "bg-pink-100 text-pink-700 dark:bg-pink-900 dark:text-pink-300" },
-  { name: "Inventory", path: "/inventory", icon: <Layers className="h-6 w-6" />, color: "bg-orange-100 text-orange-700 dark:bg-orange-900 dark:text-orange-300" },
-  { name: "Employees", path: "/employees", icon: <UserCog className="h-6 w-6" />, color: "bg-indigo-100 text-indigo-700 dark:bg-indigo-900 dark:text-indigo-300" },
-  { name: "Reports", path: "/reports", icon: <BarChart className="h-6 w-6" />, color: "bg-red-100 text-red-700 dark:bg-red-900 dark:text-red-300" },
+  { name: "Orders", path: "/admin/orders", icon: <ShoppingCart className="h-6 w-6" />, color: "bg-blue-100 text-blue-700 dark:bg-blue-900 dark:text-blue-300" },
+  { name: "Customers", path: "/admin/customers", icon: <Users className="h-6 w-6" />, color: "bg-green-100 text-green-700 dark:bg-green-900 dark:text-green-300" },
+  { name: "Payments", path: "/admin/payments", icon: <CreditCard className="h-6 w-6" />, color: "bg-purple-100 text-purple-700 dark:bg-purple-900 dark:text-purple-300" },
+  { name: "Services", path: "/admin/services", icon: <Package className="h-6 w-6" />, color: "bg-yellow-100 text-yellow-700 dark:bg-yellow-900 dark:text-yellow-300" },
+  { name: "Users", path: "/admin/users", icon: <UserCircle className="h-6 w-6" />, color: "bg-pink-100 text-pink-700 dark:bg-pink-900 dark:text-pink-300" },
+  { name: "Inventory", path: "/admin/inventory", icon: <Layers className="h-6 w-6" />, color: "bg-orange-100 text-orange-700 dark:bg-orange-900 dark:text-orange-300" },
+  { name: "Employees", path: "/admin/employees", icon: <UserCog className="h-6 w-6" />, color: "bg-indigo-100 text-indigo-700 dark:bg-indigo-900 dark:text-indigo-300" },
+  { name: "Reports", path: "/admin/reports", icon: <BarChart className="h-6 w-6" />, color: "bg-red-100 text-red-700 dark:bg-red-900 dark:text-red-300" },
 ]
 
 // Mock upcoming tasks - we'll keep this static for now
