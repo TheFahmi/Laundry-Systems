@@ -60,12 +60,29 @@ export interface SingleOrderResponse {
   data: AnyData;
 }
 
+export interface OrderParams {
+  page?: number;
+  limit?: number;
+  status?: string;
+  search?: string;
+  [key: string]: any;
+}
+
 /**
  * Fetch orders with optional filtering
  */
-export async function getOrders() {
+export async function getOrders(params?: OrderParams) {
   try {
-    const response = await fetchWithAuth('/api/orders');
+    // Add query parameters to the URL if provided
+    const queryString = params 
+      ? '?' + new URLSearchParams(
+          Object.entries(params)
+            .filter(([_, v]) => v !== undefined && v !== null && v !== '')
+            .map(([k, v]) => [k, String(v)])
+        ).toString()
+      : '';
+      
+    const response = await fetchWithAuth(`/api/orders${queryString}`);
     return response;
   } catch (error) {
     console.error('Error fetching orders:', error);
@@ -205,4 +222,7 @@ export async function getOrderStatus(orderId: string, verificationToken: string)
     console.error('Error getting order status:', error);
     throw error;
   }
+} 
+  }
+} 
 } 
