@@ -28,11 +28,19 @@ export default function OrderCompletedPage() {
       try {
         setLoading(true);
         console.log('Fetching order with ID:', orderId);
-        const response = await getOrderById(orderId);
+        
+        const response = await getOrderById(orderId as string);
         
         if (response && response.data) {
           console.log('Order data:', response.data);
           setOrder(response.data);
+          
+          if (searchParams.get('print') === 'true') {
+            setTimeout(() => {
+              console.log('Auto-printing order receipt');
+              window.print();
+            }, 1000);
+          }
         } else {
           setError('Data pesanan tidak ditemukan');
         }
@@ -45,7 +53,7 @@ export default function OrderCompletedPage() {
     }
 
     fetchOrderDetails();
-  }, [orderId]);
+  }, [orderId, searchParams]);
 
   const formatDate = (dateString: string) => {
     try {
@@ -185,6 +193,63 @@ export default function OrderCompletedPage() {
           </div>
         </div>
       </div>
+      
+      {/* Print-specific styles */}
+      <style jsx global>{`
+        @media print {
+          @page {
+            size: auto;
+            margin: 0.5cm;
+          }
+          
+          body {
+            print-color-adjust: exact;
+            -webkit-print-color-adjust: exact;
+            margin: 0;
+            padding: 0;
+          }
+          
+          /* Hide elements not needed when printing */
+          button {
+            display: none !important;
+          }
+          
+          /* Adjust colors for better printing */
+          .bg-green-500 {
+            background-color: #22c55e !important;
+            color: #ffffff !important;
+          }
+          
+          .bg-gray-50 {
+            background-color: #ffffff !important;
+          }
+          
+          .text-gray-500, .text-gray-600, .text-gray-700 {
+            color: #000000 !important;
+          }
+          
+          /* Ensure text is legible */
+          p, span, h1, h2, h3 {
+            color: #000000 !important;
+          }
+          
+          /* Only display the order panel, hide other elements */
+          .min-h-screen {
+            min-height: auto !important;
+            padding: 0 !important;
+          }
+          
+          /* Only keep the "Kembali ke Dashboard" button hidden */
+          .space-y-3 button {
+            display: none !important;
+          }
+          
+          /* But keep the Print Invoice link visible */
+          .space-y-3 a {
+            display: none !important;
+          }
+        }
+      `}</style>
     </div>
   );
 } 

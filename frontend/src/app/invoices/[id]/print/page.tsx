@@ -5,6 +5,7 @@ import { useParams } from 'next/navigation';
 import { format } from 'date-fns';
 import { id } from 'date-fns/locale';
 import { createAuthHeaders } from '@/lib/api-utils';
+import { getOrderById } from '@/lib/orders';
 
 interface OrderItem {
   serviceName: string;
@@ -56,102 +57,35 @@ const debugLog = (message: string, data: any = {}) => {
 
 export default function InvoicePrintPage() {
   const params = useParams();
-  const [order, setOrder] = useState<Order | null>(null);
-  const [loading, setLoading] = useState(true);
+  const [invoice, setInvoice] = useState<any>(null);
+  const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    const fetchOrderDetails = async () => {
+    async function fetchInvoice() {
       try {
-        const headers = createAuthHeaders();
-        debugLog('Fetching order details', { orderId: params.id });
+        setLoading(true);
+        const orderId = params.id as string;
+        console.log('Fetching invoice data for order:', orderId);
         
-        const response = await fetch(`/api/orders/${params.id}`, {
-          headers: {
-            ...headers,
-            'Content-Type': 'application/json',
-          },
-        });
-
-        if (!response.ok) {
-          throw new Error(`Failed to fetch order details: ${response.status}`);
+        const response = await getOrderById(orderId);
+        console.log('Invoice data received:', response);
+        
+        if (response && response.data) {
+          setInvoice(response.data);
+        } else {
+          setError('No invoice data returned');
         }
-
-        const data = await response.json();
-        debugLog('Raw order data received', data);
-        
-        // Check for nested data structures
-        let rawOrderData = data;
-        if (data.data) {
-          rawOrderData = data.data;
-          debugLog('Found first level data property', { hasSecondLevel: !!rawOrderData.data });
-          
-          if (rawOrderData.data) {
-            rawOrderData = rawOrderData.data;
-            debugLog('Found second level data property', rawOrderData);
-          }
-        }
-        
-        // Process data to ensure all values are valid
-        const processedOrder = {
-          ...rawOrderData,
-          items: (rawOrderData.items || []).map((item: OrderItem) => {
-            debugLog('Processing item', item);
-            // Get the correct price and quantity values
-            const basePrice = Number(item.price) || 0;
-            const quantity = item.weightBased 
-              ? Number(item.weight) || 0 
-              : Number(item.quantity) || 0;
-            
-            // Calculate the correct subtotal
-            let subtotal: number;
-            if (item.subtotal && !isNaN(item.subtotal)) {
-              subtotal = Number(item.subtotal);
-            } else {
-              subtotal = basePrice * quantity;
-            }
-            
-            debugLog('Item calculated values', { 
-              basePrice, quantity, subtotal, 
-              originalSubtotal: item.subtotal
-            });
-            
-            return {
-              ...item,
-              price: basePrice,
-              quantity: item.weightBased ? item.quantity : quantity, // Keep original quantity
-              weight: item.weightBased ? quantity : undefined, // Set calculated weight
-              subtotal: subtotal
-            };
-          }),
-          // Calculate or validate total
-          total: Number(rawOrderData.total) || (rawOrderData.items || []).reduce((sum: number, item: OrderItem) => {
-            const itemPrice = Number(item.price) || 0;
-            const itemQuantity = item.weightBased 
-              ? Number(item.weight) || 0 
-              : Number(item.quantity) || 0;
-            const itemSubtotal = Number(item.subtotal) || (itemPrice * itemQuantity);
-            return sum + itemSubtotal;
-          }, 0)
-        };
-        
-        debugLog('Processed order data', processedOrder);
-        setOrder(processedOrder);
-        
-        // Automatically trigger print when data is loaded
-        setTimeout(() => {
-          window.print();
-        }, 1000); // Give more time for rendering
-      } catch (err) {
-        console.error('Error fetching order:', err);
-        setError(err instanceof Error ? err.message : 'An error occurred');
+      } catch (err: any) {
+        console.error('Error fetching invoice:', err);
+        setError(err.message || 'Failed to load invoice');
       } finally {
         setLoading(false);
       }
-    };
+    }
 
     if (params.id) {
-      fetchOrderDetails();
+      fetchInvoice();
     }
   }, [params.id]);
 
@@ -163,7 +97,7 @@ export default function InvoicePrintPage() {
     );
   }
 
-  if (error || !order) {
+  if (error || !invoice) {
     return (
       <div className="min-h-screen flex items-center justify-center">
         <div className="text-red-500">
@@ -200,9 +134,22 @@ export default function InvoicePrintPage() {
       {/* Debug section (only visible in non-print mode) */}
       <div className="print:hidden mb-4 p-2 bg-gray-100 rounded text-xs">
         <h3 className="font-bold">Debug Info (not visible when printed)</h3>
-        <p>Order ID: {order.id}</p>
-        <p>Total Items: {order.items.length}</p>
-        <p>Order Total: {order.total}</p>
+        <p>Order ID: {invoice.id}</p>
+        <p>Order Number: {invoice.orderNumber}</p>
+        <p>Total Items: {invoice.items.length}</p>
+        <p>Order Total: {formatCurrency(invoice.total)}</p>
+        <p>Created At: {invoice.createdAt ? new Date(invoice.createdAt).toLocaleString() : 'N/A'}</p>
+        <p>Customer: {invoice.customer?.name || 'N/A'}</p>
+        <div className="mt-2">
+          <p className="font-semibold">Items:</p>
+          <ul className="pl-4 list-disc">
+            {invoice.items.map((item: OrderItem, idx: number) => (
+              <li key={idx}>
+                {item.serviceName} - {item.weightBased ? `${item.weight} kg` : `${item.quantity} pcs`} x {formatCurrency(item.price)} = {formatCurrency(item.subtotal)}
+              </li>
+            ))}
+          </ul>
+        </div>
         <button 
           onClick={() => window.print()} 
           className="mt-2 px-2 py-1 bg-blue-500 text-white rounded"
@@ -215,21 +162,22 @@ export default function InvoicePrintPage() {
       <div className="text-center mb-4">
         <h1 className="text-lg font-bold">LAUNDRY INVOICE</h1>
         <p className="text-xs text-gray-600">
-          {formatDate(order.createdAt)}
+          {invoice.createdAt ? formatDate(invoice.createdAt) : 'N/A'}
         </p>
       </div>
 
       {/* Order and Customer Info */}
       <div className="mb-4">
         <div className="text-xs">
-          <p>No: {order.orderNumber}</p>
-          <p>Tanggal: {formatDate(order.createdAt)}</p>
-          <p className="font-semibold">Pelanggan: {order.customer.name}</p>
-          {order.customer.phone && <p>Telp: {order.customer.phone}</p>}
+          <p>No: <strong>{invoice.orderNumber}</strong></p>
+          <p>Tanggal: {invoice.createdAt ? formatDate(invoice.createdAt) : 'N/A'}</p>
+          <p className="font-semibold">Pelanggan: {invoice.customer?.name || 'Pelanggan'}</p>
+          {invoice.customer?.phone && <p>Telp: {invoice.customer.phone}</p>}
+          {invoice.customer?.address && <p className="whitespace-pre-wrap">Alamat: {invoice.customer.address}</p>}
         </div>
       </div>
 
-      {/* Items Table */}
+      {/* Items Table - Ensure all items are displayed properly */}
       <table className="w-full mb-4 text-xs">
         <thead>
           <tr className="border-b border-gray-200">
@@ -240,94 +188,68 @@ export default function InvoicePrintPage() {
           </tr>
         </thead>
         <tbody>
-          {order.items.map((item, index) => {
-            // For display purposes, show the correct unit price and quantity
-            const isWeightBased = !!item.weightBased;
-            const displayQuantity = isWeightBased ? (Number(item.weight) || 0) : (Number(item.quantity) || 0);
-            
-            // Calculate the proper unit price and subtotal
-            let displayPrice = Number(item.price) || 0;
-            let displaySubtotal = Number(item.subtotal) || 0;
-            
-            // If subtotal seems incorrect or is not provided, recalculate it
-            if (displaySubtotal === 0 || Math.abs(displaySubtotal - (displayPrice * displayQuantity)) > 1) {
-              displaySubtotal = displayPrice * displayQuantity;
-            }
-            
-            // Debug the values shown
-            debugLog(`Item ${index} display values:`, {
-              name: item.serviceName,
-              isWeightBased,
-              displayQuantity,
-              displayPrice,
-              displaySubtotal,
-              originalPrice: item.price,
-              originalSubtotal: item.subtotal
-            });
-            
-            return (
-              <tr key={index} className="border-b border-gray-100">
-                <td className="py-1">{item.serviceName}</td>
-                <td className="text-right py-1">
-                  {isWeightBased ? `${displayQuantity}kg` : displayQuantity}
-                </td>
-                <td className="text-right py-1">
-                  Rp{formatCurrency(displayPrice)}
-                </td>
-                <td className="text-right py-1">
-                  Rp{formatCurrency(displaySubtotal)}
-                </td>
-              </tr>
-            );
-          })}
+          {invoice.items && invoice.items.length > 0 ? (
+            invoice.items.map((item: OrderItem, index: number) => {
+              // For display purposes, show the correct unit price and quantity
+              const isWeightBased = !!item.weightBased;
+              const displayQuantity = isWeightBased 
+                ? `${formatCurrency(Number(item.weight) || 0)} kg` 
+                : formatCurrency(Number(item.quantity) || 0);
+              
+              return (
+                <tr key={index} className="border-b border-gray-100">
+                  <td className="py-1">{item.serviceName || 'Layanan'}</td>
+                  <td className="text-right py-1">{displayQuantity}</td>
+                  <td className="text-right py-1">{formatCurrency(Number(item.price) || 0)}</td>
+                  <td className="text-right py-1">{formatCurrency(Number(item.subtotal) || 0)}</td>
+                </tr>
+              );
+            })
+          ) : (
+            <tr>
+              <td colSpan={4} className="py-2 text-center text-gray-500">
+                Tidak ada item
+              </td>
+            </tr>
+          )}
         </tbody>
         <tfoot>
-          <tr className="border-t border-gray-200 font-semibold">
-            <td colSpan={3} className="py-1 text-right">Total</td>
-            <td className="py-1 text-right">
-              Rp{formatCurrency(
-                // Get the total either from order.total or by summing the displayed subtotals
-                (!isNaN(order.total) && order.total > 0) ? 
-                  order.total : 
-                  order.items.reduce((sum, item) => {
-                    const isWeightBased = !!item.weightBased;
-                    const quantity = isWeightBased ? (Number(item.weight) || 0) : (Number(item.quantity) || 0);
-                    const price = Number(item.price) || 0;
-                    const subtotal = Number(item.subtotal) || (price * quantity);
-                    return sum + subtotal;
-                  }, 0)
-              )}
-            </td>
+          <tr className="font-bold">
+            <td colSpan={3} className="py-2 text-right">Total:</td>
+            <td className="py-2 text-right">{formatCurrency(invoice.total)}</td>
           </tr>
         </tfoot>
       </table>
 
-      {/* Payment Information */}
-      {order.payments && order.payments.length > 0 && (
-        <div className="mb-4 text-xs">
-          <div className="border-t border-gray-200 pt-2">
-            <p className="font-semibold">Pembayaran:</p>
-            {order.payments.map((payment, index) => (
-              <div key={index} className="flex justify-between">
-                <span>{getPaymentMethodLabel(payment.paymentMethod)}</span>
-                <span>Rp{formatCurrency(payment.amount)}</span>
-              </div>
-            ))}
-          </div>
+      {/* Payment Info if available */}
+      {invoice.payments && invoice.payments.length > 0 && (
+        <div className="mb-4">
+          <h3 className="text-xs font-bold border-b border-gray-200 py-1">Informasi Pembayaran</h3>
+          <table className="w-full text-xs">
+            <tbody>
+              {invoice.payments.map((payment: any, index: number) => (
+                <tr key={index}>
+                  <td className="py-1">{getPaymentMethodLabel(payment.paymentMethod)}</td>
+                  <td className="py-1 text-right">{formatCurrency(payment.amount)}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
         </div>
       )}
 
-      {/* Notes */}
-      {order.notes && (
-        <div className="mb-4 text-xs">
-          <p className="font-semibold">Catatan:</p>
-          <p className="text-gray-600">{order.notes}</p>
+      {/* Notes if any */}
+      {invoice.notes && (
+        <div className="mb-4">
+          <h3 className="text-xs font-bold">Catatan:</h3>
+          <p className="text-xs whitespace-pre-wrap">{invoice.notes}</p>
         </div>
       )}
 
       {/* Footer */}
-      <div className="text-center text-xs text-gray-500 mt-4 border-t border-gray-200 pt-4">
-        <p>Terima kasih telah menggunakan jasa laundry kami</p>
+      <div className="text-center text-xs mt-8">
+        <p>Terima kasih atas kepercayaan Anda</p>
+        <p>Silakan simpan tanda terima ini</p>
       </div>
 
       {/* Print-specific styles */}
