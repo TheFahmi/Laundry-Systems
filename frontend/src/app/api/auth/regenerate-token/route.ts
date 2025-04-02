@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { SignJWT } from 'jose';
 
-// Get JWT secret from environment
+// Get JWT secret from environment - must match the backend secret
 const JWT_SECRET = process.env.JWT_SECRET || 'your-super-secret-key-here';
 
 export async function POST(request: NextRequest) {
@@ -28,7 +28,9 @@ export async function POST(request: NextRequest) {
     const token = await new SignJWT({
       username,
       userId,
-      role: role || 'user'
+      role: role || 'user',
+      // Add the same claims that the backend would add
+      sub: userId
     })
       .setProtectedHeader({ alg: 'HS256' })
       .setIssuedAt()
@@ -42,16 +44,18 @@ export async function POST(request: NextRequest) {
       token
     });
     
-    // Set HTTP cookie (more secure)
+    // Set HTTP cookie
     response.cookies.set({
       name: 'token',
       value: token,
-      httpOnly: true,
       path: '/',
       maxAge: 60 * 60 * 24 * 30, // 30 days
       sameSite: 'lax',
       secure: process.env.NODE_ENV === 'production'
     });
+    
+    // Also set in the authorization header
+    response.headers.set('Authorization', `Bearer ${token}`);
     
     console.log('[API Route] Token regenerated and set in cookies');
     

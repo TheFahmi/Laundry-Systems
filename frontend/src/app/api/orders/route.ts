@@ -49,7 +49,8 @@ async function handleExpiredToken(token: string, request: NextRequest) {
     const newToken = await new SignJWT({
       username: payload.username,
       userId: payload.userId || payload.sub,
-      role: payload.role || 'user'
+      role: payload.role || 'user',
+      sub: payload.userId || payload.sub  // Include sub for backend compatibility
     })
       .setProtectedHeader({ alg: 'HS256' })
       .setIssuedAt()
@@ -70,15 +71,45 @@ async function handleExpiredToken(token: string, request: NextRequest) {
     newResponse.cookies.set({
       name: 'token',
       value: newToken,
-      httpOnly: true,
       path: '/',
       maxAge: 60 * 60 * 24 * 30, // 30 days
       sameSite: 'lax',
       secure: process.env.NODE_ENV === 'production'
     });
     
+    // Also store in localStorage as backup
+    const script = `
+      try {
+        localStorage.setItem('token_backup', '${newToken}');
+        console.log('[Auth] Saved regenerated token to backup storage');
+      } catch (e) {
+        console.error('[Auth] Failed to save token backup:', e);
+      }
+    `;
+    
+    // Inject script tag to update localStorage
+    const html = `
+      <!DOCTYPE html>
+      <html>
+        <head>
+          <title>Token Regenerated</title>
+          <script>${script}</script>
+          <meta http-equiv="refresh" content="0;url=${request.nextUrl.pathname}">
+        </head>
+        <body>
+          <p>Redirecting...</p>
+        </body>
+      </html>
+    `;
+    
     return {
-      response: newResponse,
+      response: new NextResponse(html, {
+        status: 200,
+        headers: {
+          'Content-Type': 'text/html',
+          'Set-Cookie': `token=${newToken}; Path=/; Max-Age=${60 * 60 * 24 * 30}; SameSite=Lax;`
+        }
+      }),
       token: newToken
     };
   } catch (error) {

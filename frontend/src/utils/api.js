@@ -18,6 +18,11 @@ api.interceptors.request.use(
     // If token exists, add it to the Authorization header
     if (token) {
       config.headers.Authorization = `Bearer ${token}`;
+      
+      // Add a timestamp to debug the request
+      config.headers['X-Request-Time'] = new Date().toISOString();
+    } else {
+      console.log('No token available for request:', config.url);
     }
 
     return config;
@@ -27,12 +32,12 @@ api.interceptors.request.use(
   }
 );
 
-// Add a response interceptor to handle auth errors
+// Add a response interceptor to handle regenerated tokens and auth errors
 api.interceptors.response.use(
   (response) => {
-    // Check if this is a token regeneration response
+    // Check if this is a token regeneration response (JSON format)
     if (response.data && response.data.regenerated === true && response.data.token) {
-      console.log('Received regenerated token from API');
+      console.log('Received regenerated token from API (JSON)');
       
       // Store the new token in cookies
       Cookies.set('token', response.data.token, { 
@@ -41,12 +46,29 @@ api.interceptors.response.use(
         sameSite: 'Lax'
       });
       
+      // Also store in localStorage as backup
+      localStorage.setItem('token_backup', response.data.token);
+      
       // Check if we need to redirect or reload
       const currentUrl = window.location.href;
       if (currentUrl.includes('/orders') || currentUrl.includes('/work-order')) {
         console.log('Reloading page to apply new token');
         window.location.reload();
         return response;
+      }
+    }
+    
+    // Check content type for HTML response that may contain token regeneration
+    const contentType = response.headers['content-type'];
+    if (contentType && contentType.includes('text/html')) {
+      const tokenCookie = Cookies.get('token');
+      if (tokenCookie) {
+        // Store token in localStorage backup if not already there
+        if (!localStorage.getItem('token_backup') || 
+            localStorage.getItem('token_backup') !== tokenCookie) {
+          localStorage.setItem('token_backup', tokenCookie);
+          console.log('Updated token backup from cookies after HTML response');
+        }
       }
     }
     
@@ -63,6 +85,7 @@ api.interceptors.response.use(
         
         // Clear auth data
         Cookies.remove('token');
+        localStorage.removeItem('token_backup');
         
         // Redirect to login page (updated to App Router path)
         window.location.href = '/login?expired=true';
@@ -78,6 +101,7 @@ api.interceptors.response.use(
       // Default behavior - clear token and redirect (updated to App Router path)
       console.log('Default 401 handling - redirecting to login');
       Cookies.remove('token');
+      localStorage.removeItem('token_backup');
       window.location.href = '/login';
     }
     
