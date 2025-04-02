@@ -19,7 +19,7 @@ import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 export default function OrderStatusPage() {
   const params = useParams();
   const router = useRouter();
-  const orderId = params.id as string;
+  const orderId = params?.id as string;
   
   const [order, setOrder] = useState<any>(null);
   const [loading, setLoading] = useState(true);
@@ -85,6 +85,20 @@ export default function OrderStatusPage() {
     fetchOrderDetails();
   }, [orderId]);
   
+  // Check if order is paid
+  const isOrderPaid = () => {
+    if (!order) return false;
+    
+    // Check different ways payment status might be stored
+    const isPaid = order.isPaid || order.paymentStatus === 'paid';
+    
+    // Also check if there are completed payments
+    const hasCompletedPayments = order.payments && 
+      order.payments.some((p: any) => p.status === 'completed');
+    
+    return isPaid || hasCompletedPayments;
+  };
+  
   // Handle back button
   const handleBack = () => {
     router.back();
@@ -100,8 +114,8 @@ export default function OrderStatusPage() {
     setUpdating(true);
     
     try {
-      const response = await fetch(`/api/orders/${orderId}`, {
-        method: 'PUT',
+      const response = await fetch(`/api/orders/${orderId}/status`, {
+        method: 'PATCH',
         headers: {
           'Content-Type': 'application/json',
           ...createAuthHeaders()
@@ -171,6 +185,46 @@ export default function OrderStatusPage() {
           <ArrowLeft className="mr-2 h-4 w-4" />
           Kembali
         </Button>
+      </div>
+    );
+  }
+  
+  // Prevent status changes for unpaid orders
+  if (order && !isOrderPaid()) {
+    return (
+      <div className="flex flex-col h-screen">
+        <div className="sticky top-0 z-10 bg-background border-b p-4 flex items-center">
+          <Button 
+            variant="ghost" 
+            size="icon" 
+            onClick={handleBack}
+            className="rounded-full"
+          >
+            <ArrowLeft className="h-5 w-5" />
+          </Button>
+          
+          <div className="flex-1 text-center">
+            <h1 className="text-lg font-semibold">Ubah Status Pesanan</h1>
+          </div>
+        </div>
+        
+        <div className="flex-1 p-4 space-y-4">
+          <Alert>
+            <AlertCircle className="h-4 w-4" />
+            <AlertTitle>Pesanan Belum Lunas</AlertTitle>
+            <AlertDescription>
+              Status pesanan hanya dapat diubah setelah pembayaran diselesaikan. Silakan proses pembayaran terlebih dahulu.
+            </AlertDescription>
+          </Alert>
+          
+          <Button 
+            onClick={handleBack}
+            className="w-full mt-4"
+          >
+            <ArrowLeft className="mr-2 h-4 w-4" />
+            Kembali ke Detail Pesanan
+          </Button>
+        </div>
       </div>
     );
   }

@@ -431,13 +431,21 @@ export default function OrderDetailsMobile({ order, onRefresh }: OrderDetailsMob
               setTimeout(() => setShowPaymentSheet(true), 300);
             }
           }] : []),
-          {
+          ...(isFullyPaid ? [{
             icon: <Clock className="h-5 w-5" />,
             label: "Ubah Status Pesanan",
             onClick: () => {
               router.push(`/orders/${order.id}/status`);
             }
-          },
+          }] : [{
+            icon: <Clock className="h-5 w-5 text-muted-foreground" />,
+            label: "Ubah Status Pesanan",
+            disabled: true,
+            onClick: () => {
+              setActionSheetOpen(false);
+              toast.warning('Pesanan harus lunas sebelum status dapat diubah');
+            }
+          }]),
           {
             icon: <ArrowLeft className="h-5 w-5" />,
             label: "Kembali ke Daftar",

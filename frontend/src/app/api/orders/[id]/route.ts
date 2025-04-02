@@ -148,4 +148,68 @@ export async function DELETE(
       message: error.message
     }, { status: 500 });
   }
+}
+
+// Handle PUT request for updating order
+export async function PUT(
+  request: NextRequest,
+  { params }: { params: { id: string } }
+) {
+  console.log(`[API Route] PUT /api/orders/${params.id}: Request received`);
+  
+  try {
+    // Get token from cookies or Authorization header
+    const token = getTokenFromRequest(request);
+    
+    if (!token) {
+      console.log(`[API Route] PUT /api/orders/${params.id}: No token available`);
+      return NextResponse.json({ error: 'Unauthorized - Please log in' }, { status: 401 });
+    }
+    
+    // Get the request body
+    const body = await request.json();
+    console.log(`[API Route] PUT /api/orders/${params.id}: Request body:`, body);
+    
+    // Forward request to backend - using PATCH instead of PUT for backend API
+    console.log(`[API Route] Calling backend API: PATCH ${API_BASE_URL}/orders/${params.id}`);
+    const response = await fetch(`${API_BASE_URL}/orders/${params.id}`, {
+      method: 'PATCH', // Using PATCH since the backend expects PATCH
+      headers: {
+        'Authorization': `Bearer ${token}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(body)
+    });
+    
+    // Handle response
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({ message: 'Unknown error' }));
+      console.error(`[API Route] PUT /api/orders/${params.id}: Failed (${response.status}):`, errorData);
+      
+      return NextResponse.json({ 
+        error: 'Failed to update order',
+        statusCode: response.status,
+        message: errorData.message || 'Unknown error',
+        details: errorData
+      }, { status: response.status });
+    }
+    
+    const responseData = await response.json();
+    console.log(`[API Route] PUT /api/orders/${params.id}: Success:`, responseData);
+    
+    // Return successful response
+    return NextResponse.json({
+      statusCode: 200,
+      message: 'Order updated successfully',
+      timestamp: new Date().toISOString(),
+      data: responseData
+    });
+  } catch (error: any) {
+    console.error(`[API Route] PUT /api/orders/${params.id}: Exception:`, error.message);
+    return NextResponse.json({ 
+      error: 'Failed to update order',
+      statusCode: 500,
+      message: error.message
+    }, { status: 500 });
+  }
 } 
