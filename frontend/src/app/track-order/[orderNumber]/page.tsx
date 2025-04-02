@@ -23,42 +23,42 @@ import { OrderService, TrackOrderResponse } from '@/services/order.service';
 
 const statusInfo = {
   new: { 
-    label: 'New Order', 
+    label: 'Pesanan Baru', 
     color: 'bg-gray-100 text-gray-800 border-gray-200',
     icon: Clock
   },
   processing: { 
-    label: 'Processing', 
+    label: 'Diproses', 
     color: 'bg-blue-100 text-blue-800 border-blue-200',
     icon: Package
   },
   washing: { 
-    label: 'Washing', 
+    label: 'Sedang Dicuci', 
     color: 'bg-blue-100 text-blue-800 border-blue-200',
     icon: Package
   },
   drying: { 
-    label: 'Drying', 
+    label: 'Sedang Dikeringkan', 
     color: 'bg-yellow-100 text-yellow-800 border-yellow-200',
     icon: Package
   },
   folding: { 
-    label: 'Folding', 
+    label: 'Sedang Dilipat', 
     color: 'bg-purple-100 text-purple-800 border-purple-200',
     icon: Package
   },
   ready: { 
-    label: 'Ready for Pickup', 
+    label: 'Siap Diambil', 
     color: 'bg-green-100 text-green-800 border-green-200',
     icon: CheckCircle2
   },
   delivered: { 
-    label: 'Delivered', 
+    label: 'Telah Diantar', 
     color: 'bg-purple-100 text-purple-800 border-purple-200',
     icon: Truck
   },
   cancelled: { 
-    label: 'Cancelled', 
+    label: 'Dibatalkan', 
     color: 'bg-red-100 text-red-800 border-red-200',
     icon: AlertCircle
   }
@@ -66,15 +66,15 @@ const statusInfo = {
 
 const paymentStatusInfo = {
   pending: {
-    label: 'Not Paid',
+    label: 'Belum Lunas',
     color: 'bg-red-100 text-red-800 border-red-200'
   },
   partial: {
-    label: 'Partially Paid',
+    label: 'Dibayar Sebagian',
     color: 'bg-yellow-100 text-yellow-800 border-yellow-200'
   },
   completed: {
-    label: 'Paid',
+    label: 'Lunas',
     color: 'bg-green-100 text-green-800 border-green-200'
   }
 };
@@ -93,7 +93,7 @@ export default function TrackOrderPage() {
   useEffect(() => {
     // Validate that we have verification digits
     if (!verifyDigits || verifyDigits.length !== 4) {
-      setError('Invalid verification');
+      setError('Verifikasi tidak valid');
       setLoading(false);
       return;
     }
@@ -105,7 +105,7 @@ export default function TrackOrderPage() {
         setOrder(orderData);
         setLoading(false);
       } catch (err) {
-        setError('Failed to load order data. Please check your order number.');
+        setError('Gagal memuat data pesanan. Periksa kembali nomor pesanan Anda.');
         setLoading(false);
       }
     };
@@ -114,12 +114,12 @@ export default function TrackOrderPage() {
   }, [orderNumber, verifyDigits]);
 
   const formatDate = (dateString: string | null | undefined) => {
-    if (!dateString) return 'Not specified';
+    if (!dateString) return 'Tidak ditentukan';
     
     try {
       const date = new Date(dateString);
       // Check if date is valid
-      if (isNaN(date.getTime())) return 'Invalid date';
+      if (isNaN(date.getTime())) return 'Tanggal tidak valid';
       
       return date.toLocaleDateString('id-ID', {
         weekday: 'long',
@@ -138,6 +138,43 @@ export default function TrackOrderPage() {
     return `Rp ${amount.toLocaleString('id-ID')}`;
   };
 
+  // Add function to calculate estimated delivery date
+  const getEstimatedDeliveryDate = (createdAt: string | null | undefined, status: string): string => {
+    if (!createdAt) return 'Akan ditentukan';
+    
+    try {
+      const orderDate = new Date(createdAt);
+      if (isNaN(orderDate.getTime())) return 'Akan ditentukan';
+      
+      // Add different days based on current status
+      let daysToAdd = 2; // Default: 2 days for new orders
+      
+      if (status === 'processing' || status === 'washing') {
+        daysToAdd = 1; // 1 more day if already processing
+      } else if (status === 'drying' || status === 'folding') {
+        daysToAdd = 0.5; // 12 hours if already drying/folding
+      } else if (status === 'ready' || status === 'delivered') {
+        return 'Siap untuk diambil/diantar';
+      }
+      
+      // Calculate estimated date
+      const estimatedDate = new Date(orderDate);
+      estimatedDate.setDate(orderDate.getDate() + Math.floor(daysToAdd));
+      
+      // If there's a fractional day, add hours
+      if (daysToAdd % 1 !== 0) {
+        estimatedDate.setHours(
+          estimatedDate.getHours() + Math.round((daysToAdd % 1) * 24)
+        );
+      }
+      
+      return formatDate(estimatedDate.toISOString());
+    } catch (error) {
+      console.error('Error calculating estimated delivery:', error);
+      return 'Akan ditentukan';
+    }
+  };
+
   if (loading) {
     return (
       <div className="container max-w-4xl mx-auto py-8 px-4">
@@ -148,7 +185,7 @@ export default function TrackOrderPage() {
             onClick={() => router.push('/')}
           >
             <ArrowLeft className="mr-2 h-4 w-4" />
-            Back to Home
+            Kembali ke Beranda
           </Button>
           <Skeleton className="h-8 w-64 mb-2" />
           <Skeleton className="h-4 w-48" />
@@ -177,7 +214,7 @@ export default function TrackOrderPage() {
             onClick={() => router.push('/')}
           >
             <ArrowLeft className="mr-2 h-4 w-4" />
-            Back to Home
+            Kembali ke Beranda
           </Button>
         </div>
         
@@ -185,12 +222,12 @@ export default function TrackOrderPage() {
           <CardContent className="py-12">
             <div className="text-center">
               <AlertCircle className="mx-auto h-12 w-12 text-red-500 mb-4" />
-              <h2 className="text-2xl font-bold mb-2">Order Not Found</h2>
+              <h2 className="text-2xl font-bold mb-2">Pesanan Tidak Ditemukan</h2>
               <p className="text-gray-600 mb-6">
-                {error || 'Order not found or verification failed'}
+                {error || 'Pesanan tidak ditemukan atau verifikasi gagal'}
               </p>
               <Button onClick={() => router.push('/')}>
-                Back to Home
+                Kembali ke Beranda
               </Button>
             </div>
           </CardContent>
@@ -218,10 +255,10 @@ export default function TrackOrderPage() {
           onClick={() => router.push('/')}
         >
           <ArrowLeft className="mr-2 h-4 w-4" />
-          Back to Home
+          Kembali ke Beranda
         </Button>
-        <h1 className="text-3xl font-bold">{order?.orderNumber || 'Order Tracking'}</h1>
-        <p className="text-gray-500">Order Status Tracker</p>
+        <h1 className="text-3xl font-bold">{order?.orderNumber || 'Pelacakan Pesanan'}</h1>
+        <p className="text-gray-500">Pelacak Status Pesanan</p>
       </div>
       
       <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
@@ -229,7 +266,7 @@ export default function TrackOrderPage() {
           {/* Status Card */}
           <Card>
             <CardHeader className="pb-3">
-              <CardTitle className="text-xl">Current Status</CardTitle>
+              <CardTitle className="text-xl">Status Saat Ini</CardTitle>
             </CardHeader>
             <CardContent>
               <div className="flex items-center space-x-4">
@@ -241,7 +278,7 @@ export default function TrackOrderPage() {
                     {statusLabel}
                   </Badge>
                   <p className="text-sm text-gray-500 mt-1">
-                    Last updated: {order?.createdAt ? new Date(order.createdAt).toLocaleString() : 'Unknown'}
+                    Terakhir diperbarui: {order?.createdAt ? new Date(order.createdAt).toLocaleString('id-ID') : 'Tidak diketahui'}
                   </p>
                 </div>
               </div>
@@ -258,7 +295,7 @@ export default function TrackOrderPage() {
                         </div>
                       </div>
                       <div className="ml-4">
-                        <h3 className="text-sm font-medium">Order Created</h3>
+                        <h3 className="text-sm font-medium">Pesanan Dibuat</h3>
                         <p className="text-xs text-gray-500">{formatDate(order?.createdAt)}</p>
                       </div>
                     </div>
@@ -274,9 +311,9 @@ export default function TrackOrderPage() {
                         </div>
                       </div>
                       <div className="ml-4">
-                        <h3 className="text-sm font-medium">Processing</h3>
+                        <h3 className="text-sm font-medium">Proses</h3>
                         <p className="text-xs text-gray-500">
-                          {orderStatus !== 'new' ? 'Processing started' : 'Waiting for processing'}
+                          {orderStatus !== 'new' ? 'Proses dimulai' : 'Menunggu proses'}
                         </p>
                       </div>
                     </div>
@@ -292,11 +329,11 @@ export default function TrackOrderPage() {
                         </div>
                       </div>
                       <div className="ml-4">
-                        <h3 className="text-sm font-medium">Ready for Pickup/Delivery</h3>
+                        <h3 className="text-sm font-medium">Siap Diambil/Diantar</h3>
                         <p className="text-xs text-gray-500">
                           {orderStatus === 'ready' || orderStatus === 'delivered' ? 
-                            'Your order is ready' : 
-                            'Estimated: ' + (order?.deliveryDate ? formatDate(order.deliveryDate) : 'To be determined')}
+                            'Pesanan Anda siap' : 
+                            'Estimasi: ' + getEstimatedDeliveryDate(order?.createdAt, orderStatus)}
                         </p>
                       </div>
                     </div>
@@ -312,9 +349,9 @@ export default function TrackOrderPage() {
                         </div>
                       </div>
                       <div className="ml-4">
-                        <h3 className="text-sm font-medium">Delivered/Picked Up</h3>
+                        <h3 className="text-sm font-medium">Diantar/Diambil</h3>
                         <p className="text-xs text-gray-500">
-                          {orderStatus === 'delivered' ? 'Completed' : 'Pending'}
+                          {orderStatus === 'delivered' ? 'Selesai' : 'Menunggu'}
                         </p>
                       </div>
                     </div>
@@ -329,31 +366,35 @@ export default function TrackOrderPage() {
           {/* Order Summary */}
           <Card>
             <CardHeader className="pb-3">
-              <CardTitle className="text-lg">Order Summary</CardTitle>
+              <CardTitle className="text-lg">Ringkasan Pesanan</CardTitle>
             </CardHeader>
             <CardContent className="space-y-4">
               <div>
-                <h3 className="text-sm font-medium text-gray-500">Customer</h3>
-                <p className="font-medium">{order?.customerName || 'Customer'}</p>
+                <h3 className="text-sm font-medium text-gray-500">Pelanggan</h3>
+                <p className="font-medium">{order?.customerName || 'Pelanggan'}</p>
               </div>
               
               <div>
-                <h3 className="text-sm font-medium text-gray-500">Order Number</h3>
+                <h3 className="text-sm font-medium text-gray-500">Nomor Pesanan</h3>
                 <p className="font-medium">{order?.orderNumber || 'N/A'}</p>
               </div>
               
               <div>
-                <h3 className="text-sm font-medium text-gray-500">Date Created</h3>
+                <h3 className="text-sm font-medium text-gray-500">Tanggal Dibuat</h3>
                 <p className="font-medium">{formatDate(order?.createdAt || '')}</p>
               </div>
               
               <div>
-                <h3 className="text-sm font-medium text-gray-500">Expected Delivery</h3>
-                <p className="font-medium">{order?.deliveryDate ? formatDate(order.deliveryDate) : 'Not scheduled'}</p>
+                <h3 className="text-sm font-medium text-gray-500">Estimasi Pengiriman</h3>
+                <p className="font-medium">
+                  {order?.deliveryDate 
+                    ? formatDate(order.deliveryDate) 
+                    : getEstimatedDeliveryDate(order?.createdAt, orderStatus)}
+                </p>
               </div>
               
               <div>
-                <h3 className="text-sm font-medium text-gray-500">Total Amount</h3>
+                <h3 className="text-sm font-medium text-gray-500">Total Harga</h3>
                 <p className="font-medium">
                   {typeof order?.totalAmount === 'number' 
                     ? formatCurrency(order.totalAmount) 
@@ -362,7 +403,7 @@ export default function TrackOrderPage() {
               </div>
               
               <div>
-                <h3 className="text-sm font-medium text-gray-500">Payment Status</h3>
+                <h3 className="text-sm font-medium text-gray-500">Status Pembayaran</h3>
                 <Badge className={paymentStatusColor}>
                   {paymentStatusLabel}
                 </Badge>
@@ -375,7 +416,7 @@ export default function TrackOrderPage() {
                   onClick={() => window.location.href = `tel:+1234567890`}
                 >
                   <Phone className="mr-2 h-4 w-4" />
-                  Contact Us
+                  Hubungi Kami
                 </Button>
               </div>
             </CardContent>
