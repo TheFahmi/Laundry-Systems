@@ -1,7 +1,8 @@
 import React, { useEffect, useState } from 'react';
 import { Button } from "@/components/ui/button";
-import { CheckCircle, XCircle, Banknote, Building, QrCode, Clock } from "lucide-react";
+import { CheckCircle, XCircle, Banknote, Building, QrCode, Clock, AlertCircle } from "lucide-react";
 import BottomSheet from './BottomSheet';
+import { PaymentStatus } from '@/types/payment';
 
 interface PaymentData {
   amount: number;
@@ -87,7 +88,59 @@ export default function PaymentConfirmationSheet({
     }
   };
 
+  const getStatusColor = (status: string) => {
+    switch (status) {
+      case PaymentStatus.COMPLETED:
+        return {
+          bg: 'bg-green-50',
+          border: 'border-green-100',
+          text: 'text-green-700',
+          icon: <CheckCircle className="h-5 w-5 text-green-500 mr-2" />
+        };
+      case PaymentStatus.PENDING:
+        return {
+          bg: 'bg-amber-50',
+          border: 'border-amber-100',
+          text: 'text-amber-700',
+          icon: <Clock className="h-5 w-5 text-amber-500 mr-2" />
+        };
+      case PaymentStatus.FAILED:
+        return {
+          bg: 'bg-red-50',
+          border: 'border-red-100',
+          text: 'text-red-700',
+          icon: <XCircle className="h-5 w-5 text-red-500 mr-2" />
+        };
+      default:
+        return {
+          bg: 'bg-gray-50',
+          border: 'border-gray-100',
+          text: 'text-gray-700',
+          icon: <AlertCircle className="h-5 w-5 text-gray-500 mr-2" />
+        };
+    }
+  };
+
+  const getStatusLabel = (status: string) => {
+    switch (status) {
+      case PaymentStatus.COMPLETED:
+        return 'Selesai';
+      case PaymentStatus.PENDING:
+        return 'Belum Dibayar';
+      case PaymentStatus.FAILED:
+        return 'Gagal';
+      case PaymentStatus.REFUNDED:
+        return 'Dikembalikan';
+      case PaymentStatus.CANCELLED:
+        return 'Dibatalkan';
+      default:
+        return 'Tidak Diketahui';
+    }
+  };
+
   if (!isVisible) return null;
+
+  const statusStyle = getStatusColor(paymentData.status);
 
   return (
     <BottomSheet 
@@ -101,6 +154,20 @@ export default function PaymentConfirmationSheet({
         <div className="flex justify-between items-center p-3 bg-blue-50 rounded-lg border border-blue-100">
           <span className="font-medium text-blue-700">Total Pesanan:</span>
           <span className="font-bold text-blue-800">Rp {formatCurrency(orderTotal)}</span>
+        </div>
+        
+        {/* Payment Status */}
+        <div className={`p-3 rounded-lg border ${statusStyle.bg} ${statusStyle.border}`}>
+          <div className="text-sm text-gray-500">Status Pembayaran</div>
+          <div className={`flex items-center mt-1 font-medium ${statusStyle.text}`}>
+            {statusStyle.icon}
+            {getStatusLabel(paymentData.status)}
+          </div>
+          {paymentData.status === PaymentStatus.PENDING && (
+            <p className="text-xs mt-1 text-amber-600">
+              Pesanan ini akan ditandai sebagai belum dibayar. Pelanggan dapat membayar nanti.
+            </p>
+          )}
         </div>
         
         <div className="space-y-3">
@@ -173,11 +240,19 @@ export default function PaymentConfirmationSheet({
               // Send event back to parent that user wants to pay later
               window.dispatchEvent(new CustomEvent('payment:later'));
             }} 
-            className="w-full"
+            className="w-full text-amber-700 bg-amber-50 hover:bg-amber-100 border border-amber-200"
           >
-            <Clock className="mr-2 h-4 w-4" />
+            <Clock className="mr-2 h-4 w-4 text-amber-600" />
             Bayar Nanti
           </Button>
+        </div>
+        
+        {/* Add explanation of "Bayar Nanti" option */}
+        <div className="mt-2 p-2 bg-amber-50/50 rounded border border-amber-100 text-xs text-amber-700">
+          <p className="flex items-start">
+            <AlertCircle className="h-3 w-3 mr-1 mt-0.5 text-amber-500" />
+            Tombol "Bayar Nanti" akan membuat pesanan dengan status pembayaran "Belum Dibayar". Pelanggan perlu menyelesaikan pembayaran di lain waktu.
+          </p>
         </div>
       </div>
     </BottomSheet>

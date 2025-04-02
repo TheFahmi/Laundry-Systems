@@ -41,9 +41,16 @@ import {
 } from '@/types/payment';
 import { formatRupiah, formatDate } from '@/lib/utils';
 
-export default function PaymentDetailPage({ params }: { params: { id: string } }) {
+// Define the types for the route params
+interface PaymentParams {
+  id: string;
+}
+
+export default function PaymentDetailPage({ params }: { params: PaymentParams | Promise<PaymentParams> }) {
   const router = useRouter();
-  const { id } = params;
+  // Use React.use() to unwrap the params object
+  const unwrappedParams = React.use(params as any) as PaymentParams;
+  const { id } = unwrappedParams;
   
   const [payment, setPayment] = useState<Payment | null>(null);
   const [loading, setLoading] = useState(true);

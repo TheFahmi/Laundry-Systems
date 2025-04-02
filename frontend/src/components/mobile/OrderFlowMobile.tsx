@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
@@ -283,7 +283,7 @@ export default function OrderFlowMobile() {
   };
 
   // Update order data with improved structure to prevent infinite loops
-  const updateOrderData = (data: any) => {
+  const updateOrderData = useCallback((data: any) => {
     // Skip empty updates
     if (!data || Object.keys(data).length === 0) return;
 
@@ -315,7 +315,7 @@ export default function OrderFlowMobile() {
       // For all other updates, just merge
       return { ...prev, ...data };
     });
-  };
+  }, []);
 
   // Render the current step component
   const renderStep = () => {

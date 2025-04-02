@@ -64,7 +64,7 @@ export default function PaymentStep({ orderId, orderData, onComplete }: PaymentS
   const [paymentData, setPaymentData] = useState({
     amount: orderData.totalAmount || 0,
     paymentMethod: PaymentMethod.CASH,
-    status: PaymentStatus.COMPLETED,
+    status: PaymentStatus.COMPLETED, // Default for immediate payments
     transactionId: '',
     notes: '',
     referenceNumber: `PAY-${Date.now().toString().substring(0, 10)}`
@@ -88,6 +88,13 @@ export default function PaymentStep({ orderId, orderData, onComplete }: PaymentS
     try {
       setIsLoading(true);
       
+      // Update status to PENDING for "Bayar Nanti" option
+      const payLaterData = {
+        ...paymentData,
+        status: PaymentStatus.PENDING,
+        notes: (paymentData.notes || '') + ' (Bayar Nanti)'
+      };
+      
       // Create a pending payment record
       const response = await fetch('/api/payments', {
         method: 'POST',
@@ -97,12 +104,12 @@ export default function PaymentStep({ orderId, orderData, onComplete }: PaymentS
         },
         body: JSON.stringify({
           orderId: orderId,
-          amount: Number(paymentData.amount),
-          paymentMethod: paymentData.paymentMethod,
-          status: PaymentStatus.PENDING, // Use pending status
-          transactionId: paymentData.transactionId,
-          referenceNumber: paymentData.referenceNumber,
-          notes: (paymentData.notes || '') + ' (Bayar Nanti)'
+          amount: Number(payLaterData.amount),
+          paymentMethod: payLaterData.paymentMethod,
+          status: payLaterData.status, // Use pending status
+          transactionId: payLaterData.transactionId,
+          referenceNumber: payLaterData.referenceNumber,
+          notes: payLaterData.notes
         }),
       });
       
@@ -111,14 +118,25 @@ export default function PaymentStep({ orderId, orderData, onComplete }: PaymentS
         throw new Error(errorData.message || `Failed to process payment: ${response.status}`);
       }
       
+      // Update local state with pending status
+      setPaymentData(prev => ({
+        ...prev,
+        status: PaymentStatus.PENDING
+      }));
+      
+      // Show success state with pending info
+      setIsSuccess(true);
+      
       // Show success notification
       toast({
         title: "Order dibuat",
         description: "Pesanan telah dibuat dengan status pembayaran menunggu.",
       });
       
-      // Complete the payment flow
-      onComplete();
+      // Complete the payment flow after a delay to show the success state
+      setTimeout(() => {
+        onComplete();
+      }, 2000);
       
     } catch (error: any) {
       console.error('Error setting up pay later:', error);
@@ -179,7 +197,7 @@ export default function PaymentStep({ orderId, orderData, onComplete }: PaymentS
     amount: paymentData.amount,
     change: paymentData.amount > orderData.totalAmount ? paymentData.amount - orderData.totalAmount : 0,
     method: paymentData.paymentMethod,
-    status: paymentData.status,
+    status: PaymentStatus.COMPLETED, // Always show as COMPLETED in confirmation sheet for regular payments
     referenceNumber: paymentData.referenceNumber
   };
 
@@ -194,6 +212,12 @@ export default function PaymentStep({ orderId, orderData, onComplete }: PaymentS
     setError(null);
 
     try {
+      // Ensure payment status is set to COMPLETED for regular payments
+      const paymentDataToSend = {
+        ...paymentData,
+        status: PaymentStatus.COMPLETED // Explicitly set to COMPLETED for regular payments
+      };
+      
       const response = await fetch('/api/payments', {
         method: 'POST',
         headers: {
@@ -202,12 +226,12 @@ export default function PaymentStep({ orderId, orderData, onComplete }: PaymentS
         },
         body: JSON.stringify({
           orderId: orderId,
-          amount: Number(paymentData.amount),
-          paymentMethod: paymentData.paymentMethod,
-          status: paymentData.status,
-          transactionId: paymentData.transactionId,
-          referenceNumber: paymentData.referenceNumber,
-          notes: paymentData.notes
+          amount: Number(paymentDataToSend.amount),
+          paymentMethod: paymentDataToSend.paymentMethod,
+          status: paymentDataToSend.status,
+          transactionId: paymentDataToSend.transactionId,
+          referenceNumber: paymentDataToSend.referenceNumber,
+          notes: paymentDataToSend.notes
         }),
       });
 
@@ -218,6 +242,12 @@ export default function PaymentStep({ orderId, orderData, onComplete }: PaymentS
 
       const responseData = await response.json();
       console.log('Payment processed:', responseData);
+      
+      // Update local state with the completed status
+      setPaymentData(prev => ({
+        ...prev,
+        status: PaymentStatus.COMPLETED
+      }));
       
       // Show success state
       setIsSuccess(true);
@@ -247,18 +277,56 @@ export default function PaymentStep({ orderId, orderData, onComplete }: PaymentS
     }
   };
 
+  // Helper function to update status only
+  const handlePayLaterClick = () => {
+    // First close the confirmation sheet if it's open
+    setShowConfirmationSheet(false);
+    
+    // Then explicitly run the payment later function
+    handlePaymentLater();
+  };
+
+  // Update confirmation modal data when payment button is clicked
+  const handleConfirmPaymentClick = () => {
+    // Create a copy with COMPLETED status for the confirmation sheet
+    setShowConfirmationSheet(true);
+  };
+
   // Show success view if payment is processed
   if (isSuccess) {
     return (
       <div className="space-y-4 text-center py-6">
-        <div className="mx-auto w-16 h-16 bg-green-100 rounded-full flex items-center justify-center">
+        <div className="mx-auto w-16 h-16 rounded-full flex items-center justify-center bg-green-100">
           <CheckCircle2 className="h-8 w-8 text-green-600" />
         </div>
-        <h2 className="text-xl font-semibold">Pembayaran Berhasil</h2>
+        <h2 className="text-xl font-semibold">
+          {paymentData.status === PaymentStatus.PENDING 
+            ? "Pembayaran Ditunda" 
+            : "Pembayaran Berhasil"}
+        </h2>
         <p className="text-muted-foreground">
-          Pembayaran sebesar Rp {paymentData.amount.toLocaleString('id-ID')} telah berhasil diproses.
+          {paymentData.status === PaymentStatus.PENDING 
+            ? `Pembayaran sebesar Rp ${paymentData.amount.toLocaleString('id-ID')} akan dibayar nanti.`
+            : `Pembayaran sebesar Rp ${paymentData.amount.toLocaleString('id-ID')} telah berhasil diproses.`}
         </p>
-        <div className="bg-green-50 border border-green-200 rounded-lg p-3 text-left mt-4">
+        <div className={`border rounded-lg p-3 text-left mt-4 ${
+          paymentData.status === PaymentStatus.PENDING 
+            ? "bg-amber-50 border-amber-200" 
+            : "bg-green-50 border-green-200"
+        }`}>
+          <p className="flex items-center gap-2">
+            <span className="font-medium">Status:</span>
+            <span className={`flex items-center gap-1 ${
+              paymentData.status === PaymentStatus.PENDING 
+                ? "text-amber-700" 
+                : "text-green-700"
+            }`}>
+              {paymentData.status === PaymentStatus.PENDING 
+                ? <Clock className="h-4 w-4 text-amber-500" /> 
+                : <CheckCircle2 className="h-4 w-4 text-green-500" />}
+              {paymentData.status === PaymentStatus.PENDING ? "Menunggu Pembayaran" : "Lunas"}
+            </span>
+          </p>
           <p className="flex items-center gap-2">
             <span className="font-medium">Metode:</span> 
             <span className="flex items-center gap-1">
@@ -372,6 +440,14 @@ export default function PaymentStep({ orderId, orderData, onComplete }: PaymentS
           </Select>
         </div>
         
+        {/* Payment Status Indicator */}
+        <div className="bg-blue-50 border border-blue-200 rounded-md p-3">
+          <p className="flex items-center text-sm text-blue-800">
+            <AlertCircle className="h-4 w-4 text-blue-500 mr-2" />
+            <span>Status pembayaran untuk opsi <strong>Konfirmasi Pembayaran</strong> adalah <strong>Selesai</strong>. Jika pelanggan ingin membayar nanti, gunakan tombol <strong>Bayar Nanti</strong>.</span>
+          </p>
+        </div>
+        
         {/* Transaction ID - only for non-cash payments */}
         {paymentData.paymentMethod !== PaymentMethod.CASH && (
           <div className="space-y-2">
@@ -423,7 +499,7 @@ export default function PaymentStep({ orderId, orderData, onComplete }: PaymentS
       </div>
       
       <Button 
-        onClick={() => setShowConfirmationSheet(true)} 
+        onClick={handleConfirmPaymentClick} 
         disabled={isLoading} 
         className="w-full mt-4 bg-green-600 hover:bg-green-700"
       >
@@ -432,7 +508,7 @@ export default function PaymentStep({ orderId, orderData, onComplete }: PaymentS
       </Button>
       
       <Button 
-        onClick={handlePaymentLater}
+        onClick={handlePayLaterClick}
         disabled={isLoading} 
         variant="outline"
         className="w-full mt-2"

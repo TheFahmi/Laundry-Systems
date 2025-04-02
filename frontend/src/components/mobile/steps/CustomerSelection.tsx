@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
-import { Search, Plus, User, X, Phone, Mail, Home, UserPlus, UserCircle } from 'lucide-react';
+import { Search, Plus, User, X, Phone, Mail, Home, UserPlus, UserCircle, Pencil } from 'lucide-react';
 import { Label } from '@/components/ui/label';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { Separator } from '@/components/ui/separator';
@@ -26,10 +26,11 @@ export default function CustomerSelection({ orderData, updateOrderData }: Custom
   const [searchQuery, setSearchQuery] = useState('');
   const [customers, setCustomers] = useState<Customer[]>([]);
   const [loading, setLoading] = useState(false);
-  const [selectedCustomerId, setSelectedCustomerId] = useState<string | null>(null);
+  const [selectedCustomerId, setSelectedCustomerId] = useState<string | null>(orderData.customerId || null);
   
   // State for new customer sheet
   const [showCustomerFormSheet, setShowCustomerFormSheet] = useState(false);
+  const [customerToEdit, setCustomerToEdit] = useState<Customer | null>(null);
 
   // Initialize selectedCustomerId from orderData only once on mount
   useEffect(() => {
@@ -112,23 +113,38 @@ export default function CustomerSelection({ orderData, updateOrderData }: Custom
     }
   };
   
-  // Handle successful customer creation
-  const handleCustomerCreated = (createdCustomer: Customer) => {
-    // Update customer list
-    setCustomers(prev => [createdCustomer, ...prev]);
+  // Handle editing a customer
+  const handleEditCustomer = () => {
+    if (orderData.customer) {
+      setCustomerToEdit(orderData.customer);
+      setShowCustomerFormSheet(true);
+    }
+  };
+
+  // Handler for when a customer is created or updated
+  const handleCustomerSaved = (customer: Customer) => {
+    // If this is an edit and the customer already exists in the list
+    if (customerToEdit && customers.some(c => c.id === customer.id)) {
+      // Update the customer in the list
+      setCustomers(prev => prev.map(c => c.id === customer.id ? customer : c));
+      
+      // Update the selected customer in the order data
+      if (selectedCustomerId === customer.id) {
+        updateOrderData({
+          customer: customer,
+          customerId: customer.id
+        });
+      }
+    } else {
+      // Add the new customer to the list
+      setCustomers(prev => [customer, ...prev]);
+      
+      // Select the new customer
+      handleSelectCustomer(customer.id);
+    }
     
-    // Select the new customer - set state only once
-    setSelectedCustomerId(createdCustomer.id);
-    
-    // Update order data separately to avoid sync issues
-    setTimeout(() => {
-      updateOrderData({ 
-        customer: createdCustomer,
-        customerId: createdCustomer.id 
-      });
-    }, 0);
-    
-    toast.success('Pelanggan baru berhasil dibuat');
+    // Reset edit state
+    setCustomerToEdit(null);
   };
 
   return (
@@ -154,14 +170,23 @@ export default function CustomerSelection({ orderData, updateOrderData }: Custom
       </div>
       
       {/* New Customer button */}
-      <Button 
-        variant="outline" 
-        className="w-full border-green-200 bg-green-50 hover:bg-green-100 text-green-700" 
-        onClick={() => setShowCustomerFormSheet(true)}
-      >
-        <UserPlus className="mr-2 h-4 w-4 text-green-600" />
-        Pelanggan Baru
-      </Button>
+      <div className="mb-4 flex justify-between">
+        <h3 className="text-sm font-medium text-gray-600">
+          {customers.length} Hasil Pencarian
+        </h3>
+        <Button
+          variant="outline"
+          size="sm"
+          className="flex items-center border-green-200 hover:bg-green-50 text-xs"
+          onClick={() => {
+            setCustomerToEdit(null); // Ensure we're in create mode, not edit mode
+            setShowCustomerFormSheet(true);
+          }}
+        >
+          <UserPlus className="mr-2 h-4 w-4 text-green-600" />
+          Pelanggan Baru
+        </Button>
+      </div>
       
       <Separator className="bg-gray-200" />
       
@@ -241,13 +266,24 @@ export default function CustomerSelection({ orderData, updateOrderData }: Custom
       {/* Selected customer summary */}
       {selectedCustomerId && (
         <div className="mt-4 border border-blue-200 rounded-md bg-blue-50 p-3">
-          <div className="flex items-center gap-2 mb-2">
-            <Avatar className="h-7 w-7 bg-blue-100 text-blue-500">
-              <AvatarFallback>
-                {orderData.customer?.name.charAt(0).toUpperCase()}
-              </AvatarFallback>
-            </Avatar>
-            <h3 className="font-medium">Pelanggan Terpilih</h3>
+          <div className="flex items-center justify-between mb-2">
+            <div className="flex items-center gap-2">
+              <Avatar className="h-7 w-7 bg-blue-100 text-blue-500">
+                <AvatarFallback>
+                  {orderData.customer?.name.charAt(0).toUpperCase()}
+                </AvatarFallback>
+              </Avatar>
+              <h3 className="font-medium">Pelanggan Terpilih</h3>
+            </div>
+            <Button 
+              variant="ghost" 
+              size="sm" 
+              className="h-8 w-8 p-0 text-blue-600"
+              onClick={handleEditCustomer}
+            >
+              <Pencil className="h-4 w-4" />
+              <span className="sr-only">Edit</span>
+            </Button>
           </div>
           <div className="space-y-1 text-sm">
             <p className="font-medium">{orderData.customer?.name}</p>
@@ -270,8 +306,12 @@ export default function CustomerSelection({ orderData, updateOrderData }: Custom
       {/* Customer Form Sheet */}
       <CustomerFormSheet
         isOpen={showCustomerFormSheet}
-        onClose={() => setShowCustomerFormSheet(false)}
-        onSuccess={handleCustomerCreated}
+        onClose={() => {
+          setShowCustomerFormSheet(false);
+          setCustomerToEdit(null);
+        }}
+        onSuccess={handleCustomerSaved}
+        initialCustomer={customerToEdit}
       />
     </div>
   );

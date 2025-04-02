@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -11,12 +11,14 @@ interface CustomerFormSheetProps {
   isOpen: boolean;
   onClose: () => void;
   onSuccess: (customer: any) => void;
+  initialCustomer?: any; // Add initialCustomer for edit mode
 }
 
 export default function CustomerFormSheet({
   isOpen,
   onClose,
-  onSuccess
+  onSuccess,
+  initialCustomer = null // Default to null for create mode
 }: CustomerFormSheetProps) {
   const [newCustomer, setNewCustomer] = useState({
     name: '',
@@ -26,6 +28,26 @@ export default function CustomerFormSheet({
   });
   const [isCreating, setIsCreating] = useState(false);
   const [errors, setErrors] = useState<Record<string, string>>({});
+  
+  // Set the default values when the component mounts or initialCustomer changes
+  useEffect(() => {
+    if (initialCustomer) {
+      setNewCustomer({
+        name: initialCustomer.name || '',
+        phone: initialCustomer.phone || '',
+        email: initialCustomer.email || '',
+        address: initialCustomer.address || ''
+      });
+    } else {
+      // Reset form when not in edit mode
+      setNewCustomer({
+        name: '',
+        phone: '',
+        email: '',
+        address: ''
+      });
+    }
+  }, [initialCustomer, isOpen]);
 
   const handleNewCustomerChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target;
@@ -62,7 +84,7 @@ export default function CustomerFormSheet({
     return Object.keys(newErrors).length === 0;
   };
 
-  const handleCreateCustomer = async () => {
+  const handleSaveCustomer = async () => {
     if (!validateForm()) {
       return;
     }
@@ -70,8 +92,16 @@ export default function CustomerFormSheet({
     setIsCreating(true);
     
     try {
-      const response = await fetch('/api/customers', {
-        method: 'POST',
+      // Determine if this is a create or update operation
+      const isEdit = initialCustomer !== null;
+      const url = isEdit 
+        ? `/api/customers/${initialCustomer.id}`
+        : '/api/customers';
+      
+      const method = isEdit ? 'PUT' : 'POST';
+      
+      const response = await fetch(url, {
+        method,
         headers: {
           'Content-Type': 'application/json',
           ...createAuthHeaders()
@@ -81,32 +111,40 @@ export default function CustomerFormSheet({
       
       if (!response.ok) {
         const errorData = await response.json();
-        throw new Error(errorData.message || 'Failed to create customer');
+        throw new Error(errorData.message || `Failed to ${isEdit ? 'update' : 'create'} customer`);
       }
       
       const data = await response.json();
       
-      // Find the created customer in the response
-      let createdCustomer;
+      // Find the customer in the response
+      let savedCustomer;
       if (data.data && data.data.id) {
-        createdCustomer = data.data;
+        savedCustomer = data.data;
       } else if (data.id) {
-        createdCustomer = data;
+        savedCustomer = data;
+      } else if (isEdit) {
+        // If the API doesn't return the updated customer, use the initial customer with updated fields
+        savedCustomer = {
+          ...initialCustomer,
+          ...newCustomer
+        };
       }
       
-      if (createdCustomer) {
-        toast.success('Pelanggan baru berhasil dibuat');
+      if (savedCustomer) {
+        toast.success(isEdit ? 'Data pelanggan berhasil diperbarui' : 'Pelanggan baru berhasil dibuat');
         
-        // Pass the new customer data back to the parent component
-        onSuccess(createdCustomer);
+        // Pass the customer data back to the parent component
+        onSuccess(savedCustomer);
         
         // Reset form
-        setNewCustomer({
-          name: '',
-          phone: '',
-          email: '',
-          address: ''
-        });
+        if (!isEdit) {
+          setNewCustomer({
+            name: '',
+            phone: '',
+            email: '',
+            address: ''
+          });
+        }
         
         // Close the sheet
         onClose();
@@ -114,8 +152,8 @@ export default function CustomerFormSheet({
         throw new Error('Invalid response format');
       }
     } catch (error: any) {
-      console.error('Error creating customer:', error);
-      toast.error(error.message || 'Gagal membuat pelanggan baru');
+      console.error(`Error ${initialCustomer ? 'updating' : 'creating'} customer:`, error);
+      toast.error(error.message || `Gagal ${initialCustomer ? 'memperbarui' : 'membuat'} pelanggan`);
     } finally {
       setIsCreating(false);
     }
@@ -125,8 +163,10 @@ export default function CustomerFormSheet({
     <BottomSheet
       isOpen={isOpen}
       onClose={onClose}
-      title="Tambah Pelanggan Baru"
-      description="Masukkan informasi pelanggan baru di bawah ini"
+      title={initialCustomer ? "Edit Pelanggan" : "Tambah Pelanggan Baru"}
+      description={initialCustomer 
+        ? "Perbarui informasi pelanggan di bawah ini" 
+        : "Masukkan informasi pelanggan baru di bawah ini"}
     >
       <div className="px-4 py-4 space-y-4">
         <div className="space-y-2">
@@ -211,7 +251,7 @@ export default function CustomerFormSheet({
           </Button>
           <Button
             type="button"
-            onClick={handleCreateCustomer}
+            onClick={handleSaveCustomer}
             className="flex-1 bg-green-600 hover:bg-green-700 text-white"
             disabled={isCreating}
           >

@@ -126,7 +126,8 @@ export default function OrderDetails({ orderData, updateOrderData }: OrderDetail
       pickupDate: pickupDate?.toISOString(),
       deliveryDate: isDeliveryNeeded ? deliveryDate?.toISOString() : undefined
     });
-  }, [notes, specialRequirements, isDeliveryNeeded, pickupDate, deliveryDate, updateOrderData]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [notes, specialRequirements, isDeliveryNeeded, pickupDate, deliveryDate]);
 
   // Format the processing time for display
   const formatProcessingTime = () => {
