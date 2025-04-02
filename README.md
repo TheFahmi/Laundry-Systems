@@ -164,4 +164,64 @@ Contributions to improve the system are welcome. Please follow these steps:
 
 Project Name - [Email](mailto:email@example.com)
 
-Project Link: [https://github.com/username/laundry-management-system](https://github.com/username/laundry-management-system) 
+Project Link: [https://github.com/username/laundry-management-system](https://github.com/username/laundry-management-system)
+
+## Docker Setup
+
+This application now supports deployment with Docker. Here are the steps to run the application using Docker:
+
+### Prerequisites
+
+- [Docker](https://docs.docker.com/get-docker/) 
+- [Docker Compose](https://docs.docker.com/compose/install/)
+
+### Running the Application with Docker
+
+1. Clone the repository to your local machine:
+   ```bash
+   git clone <repository-url>
+   cd laundry
+   ```
+
+2. Build and run containers with Docker Compose:
+   ```bash
+   docker-compose up -d
+   ```
+
+   This command will build and run three services:
+   - **postgres**: PostgreSQL database
+   - **backend**: NestJS API on http://localhost:3001
+   - **frontend**: Next.js application on http://localhost:3000
+
+3. View logs from all services:
+   ```bash
+   docker-compose logs -f
+   ```
+
+   Or view logs from a specific service:
+   ```bash
+   docker-compose logs -f frontend
+   ```
+
+4. Stop and remove containers:
+   ```bash
+   docker-compose down
+   ```
+
+### Development with Docker
+
+For development, you can make changes to files and see changes directly:
+
+1. Rebuild and restart a specific service after making changes:
+   ```bash
+   docker-compose up -d --build frontend
+   ```
+
+2. Run commands inside a container:
+   ```bash
+   docker-compose exec frontend sh
+   ```
+
+### Environment Variables
+
+All environment variables are set within the `docker-compose.yml` file. For production environments, consider creating an `.env` file and using `env_file` in docker-compose.yml. 

@@ -1,6 +1,16 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   reactStrictMode: true,
+  // Enable experimental features for standalone output needed for Docker
+  output: 'standalone',
+  images: {
+    domains: ['images.unsplash.com', 'via.placeholder.com', 'cloudflare-ipfs.com', 'avatars.githubusercontent.com', 'source.unsplash.com'],
+  },
+  // Disable the App Router if this project is still using Pages Router
+  // Set this to true if you're using App Router
+  experimental: {
+    appDir: true,
+  },
   // Enable API rewrites to proxy requests to the backend
   async rewrites() {
     return [
@@ -23,9 +33,8 @@ const nextConfig = {
       },
       // Proxy all other API requests to the backend
       {
-        source: '/api/:path*',
-        destination: `${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001'}/:path*`,
-        basePath: false
+        source: '/api/v1/:path*',
+        destination: process.env.NEXT_PUBLIC_API_URL ? `${process.env.NEXT_PUBLIC_API_URL}/:path*` : 'http://localhost:3001/:path*',
       }
     ]
   },
@@ -59,7 +68,29 @@ const nextConfig = {
         ],
       },
     ]
-  }
+  },
+  // Add compiler options for faster builds
+  compiler: {
+    // Remove console.log in production
+    removeConsole: process.env.NODE_ENV === 'production',
+  },
+  // Improve webpack configurations
+  webpack: (config, { dev, isServer }) => {
+    // Add optimizations
+    if (!dev && !isServer) {
+      config.optimization.splitChunks = {
+        chunks: 'all',
+        cacheGroups: {
+          default: {
+            minChunks: 2,
+            priority: -20,
+            reuseExistingChunk: true,
+          },
+        },
+      };
+    }
+    return config;
+  },
 }
 
 module.exports = nextConfig; 

@@ -1,0 +1,53 @@
+# Node modules
+node_modules
+npm-debug.log
+yarn-debug.log
+yarn-error.log
+
+# Next.js build artifacts
+.next
+out
+
+# Development environment
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+
+# Git and GitHub
+.git
+.github
+.gitignore
+
+# Docker
+Dockerfile
+.dockerignore
+
+# Tests
+coverage
+.nyc_output
+test
+tests
+
+# IDE directories
+.idea
+.vscode
+*.sublime-workspace
+*.sublime-project
+
+# Build artifacts
+dist
+build
+*.tsbuildinfo
+
+# Logs
+logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Misc
+.DS_Store
+.cache
+.turbo 
