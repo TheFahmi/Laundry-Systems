@@ -167,8 +167,58 @@ export async function GET(request: NextRequest) {
     // Get URL parameters
     const { searchParams } = new URL(request.url);
     const queryString = searchParams.toString();
-    const queryParams = queryString ? `?${queryString}` : '';
-    
+
+    // Parse and validate page and limit parameters
+    const pageParam = searchParams.get('page');
+    const limitParam = searchParams.get('limit');
+
+    console.log(`Raw pagination parameters - page: ${pageParam}, limit: ${limitParam}`);
+
+    // Create a new URLSearchParams object for the backend request
+    const backendParams = new URLSearchParams();
+
+    // Copy all original parameters to the new params object
+    searchParams.forEach((value, key) => {
+      // Skip page and limit for now, we'll handle them separately
+      if (key !== 'page' && key !== 'limit') {
+        backendParams.append(key, value);
+      }
+    });
+
+    // Ensure page and limit are valid numbers or use defaults
+    let page = 0;
+    let limit = 10;
+
+    try {
+      if (pageParam !== null) {
+        const parsedPage = parseInt(pageParam, 10);
+        console.log(`Parsing page parameter: ${pageParam} => ${parsedPage} (isNaN: ${isNaN(parsedPage)})`);
+        if (!isNaN(parsedPage)) {
+          page = parsedPage;
+        }
+      }
+      
+      if (limitParam !== null) {
+        const parsedLimit = parseInt(limitParam, 10);
+        console.log(`Parsing limit parameter: ${limitParam} => ${parsedLimit} (isNaN: ${isNaN(parsedLimit)})`);
+        if (!isNaN(parsedLimit)) {
+          limit = parsedLimit;
+        }
+      }
+    } catch (e) {
+      console.error('Error parsing pagination parameters:', e);
+    }
+
+    // Add validated page and limit parameters to the backend request
+    backendParams.append('page', page.toString());
+    backendParams.append('limit', limit.toString());
+
+    console.log(`Final pagination parameters - page: ${page}, limit: ${limit}`);
+
+    // Create the final query string
+    const finalQueryString = backendParams.toString();
+    const queryParams = finalQueryString ? `?${finalQueryString}` : '';
+
     // URL for the backend API
     const apiURL = `${API_BASE_URL}/orders${queryParams}`;
     console.log(`Calling backend directly at: ${apiURL}`);
