@@ -25,13 +25,22 @@ export interface OrderItem {
 export interface Order {
   id: string;
   order_id: string;
+  orderNumber?: string;
   name: string;
   phone: string;
   status: string;
   items: OrderItem[];
   total_price: number;
+  totalAmount?: number;
   created_at: string;
   updated_at: string;
+  createdAt?: string;
+  customerId?: string;
+  customer?: {
+    id: string;
+    name: string;
+    phone: string;
+  };
   // Add other fields as needed
 }
 
@@ -222,7 +231,4 @@ export async function getOrderStatus(orderId: string, verificationToken: string)
     console.error('Error getting order status:', error);
     throw error;
   }
-} 
-  }
-} 
 } 
