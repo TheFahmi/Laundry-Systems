@@ -91,7 +91,7 @@ export default function RecentActivity() {
     <Paper elevation={1} sx={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
       <Box sx={{ p: 2, display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: 1, borderColor: 'divider' }}>
         <Typography variant="h6">Aktivitas Terbaru</Typography>
-        <Link href="/activities" passHref>
+        <Link href="/admin/activities" passHref>
           <Button 
             endIcon={<OpenInNew fontSize="small" />}
             size="small"
