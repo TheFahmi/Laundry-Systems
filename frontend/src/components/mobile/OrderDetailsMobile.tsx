@@ -11,6 +11,13 @@ import { createAuthHeaders } from '@/lib/api-utils';
 import PaymentConfirmationSheet from './PaymentConfirmationSheet';
 import BottomSheet from './BottomSheet';
 import ActionSheet, { ActionItem } from './ActionSheet';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 
 // Tipe data untuk PaymentData
 interface PaymentData {
@@ -40,6 +47,23 @@ export default function OrderDetailsMobile({ order, onRefresh }: OrderDetailsMob
   });
   const [isProcessingPayment, setIsProcessingPayment] = useState(false);
   const [actionSheetOpen, setActionSheetOpen] = useState(false);
+  
+  // Status Sheet
+  const [statusSheetOpen, setStatusSheetOpen] = useState(false);
+  const [selectedStatus, setSelectedStatus] = useState<string>(order?.status || '');
+  const [isUpdatingStatus, setIsUpdatingStatus] = useState(false);
+  
+  // Available status options
+  const statusOptions = [
+    { value: 'new', label: 'Baru' },
+    { value: 'processing', label: 'Diproses' },
+    { value: 'washing', label: 'Mencuci' },
+    { value: 'drying', label: 'Mengeringkan' },
+    { value: 'folding', label: 'Melipat' },
+    { value: 'ready', label: 'Siap Diambil' },
+    { value: 'completed', label: 'Selesai' },
+    { value: 'cancelled', label: 'Dibatalkan' },
+  ];
   
   // Calculate if the order is fully paid based on completed payments
   const hasCompletedPayments = order.payments && 
@@ -187,6 +211,68 @@ export default function OrderDetailsMobile({ order, onRefresh }: OrderDetailsMob
       toast.error(error.message || 'Gagal memproses pembayaran');
     } finally {
       setIsProcessingPayment(false);
+    }
+  };
+
+  // Function to handle status update
+  const handleUpdateStatus = async () => {
+    if (!selectedStatus) {
+      toast.error('Silakan pilih status terlebih dahulu');
+      return;
+    }
+    
+    if (selectedStatus === order.status) {
+      toast.info('Status tidak berubah');
+      setStatusSheetOpen(false);
+      return;
+    }
+    
+    setIsUpdatingStatus(true);
+    
+    try {
+      const response = await fetch(`/api/orders/${order.id}/status`, {
+        method: 'PATCH',
+        headers: {
+          'Content-Type': 'application/json',
+          ...createAuthHeaders()
+        },
+        body: JSON.stringify({
+          status: selectedStatus
+        }),
+      });
+      
+      if (!response.ok) {
+        throw new Error('Failed to update order status');
+      }
+      
+      toast.success('Status pesanan berhasil diperbarui');
+      
+      // If status changed to completed, also mark as paid if not already
+      if (selectedStatus === 'completed' && order && !order.isPaid && order.paymentStatus !== 'paid') {
+        await fetch(`/api/orders/${order.id}/payment-status`, {
+          method: 'PATCH',
+          headers: {
+            'Content-Type': 'application/json',
+            ...createAuthHeaders()
+          },
+          body: JSON.stringify({
+            paymentStatus: 'paid',
+            isPaid: true
+          }),
+        });
+        
+        toast.success('Pesanan selesai dan ditandai sebagai Lunas');
+      }
+      
+      setStatusSheetOpen(false);
+      // Refresh order details
+      onRefresh();
+      
+    } catch (err: any) {
+      console.error('Error updating status:', err);
+      toast.error(err.message || 'Gagal memperbarui status pesanan');
+    } finally {
+      setIsUpdatingStatus(false);
     }
   };
 
@@ -344,7 +430,19 @@ export default function OrderDetailsMobile({ order, onRefresh }: OrderDetailsMob
           Kembali
         </Button>
         
-        {!isFullyPaid && (
+        {isFullyPaid ? (
+          <Button 
+            variant="default" 
+            className="flex-1"
+            onClick={() => {
+              setSelectedStatus(order.status);
+              setStatusSheetOpen(true);
+            }}
+          >
+            <Clock className="mr-2 h-4 w-4" />
+            Ubah Status
+          </Button>
+        ) : (
           <Button 
             variant="default" 
             className="flex-1"
@@ -415,6 +513,67 @@ export default function OrderDetailsMobile({ order, onRefresh }: OrderDetailsMob
           </Button>
         </div>
       </BottomSheet>
+      
+      {/* Order Status Change Sheet */}
+      <BottomSheet
+        isOpen={statusSheetOpen}
+        onClose={() => setStatusSheetOpen(false)}
+        title="Ubah Status Pesanan"
+        description={`Status saat ini: ${order.status}`}
+      >
+        <div className="flex flex-col p-4 gap-4">
+          <div>
+            <p className="font-medium mb-2">Pilih Status Baru</p>
+            <Select 
+              value={selectedStatus} 
+              onValueChange={setSelectedStatus}
+            >
+              <SelectTrigger className="w-full">
+                <SelectValue placeholder="Pilih status" />
+              </SelectTrigger>
+              <SelectContent>
+                {statusOptions.map(option => (
+                  <SelectItem key={option.value} value={option.value}>
+                    {option.label}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+          
+          <div className="border-t pt-4 flex gap-2">
+            <Button 
+              variant="outline" 
+              className="flex-1"
+              onClick={() => setStatusSheetOpen(false)}
+              disabled={isUpdatingStatus}
+            >
+              Batal
+            </Button>
+            
+            <Button 
+              className="flex-1"
+              onClick={handleUpdateStatus}
+              disabled={isUpdatingStatus || selectedStatus === order.status}
+            >
+              {isUpdatingStatus ? (
+                <>
+                  <svg className="animate-spin -ml-1 mr-2 h-4 w-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                  </svg>
+                  Memproses...
+                </>
+              ) : (
+                <>
+                  <Check className="mr-2 h-4 w-4" />
+                  Simpan
+                </>
+              )}
+            </Button>
+          </div>
+        </div>
+      </BottomSheet>
 
       {/* Action Sheet for order settings */}
       <ActionSheet
@@ -435,7 +594,9 @@ export default function OrderDetailsMobile({ order, onRefresh }: OrderDetailsMob
             icon: <Clock className="h-5 w-5" />,
             label: "Ubah Status Pesanan",
             onClick: () => {
-              router.push(`/orders/${order.id}/status`);
+              setActionSheetOpen(false);
+              setSelectedStatus(order.status);
+              setTimeout(() => setStatusSheetOpen(true), 300);
             }
           }] : [{
             icon: <Clock className="h-5 w-5 text-muted-foreground" />,
