@@ -26,8 +26,46 @@ axios.interceptors.request.use(
 axios.interceptors.response.use(
   (response) => response,
   async (error) => {
+    // Check if there's a response from the server
+    if (!error.response) {
+      return Promise.reject(error);
+    }
+    
     // For invalid JWT token (401)
     if (error.response?.status === 401) {
+      console.log('[Axios] Received 401 error:', error.response.data);
+      
+      // Handle tokenExpired flag specifically
+      if (error.response?.data?.tokenExpired) {
+        console.log('[Axios] Token expired flag detected, attempting refresh');
+        try {
+          // Try to refresh the token using our enhanced function
+          const refreshed = await refreshToken();
+          
+          if (refreshed && error.config) {
+            console.log('[Axios] Token refreshed successfully, retrying request');
+            // Get the latest token
+            const newToken = Cookies.get('token');
+            // Update the Authorization header with the new token
+            error.config.headers['Authorization'] = `Bearer ${newToken}`;
+            // Mark as retried to prevent infinite loops
+            error.config._isRetry = true;
+            // Retry the request with the new token
+            return axios(error.config);
+          } else {
+            console.log('[Axios] Token refresh failed, logging out');
+            // Force logout and redirect to login page
+            await forceLogout();
+            return Promise.reject(new Error('Authentication failed. Please log in again.'));
+          }
+        } catch (refreshError) {
+          console.error('[Axios] Error during token refresh:', refreshError);
+          // Force logout and redirect
+          await forceLogout();
+          return Promise.reject(new Error('Authentication failed. Please log in again.'));
+        }
+      }
+      
       // Check for token fix suggestion
       if (error.response?.data?.fixToken && error.response?.data?.username) {
         try {
@@ -143,17 +181,56 @@ const fixToken = async (username: string): Promise<any> => {
 // Function to refresh the token
 const refreshToken = async (): Promise<boolean> => {
   try {
+    console.log('[Auth Service] Attempting to refresh token');
     const user = getCurrentUser();
     
     if (!user) {
+      console.log('[Auth Service] No user found for token refresh');
       return false;
     }
     
-    // Try to fix the token using the username
+    // First try the refresh-token API endpoint
+    try {
+      const token = Cookies.get('token') || Cookies.get('js_token');
+      if (!token) {
+        console.log('[Auth Service] No token found to refresh');
+        return false;
+      }
+      
+      console.log('[Auth Service] Calling refresh token endpoint');
+      const response = await axios.post('/api/auth/refresh', {}, {
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      });
+      
+      if (response.data?.token) {
+        console.log('[Auth Service] Token successfully refreshed');
+        // Update stored token with the new one
+        Cookies.set('token', response.data.token, { 
+          expires: 14, // 14 days
+          path: '/' 
+        });
+        return true;
+      }
+    } catch (refreshError) {
+      console.log('[Auth Service] Refresh token endpoint failed, falling back to fix-token');
+      // If the refresh fails, try the fix-token fallback
+    }
+    
+    // Fallback: Try to fix the token using the username
+    console.log('[Auth Service] Trying to fix token using username:', user.username);
     const result = await fixToken(user.username);
     
-    return !!result;
+    if (result) {
+      console.log('[Auth Service] Token successfully fixed');
+      return true;
+    }
+    
+    console.log('[Auth Service] All token refresh methods failed');
+    return false;
   } catch (error) {
+    console.error('[Auth Service] Error refreshing token:', error);
     return false;
   }
 };

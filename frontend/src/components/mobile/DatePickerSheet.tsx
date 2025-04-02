@@ -214,12 +214,18 @@ export default function DatePickerSheet({
 
         {/* Delivery time notice */}
         {minIntervalAfterDate && (
-          <div className="mt-4 p-2 bg-blue-50 rounded-md border border-blue-100 flex items-start">
+          <div className="mt-4 p-3 bg-blue-50 rounded-md border border-blue-100 flex items-start">
             <Info className="h-4 w-4 text-blue-500 mr-2 mt-0.5 flex-shrink-0" />
-            <p className="text-xs text-blue-700">
-              Estimasi waktu pengerjaan: <Badge variant="outline" className="ml-1 bg-blue-100 text-blue-700">{minIntervalAfterDate.days} hari</Badge><br />
-              Pengiriman paling cepat adalah <Badge variant="outline" className="ml-1 bg-blue-100 text-blue-700">{minIntervalAfterDate.days} hari</Badge> setelah tanggal pengambilan.
-            </p>
+            <div className="text-sm text-blue-700 space-y-1.5">
+              <p>
+                <span className="font-medium block mb-0.5">Estimasi waktu pengerjaan:</span>
+                <Badge variant="outline" className="bg-blue-100 text-blue-700 font-medium">{minIntervalAfterDate.days} hari</Badge>
+              </p>
+              <p>
+                <span className="font-medium block mb-0.5">Tanggal pengiriman minimal:</span>
+                <Badge variant="outline" className="bg-blue-100 text-blue-700 font-medium">{minIntervalAfterDate.days} hari setelah pengambilan</Badge>
+              </p>
+            </div>
           </div>
         )}
 

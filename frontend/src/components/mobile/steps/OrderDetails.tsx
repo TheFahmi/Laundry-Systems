@@ -160,8 +160,10 @@ export default function OrderDetails({ orderData, updateOrderData }: OrderDetail
         <div className="flex items-start">
           <AlertCircleIcon className="h-5 w-5 text-blue-600 mr-2 mt-0.5" />
           <AlertDescription className="text-blue-800">
-            Estimasi waktu pengerjaan: <strong>{formatProcessingTime()}</strong>. 
-            Pengiriman paling cepat adalah <strong className="text-blue-700">{formatProcessingTime()}</strong> setelah tanggal pengambilan.
+            <div className="space-y-1">
+              <p><span className="font-medium">Estimasi waktu pengerjaan:</span> <strong>{formatProcessingTime()}</strong></p>
+              <p><span className="font-medium">Pengiriman tersedia:</span> Minimal <strong className="text-blue-700">{formatProcessingTime()}</strong> setelah tanggal pengambilan</p>
+            </div>
           </AlertDescription>
         </div>
       </Alert>
