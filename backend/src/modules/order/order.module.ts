@@ -14,6 +14,7 @@ import { WorkOrder } from './entities/work-order.entity';
 import { WorkOrderStep } from './entities/work-order-step.entity';
 import { WorkOrderService } from './work-order.service';
 import { WorkOrderController } from './work-order.controller';
+import { PublicOrderController } from './public-order.controller';
 
 @Module({
   imports: [
@@ -28,7 +29,7 @@ import { WorkOrderController } from './work-order.controller';
     ]),
     AuthModule
   ],
-  controllers: [OrderController, JobQueueController, WorkOrderController],
+  controllers: [OrderController, JobQueueController, WorkOrderController, PublicOrderController],
   providers: [OrderService, JobQueueService, WorkOrderService],
   exports: [OrderService, JobQueueService, WorkOrderService]
 })

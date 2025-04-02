@@ -19,56 +19,63 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
-
-// Mock order data - replace with API call in a real app
-const MOCK_ORDER = {
-  id: 'WO-2025-001',
-  customerName: 'Budi Santoso',
-  phoneNumber: '08123456789',
-  address: 'Jl. Kenanga No. 123, Jakarta Selatan',
-  status: 'processing',
-  statusHistory: [
-    { status: 'pending', timestamp: '2025-04-01T08:30:00Z', note: 'Order diterima' },
-    { status: 'processing', timestamp: '2025-04-01T10:15:00Z', note: 'Sedang dicuci' },
-  ],
-  pickupDate: '2025-04-01',
-  estimatedCompletionDate: '2025-04-03',
-  deliveryDate: '2025-04-03',
-  totalItems: 5,
-  services: [
-    { name: 'Cuci Setrika', quantity: 3, price: 10000, total: 30000 },
-    { name: 'Dry Cleaning', quantity: 2, price: 25000, total: 50000 },
-  ],
-  totalAmount: 80000,
-  isDelivery: true,
-  notes: 'Pakaian putih dipisah',
-};
+import { OrderService, TrackOrderResponse } from '@/services/order.service';
 
 const statusInfo = {
-  pending: { 
-    label: 'Menunggu Proses', 
-    color: 'bg-yellow-100 text-yellow-800 border-yellow-200',
+  new: { 
+    label: 'New Order', 
+    color: 'bg-gray-100 text-gray-800 border-gray-200',
     icon: Clock
   },
   processing: { 
-    label: 'Sedang Diproses', 
+    label: 'Processing', 
     color: 'bg-blue-100 text-blue-800 border-blue-200',
     icon: Package
   },
-  completed: { 
-    label: 'Selesai', 
+  washing: { 
+    label: 'Washing', 
+    color: 'bg-blue-100 text-blue-800 border-blue-200',
+    icon: Package
+  },
+  drying: { 
+    label: 'Drying', 
+    color: 'bg-yellow-100 text-yellow-800 border-yellow-200',
+    icon: Package
+  },
+  folding: { 
+    label: 'Folding', 
+    color: 'bg-purple-100 text-purple-800 border-purple-200',
+    icon: Package
+  },
+  ready: { 
+    label: 'Ready for Pickup', 
     color: 'bg-green-100 text-green-800 border-green-200',
     icon: CheckCircle2
   },
   delivered: { 
-    label: 'Telah Diantar', 
+    label: 'Delivered', 
     color: 'bg-purple-100 text-purple-800 border-purple-200',
     icon: Truck
   },
   cancelled: { 
-    label: 'Dibatalkan', 
+    label: 'Cancelled', 
     color: 'bg-red-100 text-red-800 border-red-200',
     icon: AlertCircle
+  }
+};
+
+const paymentStatusInfo = {
+  pending: {
+    label: 'Not Paid',
+    color: 'bg-red-100 text-red-800 border-red-200'
+  },
+  partial: {
+    label: 'Partially Paid',
+    color: 'bg-yellow-100 text-yellow-800 border-yellow-200'
+  },
+  completed: {
+    label: 'Paid',
+    color: 'bg-green-100 text-green-800 border-green-200'
   }
 };
 
@@ -76,33 +83,29 @@ export default function TrackOrderPage() {
   const params = useParams();
   const searchParams = useSearchParams();
   const router = useRouter();
-  const orderNumber = params.orderNumber as string;
-  const verifyDigits = searchParams.get('verify');
+  const orderNumber = params?.orderNumber as string || '';
+  const verifyDigits = searchParams?.get('verify') || '';
   
-  const [order, setOrder] = useState<typeof MOCK_ORDER | null>(null);
+  const [order, setOrder] = useState<TrackOrderResponse | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
 
   useEffect(() => {
     // Validate that we have verification digits
     if (!verifyDigits || verifyDigits.length !== 4) {
-      setError('Verifikasi tidak valid');
+      setError('Invalid verification');
       setLoading(false);
       return;
     }
 
-    // In a real app, fetch order data from API and verify phone digits
+    // Fetch order data from API
     const fetchOrder = async () => {
       try {
-        // Simulate API call with timeout
-        await new Promise(resolve => setTimeout(resolve, 1000));
-        
-        // For demo purposes, we'll just use the mock data
-        // In a real app, you would verify the phone number digits match
-        setOrder(MOCK_ORDER);
+        const orderData = await OrderService.trackOrder(orderNumber);
+        setOrder(orderData);
         setLoading(false);
       } catch (err) {
-        setError('Gagal memuat data pesanan');
+        setError('Failed to load order data. Please check your order number.');
         setLoading(false);
       }
     };
@@ -111,24 +114,14 @@ export default function TrackOrderPage() {
   }, [orderNumber, verifyDigits]);
 
   const formatDate = (dateString: string) => {
+    if (!dateString) return 'Not specified';
+    
     const date = new Date(dateString);
-    return date.toLocaleDateString('id-ID', {
+    return date.toLocaleDateString('en-US', {
       weekday: 'long',
       year: 'numeric',
       month: 'long',
       day: 'numeric'
-    });
-  };
-
-  const formatDateTime = (dateTimeString: string) => {
-    const date = new Date(dateTimeString);
-    return date.toLocaleString('id-ID', {
-      weekday: 'long',
-      year: 'numeric',
-      month: 'long',
-      day: 'numeric',
-      hour: '2-digit',
-      minute: '2-digit'
     });
   };
 
@@ -142,7 +135,7 @@ export default function TrackOrderPage() {
             onClick={() => router.push('/')}
           >
             <ArrowLeft className="mr-2 h-4 w-4" />
-            Kembali ke Beranda
+            Back to Home
           </Button>
           <Skeleton className="h-8 w-64 mb-2" />
           <Skeleton className="h-4 w-48" />
@@ -171,7 +164,7 @@ export default function TrackOrderPage() {
             onClick={() => router.push('/')}
           >
             <ArrowLeft className="mr-2 h-4 w-4" />
-            Kembali ke Beranda
+            Back to Home
           </Button>
         </div>
         
@@ -179,12 +172,12 @@ export default function TrackOrderPage() {
           <CardContent className="py-12">
             <div className="text-center">
               <AlertCircle className="mx-auto h-12 w-12 text-red-500 mb-4" />
-              <h2 className="text-2xl font-bold mb-2">Pesanan Tidak Ditemukan</h2>
+              <h2 className="text-2xl font-bold mb-2">Order Not Found</h2>
               <p className="text-gray-600 mb-6">
-                {error || 'Pesanan tidak ditemukan atau verifikasi gagal'}
+                {error || 'Order not found or verification failed'}
               </p>
               <Button onClick={() => router.push('/')}>
-                Kembali ke Beranda
+                Back to Home
               </Button>
             </div>
           </CardContent>
@@ -194,6 +187,11 @@ export default function TrackOrderPage() {
   }
 
   const StatusIcon = statusInfo[order.status as keyof typeof statusInfo]?.icon || Clock;
+  const statusLabel = statusInfo[order.status as keyof typeof statusInfo]?.label || 'Unknown Status';
+  const statusColor = statusInfo[order.status as keyof typeof statusInfo]?.color || 'bg-gray-100 text-gray-800';
+  
+  const paymentStatusLabel = paymentStatusInfo[order.paymentStatus as keyof typeof paymentStatusInfo]?.label || 'Unknown';
+  const paymentStatusColor = paymentStatusInfo[order.paymentStatus as keyof typeof paymentStatusInfo]?.color || 'bg-gray-100 text-gray-800';
 
   return (
     <div className="container max-w-4xl mx-auto py-8 px-4">
@@ -204,10 +202,10 @@ export default function TrackOrderPage() {
           onClick={() => router.push('/')}
         >
           <ArrowLeft className="mr-2 h-4 w-4" />
-          Kembali ke Beranda
+          Back to Home
         </Button>
-        <h1 className="text-3xl font-bold">Lacak Pesanan</h1>
-        <p className="text-gray-600">Order #{order.id}</p>
+        <h1 className="text-3xl font-bold">{order.orderNumber}</h1>
+        <p className="text-gray-500">Order Status Tracker</p>
       </div>
       
       <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
@@ -215,152 +213,149 @@ export default function TrackOrderPage() {
           {/* Status Card */}
           <Card>
             <CardHeader className="pb-3">
-              <CardTitle className="text-lg">Status Pesanan</CardTitle>
+              <CardTitle className="text-xl">Current Status</CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="flex flex-col md:flex-row items-start md:items-center bg-gray-50 p-4 rounded-lg">
-                <div className="flex items-center mb-4 md:mb-0 md:mr-6">
-                  <div className="rounded-full p-3 bg-white border">
-                    <StatusIcon className="h-8 w-8" />
-                  </div>
+              <div className="flex items-center space-x-4">
+                <div className={`rounded-full p-3 ${statusColor.split(' ')[0]}`}>
+                  <StatusIcon className="h-6 w-6 text-blue-600" />
                 </div>
-                <div className="flex-grow">
-                  <Badge className={`${statusInfo[order.status as keyof typeof statusInfo]?.color} border mb-2`}>
-                    {statusInfo[order.status as keyof typeof statusInfo]?.label || 'Status tidak diketahui'}
+                <div>
+                  <Badge className={statusColor}>
+                    {statusLabel}
                   </Badge>
-                  <p className="text-gray-600">
-                    {order.status === 'pending' && 'Pesanan Anda telah diterima dan sedang menunggu proses.'}
-                    {order.status === 'processing' && 'Pesanan Anda sedang diproses oleh tim kami.'}
-                    {order.status === 'completed' && 'Pesanan Anda telah selesai dan siap untuk diambil atau diantar.'}
-                    {order.status === 'delivered' && 'Pesanan Anda telah diantar dan diterima.'}
-                    {order.status === 'cancelled' && 'Pesanan Anda telah dibatalkan.'}
+                  <p className="text-sm text-gray-500 mt-1">
+                    Last updated: {new Date(order.createdAt).toLocaleString()}
                   </p>
                 </div>
               </div>
               
-              {/* Timeline */}
-              <div className="mt-8">
-                <h3 className="font-semibold mb-4">Riwayat Status</h3>
-                <div className="space-y-4">
-                  {order.statusHistory.map((status, index) => (
-                    <div key={index} className="relative pl-6 pb-4 border-l border-gray-200">
-                      <div className="absolute left-[-8px] top-0 w-4 h-4 rounded-full bg-blue-600"></div>
-                      <p className="font-medium">{status.note}</p>
-                      <p className="text-sm text-gray-500">{formatDateTime(status.timestamp)}</p>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-          
-          {/* Order Details Card */}
-          <Card>
-            <CardHeader className="pb-3">
-              <CardTitle className="text-lg">Detail Pesanan</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="space-y-6">
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div>
-                    <h3 className="text-sm font-medium text-gray-500 mb-1">Tanggal Pengambilan</h3>
-                    <p className="flex items-center">
-                      <CalendarClock className="h-4 w-4 mr-1 text-gray-400" />
-                      {formatDate(order.pickupDate)}
-                    </p>
-                  </div>
+              <div className="mt-6">
+                <div className="relative">
+                  <div className="absolute left-4 top-0 h-full w-px bg-gray-200"></div>
                   
-                  <div>
-                    <h3 className="text-sm font-medium text-gray-500 mb-1">Estimasi Selesai</h3>
-                    <p className="flex items-center">
-                      <Clock className="h-4 w-4 mr-1 text-gray-400" />
-                      {formatDate(order.estimatedCompletionDate)}
-                    </p>
-                  </div>
-                  
-                  {order.isDelivery && (
-                    <div>
-                      <h3 className="text-sm font-medium text-gray-500 mb-1">Tanggal Pengiriman</h3>
-                      <p className="flex items-center">
-                        <Truck className="h-4 w-4 mr-1 text-gray-400" />
-                        {formatDate(order.deliveryDate)}
-                      </p>
-                    </div>
-                  )}
-                </div>
-                
-                <div className="border-t pt-4">
-                  <h3 className="font-semibold mb-3">Layanan</h3>
-                  <div className="space-y-2">
-                    {order.services.map((service, index) => (
-                      <div key={index} className="flex justify-between py-2 border-b border-gray-100">
-                        <div>
-                          <p className="font-medium">{service.name}</p>
-                          <p className="text-sm text-gray-500">Qty: {service.quantity}</p>
+                  <div className="space-y-6 relative">
+                    <div className="flex">
+                      <div className="flex-shrink-0 z-10">
+                        <div className="h-8 w-8 rounded-full bg-green-500 flex items-center justify-center">
+                          <CheckCircle2 className="h-4 w-4 text-white" />
                         </div>
-                        <p className="font-medium">Rp {service.total.toLocaleString()}</p>
                       </div>
-                    ))}
+                      <div className="ml-4">
+                        <h3 className="text-sm font-medium">Order Created</h3>
+                        <p className="text-xs text-gray-500">{formatDate(order.createdAt)}</p>
+                      </div>
+                    </div>
                     
-                    <div className="flex justify-between py-2 font-semibold">
-                      <p>Total</p>
-                      <p>Rp {order.totalAmount.toLocaleString()}</p>
+                    <div className="flex">
+                      <div className="flex-shrink-0 z-10">
+                        <div className={`h-8 w-8 rounded-full ${order.status !== 'new' ? 'bg-green-500' : 'bg-gray-200'} flex items-center justify-center`}>
+                          {order.status !== 'new' ? (
+                            <CheckCircle2 className="h-4 w-4 text-white" />
+                          ) : (
+                            <Clock className="h-4 w-4 text-white" />
+                          )}
+                        </div>
+                      </div>
+                      <div className="ml-4">
+                        <h3 className="text-sm font-medium">Processing</h3>
+                        <p className="text-xs text-gray-500">
+                          {order.status !== 'new' ? 'Processing started' : 'Waiting for processing'}
+                        </p>
+                      </div>
+                    </div>
+                    
+                    <div className="flex">
+                      <div className="flex-shrink-0 z-10">
+                        <div className={`h-8 w-8 rounded-full ${order.status === 'ready' || order.status === 'delivered' ? 'bg-green-500' : 'bg-gray-200'} flex items-center justify-center`}>
+                          {order.status === 'ready' || order.status === 'delivered' ? (
+                            <CheckCircle2 className="h-4 w-4 text-white" />
+                          ) : (
+                            <Package className="h-4 w-4 text-white" />
+                          )}
+                        </div>
+                      </div>
+                      <div className="ml-4">
+                        <h3 className="text-sm font-medium">Ready for Pickup/Delivery</h3>
+                        <p className="text-xs text-gray-500">
+                          {order.status === 'ready' || order.status === 'delivered' ? 
+                            'Your order is ready' : 
+                            'Estimated: ' + (order.deliveryDate ? formatDate(order.deliveryDate) : 'To be determined')}
+                        </p>
+                      </div>
+                    </div>
+                    
+                    <div className="flex">
+                      <div className="flex-shrink-0 z-10">
+                        <div className={`h-8 w-8 rounded-full ${order.status === 'delivered' ? 'bg-green-500' : 'bg-gray-200'} flex items-center justify-center`}>
+                          {order.status === 'delivered' ? (
+                            <CheckCircle2 className="h-4 w-4 text-white" />
+                          ) : (
+                            <Truck className="h-4 w-4 text-white" />
+                          )}
+                        </div>
+                      </div>
+                      <div className="ml-4">
+                        <h3 className="text-sm font-medium">Delivered/Picked Up</h3>
+                        <p className="text-xs text-gray-500">
+                          {order.status === 'delivered' ? 'Completed' : 'Pending'}
+                        </p>
+                      </div>
                     </div>
                   </div>
                 </div>
-                
-                {order.notes && (
-                  <div className="border-t pt-4">
-                    <h3 className="font-semibold mb-2">Catatan</h3>
-                    <p className="text-gray-600">{order.notes}</p>
-                  </div>
-                )}
               </div>
             </CardContent>
           </Card>
         </div>
         
-        {/* Customer Info Sidebar */}
         <div>
-          <Card className="sticky top-4">
+          {/* Order Summary */}
+          <Card>
             <CardHeader className="pb-3">
-              <CardTitle className="text-lg">Informasi Customer</CardTitle>
+              <CardTitle className="text-lg">Order Summary</CardTitle>
             </CardHeader>
             <CardContent className="space-y-4">
               <div>
-                <h3 className="text-sm font-medium text-gray-500 mb-1">Nama</h3>
-                <p className="flex items-center font-medium">
-                  <User className="h-4 w-4 mr-1 text-gray-400" />
-                  {order.customerName}
-                </p>
+                <h3 className="text-sm font-medium text-gray-500">Customer</h3>
+                <p className="font-medium">{order.customerName}</p>
               </div>
               
               <div>
-                <h3 className="text-sm font-medium text-gray-500 mb-1">Telepon</h3>
-                <p className="flex items-center font-medium">
-                  <Phone className="h-4 w-4 mr-1 text-gray-400" />
-                  {order.phoneNumber.substring(0, order.phoneNumber.length - 4)}XXXX
-                </p>
+                <h3 className="text-sm font-medium text-gray-500">Order Number</h3>
+                <p className="font-medium">{order.orderNumber}</p>
               </div>
               
-              {order.isDelivery && order.address && (
-                <div>
-                  <h3 className="text-sm font-medium text-gray-500 mb-1">Alamat Pengiriman</h3>
-                  <p className="flex items-start font-medium">
-                    <MapPin className="h-4 w-4 mr-1 text-gray-400 mt-1 flex-shrink-0" />
-                    {order.address}
-                  </p>
-                </div>
-              )}
+              <div>
+                <h3 className="text-sm font-medium text-gray-500">Date Created</h3>
+                <p className="font-medium">{formatDate(order.createdAt)}</p>
+              </div>
               
-              <div className="pt-4 border-t">
+              <div>
+                <h3 className="text-sm font-medium text-gray-500">Expected Delivery</h3>
+                <p className="font-medium">{order.deliveryDate ? formatDate(order.deliveryDate) : 'Not scheduled'}</p>
+              </div>
+              
+              <div>
+                <h3 className="text-sm font-medium text-gray-500">Total Amount</h3>
+                <p className="font-medium">${order.totalAmount.toFixed(2)}</p>
+              </div>
+              
+              <div>
+                <h3 className="text-sm font-medium text-gray-500">Payment Status</h3>
+                <Badge className={paymentStatusColor}>
+                  {paymentStatusLabel}
+                </Badge>
+              </div>
+              
+              <div className="pt-4">
                 <Button 
                   variant="outline" 
                   className="w-full"
-                  onClick={() => window.print()}
+                  onClick={() => window.location.href = `tel:+1234567890`}
                 >
-                  <ClipboardList className="mr-2 h-4 w-4" />
-                  Cetak Detail
+                  <Phone className="mr-2 h-4 w-4" />
+                  Contact Us
                 </Button>
               </div>
             </CardContent>

@@ -23,6 +23,7 @@ const work_order_entity_1 = require("./entities/work-order.entity");
 const work_order_step_entity_1 = require("./entities/work-order-step.entity");
 const work_order_service_1 = require("./work-order.service");
 const work_order_controller_1 = require("./work-order.controller");
+const public_order_controller_1 = require("./public-order.controller");
 let OrderModule = class OrderModule {
 };
 exports.OrderModule = OrderModule;
@@ -40,7 +41,7 @@ exports.OrderModule = OrderModule = __decorate([
             ]),
             auth_module_1.AuthModule
         ],
-        controllers: [order_controller_1.OrderController, job_queue_controller_1.JobQueueController, work_order_controller_1.WorkOrderController],
+        controllers: [order_controller_1.OrderController, job_queue_controller_1.JobQueueController, work_order_controller_1.WorkOrderController, public_order_controller_1.PublicOrderController],
         providers: [order_service_1.OrderService, job_queue_service_1.JobQueueService, work_order_service_1.WorkOrderService],
         exports: [order_service_1.OrderService, job_queue_service_1.JobQueueService, work_order_service_1.WorkOrderService]
     })

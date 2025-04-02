@@ -21,6 +21,7 @@ import Link from 'next/link';
 import { ModeToggle } from '@/components/ui/mode-toggle';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { OrderTracker } from '@/components/ui/order-tracker';
 
 // Define the FeatureCard props interface
 interface FeatureCardProps {
@@ -149,128 +150,53 @@ export default function Home() {
         <div className="container mx-auto px-4 md:px-6">
           <div className="flex flex-col md:flex-row items-center gap-8 md:gap-12">
             <div className="w-full md:w-1/2 order-2 md:order-1">
-              <Card className="shadow-lg border-none overflow-hidden">
-                <CardHeader className="bg-gradient-to-r from-indigo-50 to-blue-50 pb-4">
-                  <CardTitle className="text-xl flex items-center text-indigo-800">
-                    <Package className="mr-2 h-5 w-5 text-indigo-600" />
-                    Lacak Pesanan Anda
-                  </CardTitle>
-                  <CardDescription>
-                    Masukkan nomor order dan 4 digit terakhir nomor HP Anda
-                  </CardDescription>
-                </CardHeader>
-                <CardContent className="pt-6">
-                  <form onSubmit={handleTrackOrder} className="space-y-4">
-                    <div className="space-y-2">
-                      <Label htmlFor="order-number" className="text-gray-700">Nomor Order</Label>
-                      <div className="relative">
-                        <Input
-                          id="order-number"
-                          placeholder="Contoh: WO-2025-001"
-                          value={orderNumber}
-                          onChange={(e) => setOrderNumber(e.target.value)}
-                          className="pl-10 bg-gray-50"
-                        />
-                        <div className="absolute left-3 top-2.5 text-gray-400">
-                          <Package className="h-4 w-4" />
-                        </div>
-                      </div>
-                    </div>
-                    
-                    <div className="space-y-2">
-                      <Label htmlFor="phone-digits" className="text-gray-700">4 Digit Terakhir Nomor HP</Label>
-                      <div className="relative">
-                        <Input
-                          id="phone-digits"
-                          placeholder="Contoh: 1234"
-                          maxLength={4}
-                          value={phoneLastDigits}
-                          onChange={(e) => setPhoneLastDigits(e.target.value.replace(/\D/g, ''))}
-                          className="pl-10 bg-gray-50"
-                        />
-                        <div className="absolute left-3 top-2.5 text-gray-400">
-                          <span className="font-mono font-medium">0XXX</span>
-                        </div>
-                      </div>
-                    </div>
-                    
-                    {error && (
-                      <div className="rounded-md bg-red-50 p-3">
-                        <p className="text-sm text-red-600">{error}</p>
-                      </div>
-                    )}
-                    
-                    <Button 
-                      type="submit" 
-                      className="w-full bg-gradient-to-r from-indigo-600 to-blue-600 hover:from-indigo-700 hover:to-blue-700"
-                      disabled={loading}
-                    >
-                      {loading ? (
-                        <>
-                          <span className="mr-2 h-4 w-4 animate-spin rounded-full border-2 border-white border-t-transparent"></span>
-                          Memverifikasi...
-                        </>
-                      ) : (
-                        <>
-                          <Search className="mr-2 h-4 w-4" />
-                          Lacak Pesanan
-                        </>
-                      )}
-                    </Button>
-                  </form>
-                </CardContent>
-              </Card>
+              <OrderTracker />
             </div>
-            
             <div className="w-full md:w-1/2 order-1 md:order-2">
-              <div className="inline-block bg-indigo-100 text-indigo-700 text-sm font-medium px-3 py-1 rounded-full mb-2">
-                Tracking Cepat
-              </div>
-              <h2 className="text-3xl font-bold mb-4">Lacak Status Pesanan Anda</h2>
-              <p className="text-gray-600 mb-6">
-                Pantau status pesanan laundry Anda secara real-time. Masukkan nomor order dan verifikasi dengan 4 digit terakhir nomor HP Anda.
-              </p>
-              
               <div className="space-y-4">
-                <div className="flex items-start">
-                  <div className="flex-shrink-0 mt-1">
-                    <div className="h-8 w-8 rounded-full bg-indigo-100 flex items-center justify-center">
-                      <Package className="h-4 w-4 text-indigo-600" />
+                <h2 className="text-3xl font-bold text-indigo-900">
+                  Track Your Order Status
+                </h2>
+                <p className="text-gray-600">
+                  Stay updated with your laundry order status in real-time. Just enter your order number 
+                  and phone number verification to get started.
+                </p>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 py-4">
+                  <div className="flex items-start space-x-2">
+                    <div className="bg-blue-100 p-2 rounded-full text-blue-600">
+                      <CheckCircle className="h-5 w-5" />
+                    </div>
+                    <div>
+                      <h3 className="font-medium text-gray-900">Real-time Updates</h3>
+                      <p className="text-sm text-gray-500">Track your order at any stage</p>
                     </div>
                   </div>
-                  <div className="ml-4">
-                    <h4 className="text-base font-medium">Masukkan Nomor Order</h4>
-                    <p className="text-gray-500 text-sm">
-                      Cek nomor order pada struk atau SMS konfirmasi Anda
-                    </p>
-                  </div>
-                </div>
-                
-                <div className="flex items-start">
-                  <div className="flex-shrink-0 mt-1">
-                    <div className="h-8 w-8 rounded-full bg-indigo-100 flex items-center justify-center">
-                      <ShieldCheck className="h-4 w-4 text-indigo-600" />
+                  <div className="flex items-start space-x-2">
+                    <div className="bg-green-100 p-2 rounded-full text-green-600">
+                      <Clock className="h-5 w-5" />
+                    </div>
+                    <div>
+                      <h3 className="font-medium text-gray-900">Processing Time</h3>
+                      <p className="text-sm text-gray-500">Know exactly when your order will be ready</p>
                     </div>
                   </div>
-                  <div className="ml-4">
-                    <h4 className="text-base font-medium">Verifikasi dengan 4 Digit Nomor HP</h4>
-                    <p className="text-gray-500 text-sm">
-                      Untuk keamanan, masukkan 4 digit terakhir nomor HP Anda
-                    </p>
-                  </div>
-                </div>
-                
-                <div className="flex items-start">
-                  <div className="flex-shrink-0 mt-1">
-                    <div className="h-8 w-8 rounded-full bg-indigo-100 flex items-center justify-center">
-                      <Clock className="h-4 w-4 text-indigo-600" />
+                  <div className="flex items-start space-x-2">
+                    <div className="bg-purple-100 p-2 rounded-full text-purple-600">
+                      <Truck className="h-5 w-5" />
+                    </div>
+                    <div>
+                      <h3 className="font-medium text-gray-900">Delivery Status</h3>
+                      <p className="text-sm text-gray-500">Track delivery of your clean laundry</p>
                     </div>
                   </div>
-                  <div className="ml-4">
-                    <h4 className="text-base font-medium">Lihat Status Pesanan Real-time</h4>
-                    <p className="text-gray-500 text-sm">
-                      Pantau status pesanan dari penerimaan hingga pengiriman
-                    </p>
+                  <div className="flex items-start space-x-2">
+                    <div className="bg-amber-100 p-2 rounded-full text-amber-600">
+                      <ShieldCheck className="h-5 w-5" />
+                    </div>
+                    <div>
+                      <h3 className="font-medium text-gray-900">Secure Verification</h3>
+                      <p className="text-sm text-gray-500">Simple verification with phone digits</p>
+                    </div>
                   </div>
                 </div>
               </div>
