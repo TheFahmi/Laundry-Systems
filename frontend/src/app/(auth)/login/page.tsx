@@ -63,7 +63,7 @@ export default function LoginPage() {
       const loginResult = await login(formData.username, formData.password);
       
       if (loginResult) {
-        const callbackUrl = searchParams?.get('callbackUrl') || '/dashboard';
+        const callbackUrl = searchParams?.get('callbackUrl') || '/admin/dashboard';
         router.push(callbackUrl);
       } else {
         throw new Error('Login failed');

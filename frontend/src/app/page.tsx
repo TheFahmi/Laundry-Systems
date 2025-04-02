@@ -41,7 +41,7 @@ export default function Home() {
     // Redirect ke /dashboard jika sudah login
     const token = localStorage.getItem('token');
     if (token) {
-      router.push('/dashboard');
+      router.push('/admin/dashboard');
     }
   }, [router]);
 

@@ -44,7 +44,7 @@ export function AuthGuard({
         
       if (!hasRequiredRole) {
         // Redirect to dashboard if authenticated but wrong role
-        router.push("/dashboard");
+        router.push("/admin/dashboard");
       }
     }
   }, [user, loading, isAuthenticated, requiredRole, router, redirectTo]);

@@ -7,6 +7,7 @@ import { getOrderById } from '@/lib/orders';
 import { format } from 'date-fns';
 import { id } from 'date-fns/locale';
 import { CheckCircle, Clock, Printer } from 'lucide-react';
+import { Button } from '@/components/ui/button';
 
 export default function OrderCompletedPage() {
   const searchParams = useSearchParams();
@@ -93,12 +94,12 @@ export default function OrderCompletedPage() {
           </div>
           <h2 className="text-xl font-bold mb-2">Terjadi Kesalahan</h2>
           <p className="text-gray-600 mb-4">{error || 'Tidak dapat menampilkan detail pesanan'}</p>
-          <button
-            onClick={() => router.push('/dashboard')}
-            className="w-full py-2 px-4 bg-blue-500 text-white rounded-md hover:bg-blue-600 transition-colors"
+          <Button 
+            variant="outline"
+            onClick={() => router.push('/admin/dashboard')}
           >
-            Kembali ke Dashboard
-          </button>
+            Back to Dashboard
+          </Button>
         </div>
       </div>
     );
@@ -177,12 +178,13 @@ export default function OrderCompletedPage() {
               Cetak Invoice
             </Link>
             
-            <button
-              onClick={() => router.push('/dashboard')}
-              className="block w-full py-2.5 bg-gray-100 text-gray-700 text-center rounded-lg hover:bg-gray-200 transition"
+            <Button 
+              variant="outline"
+              onClick={() => router.push('/admin/dashboard')}
+              className="mt-4 mx-auto"
             >
-              Kembali ke Dashboard
-            </button>
+              Return to Dashboard
+            </Button>
           </div>
           
           <div className="mt-6 pt-4 border-t border-gray-100 text-center text-xs text-gray-500">
