@@ -221,7 +221,7 @@ export default function OrdersPage() {
   // Open update status dialog
   const openUpdateDialog = (order: Order) => {
     setSelectedOrder(order)
-    setNewStatus(order.status)
+    setNewStatus(order.status as OrderStatus)
     setIsUpdateDialogOpen(true)
   }
   
