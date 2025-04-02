@@ -100,46 +100,41 @@ export default function Home() {
       </header>
 
       {/* Hero Section */}
-      <section className="w-full py-12 md:py-24 lg:py-32 bg-gradient-to-br from-indigo-50 via-white to-blue-50">
-        <div className="container mx-auto px-4 md:px-6">
-          <div className="grid gap-6 lg:grid-cols-2 lg:gap-12 items-center">
-            <div className="flex flex-col justify-center space-y-4">
-              <div className="space-y-2">
-                <div className="inline-block bg-indigo-100 text-indigo-700 text-sm font-medium px-3 py-1 rounded-full mb-2">
-                  #1 Laundry Management System
-                </div>
-                <h1 className="text-4xl font-bold tracking-tighter sm:text-5xl xl:text-6xl/none bg-clip-text text-transparent bg-gradient-to-r from-indigo-600 to-blue-600">
-                  {APP_NAME}
-                </h1>
-                <p className="max-w-[600px] text-gray-600 md:text-xl/relaxed lg:text-base/relaxed xl:text-xl/relaxed">
-                  Solusi lengkap untuk bisnis laundry Anda. Kelola pelanggan, pesanan, 
-                  dan pembayaran dengan mudah serta pantau bisnis Anda secara real-time.
-                </p>
-              </div>
-              <div className="flex flex-col gap-2 min-[400px]:flex-row mt-4">
-                <Button 
-                  size="lg" 
-                  onClick={() => router.push('/login')}
-                  className="bg-gradient-to-r from-indigo-600 to-blue-600 hover:from-indigo-700 hover:to-blue-700"
-                >
-                  Mulai Sekarang
-                </Button>
-                <Button size="lg" variant="outline" onClick={() => router.push('/register')}>
-                  Pelajari Lebih Lanjut
-                </Button>
-              </div>
+      <section className="w-full bg-gradient-to-br from-indigo-50 to-blue-50 py-12 md:py-20">
+        <div className="container mx-auto px-4 flex flex-col md:flex-row items-center justify-between">
+          <div className="md:w-1/2 mb-8 md:mb-0">
+            <h1 className="text-3xl md:text-4xl lg:text-5xl font-bold text-gray-900 mb-4">
+              Layanan Laundry Terbaik untuk Kebutuhan Anda
+            </h1>
+            <p className="text-lg text-gray-700 mb-6">
+              Kami menawarkan layanan laundry berkualitas dengan pengiriman cepat dan harga terjangkau.
+            </p>
+            <div className="flex flex-col sm:flex-row gap-4">
+              <Link 
+                href="/login" 
+                className="bg-indigo-600 hover:bg-indigo-700 text-white font-medium py-3 px-6 rounded-md transition duration-300 text-center"
+              >
+                Masuk / Daftar
+              </Link>
+              <Link 
+                href="/tracking" 
+                className="bg-white hover:bg-gray-100 text-indigo-600 font-medium py-3 px-6 rounded-md border border-indigo-600 transition duration-300 text-center"
+              >
+                Lacak Pesanan
+              </Link>
             </div>
-            <div className="mx-auto lg:w-full relative">
-              <div className="absolute inset-0 bg-gradient-to-r from-blue-500/20 to-indigo-500/20 rounded-xl blur-3xl -z-10"></div>
-              <Card className="overflow-hidden border-none shadow-xl">
-                <Image
-                  src="/assets/laundry-hero.jpg"
-                  alt="Laundry Management System"
-                  width={600}
-                  height={400}
-                  className="aspect-video w-full object-cover"
-                />
-              </Card>
+          </div>
+          <div className="md:w-1/2 flex justify-center">
+            {/* SVG Animation */}
+            <div className="w-full max-w-md relative">
+              <Image
+                src="/assets/laundry-hero-animation.svg"
+                alt="Laundry Service Illustration"
+                width={600}
+                height={400}
+                className="w-full h-auto"
+                priority
+              />
             </div>
           </div>
         </div>
@@ -206,48 +201,50 @@ export default function Home() {
       </section>
 
       {/* Features Section */}
-      <section className="w-full py-16 bg-gradient-to-br from-indigo-50 via-white to-blue-50">
-        <div className="container mx-auto px-4 md:px-6">
-          <div className="flex flex-col items-center justify-center space-y-4 text-center mb-12">
-            <div className="inline-block bg-indigo-100 text-indigo-700 text-sm font-medium px-3 py-1 rounded-full">
-              Fitur Unggulan
+      <section className="w-full py-12 md:py-20 bg-white">
+        <div className="container mx-auto px-4">
+          <h2 className="text-2xl md:text-3xl font-bold text-center text-gray-900 mb-12">
+            Mengapa Memilih Layanan Kami?
+          </h2>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
+            {/* Feature 1 */}
+            <div className="bg-white p-6 rounded-lg shadow-sm border border-gray-100 hover:shadow-md transition duration-300">
+              <div className="w-14 h-14 bg-indigo-100 rounded-lg flex items-center justify-center mb-4">
+                <svg xmlns="http://www.w3.org/2000/svg" className="h-8 w-8 text-indigo-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                </svg>
+              </div>
+              <h3 className="text-xl font-semibold mb-2 text-gray-900">Layanan Cepat</h3>
+              <p className="text-gray-600">
+                Kami menjamin pengerjaan laundry yang cepat dan tepat waktu untuk memenuhi kebutuhan Anda.
+              </p>
             </div>
-            <h2 className="text-3xl font-bold">Solusi Lengkap untuk Bisnis Laundry</h2>
-            <p className="max-w-[800px] text-gray-600 md:text-lg">
-              Semua yang Anda butuhkan untuk mengelola bisnis laundry dalam satu platform terintegrasi
-            </p>
-          </div>
-          <div className="mx-auto grid max-w-6xl grid-cols-1 gap-6 md:grid-cols-2 lg:grid-cols-3 mt-8">
-            <FeatureCard
-              icon={<Sparkles className="h-10 w-10 text-indigo-600" />}
-              title="Manajemen Pesanan"
-              description="Kelola pesanan pelanggan dengan mudah, dari penerimaan hingga pengiriman"
-            />
-            <FeatureCard
-              icon={<Clock className="h-10 w-10 text-indigo-600" />}
-              title="Pelacakan Real-time"
-              description="Pantau status pesanan secara real-time dan kirim notifikasi otomatis"
-            />
-            <FeatureCard
-              icon={<Truck className="h-10 w-10 text-indigo-600" />}
-              title="Manajemen Pengiriman"
-              description="Atur jadwal pengiriman dan pengambilan untuk meningkatkan layanan pelanggan"
-            />
-            <FeatureCard
-              icon={<CheckCircle className="h-10 w-10 text-indigo-600" />}
-              title="Kontrol Kualitas"
-              description="Pantau dan pertahankan kualitas layanan dengan sistem pengecekan terintegrasi"
-            />
-            <FeatureCard
-              icon={<Send className="h-10 w-10 text-indigo-600" />}
-              title="Notifikasi Otomatis"
-              description="Kirim update status dan pengingat otomatis ke pelanggan melalui SMS"
-            />
-            <FeatureCard
-              icon={<ShieldCheck className="h-10 w-10 text-indigo-600" />}
-              title="Keamanan Data"
-              description="Lindungi data pelanggan dan transaksi dengan sistem keamanan berlapis"
-            />
+            
+            {/* Feature 2 */}
+            <div className="bg-white p-6 rounded-lg shadow-sm border border-gray-100 hover:shadow-md transition duration-300">
+              <div className="w-14 h-14 bg-indigo-100 rounded-lg flex items-center justify-center mb-4">
+                <svg xmlns="http://www.w3.org/2000/svg" className="h-8 w-8 text-indigo-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
+                </svg>
+              </div>
+              <h3 className="text-xl font-semibold mb-2 text-gray-900">Kualitas Terjamin</h3>
+              <p className="text-gray-600">
+                Kami menggunakan deterjen berkualitas dan proses yang teliti untuk hasil terbaik.
+              </p>
+            </div>
+            
+            {/* Feature 3 */}
+            <div className="bg-white p-6 rounded-lg shadow-sm border border-gray-100 hover:shadow-md transition duration-300">
+              <div className="w-14 h-14 bg-indigo-100 rounded-lg flex items-center justify-center mb-4">
+                <svg xmlns="http://www.w3.org/2000/svg" className="h-8 w-8 text-indigo-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z" />
+                </svg>
+              </div>
+              <h3 className="text-xl font-semibold mb-2 text-gray-900">Harga Terjangkau</h3>
+              <p className="text-gray-600">
+                Layanan berkualitas dengan harga yang kompetitif dan transparan tanpa biaya tersembunyi.
+              </p>
+            </div>
           </div>
         </div>
       </section>
