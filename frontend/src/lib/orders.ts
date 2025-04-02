@@ -1,4 +1,4 @@
-import api from '@/utils/api';
+import { fetchWithAuth } from '@/utils/api';
 
 // Define types for order data
 export type OrderStatus = 
@@ -24,22 +24,15 @@ export interface OrderItem {
 
 export interface Order {
   id: string;
-  orderNumber: string;
-  customerId: string;
-  customerName?: string;
-  status: OrderStatus;
-  totalAmount: number;
-  totalWeight: number;
-  notes?: string;
-  specialRequirements?: string;
-  pickupDate?: string;
-  deliveryDate?: string;
+  order_id: string;
+  name: string;
+  phone: string;
+  status: string;
   items: OrderItem[];
-  createdAt: string;
-  updatedAt: string;
-  customer: {
-    name: string;
-  };
+  total_price: number;
+  created_at: string;
+  updated_at: string;
+  // Add other fields as needed
 }
 
 export interface OrdersData {
@@ -70,18 +63,12 @@ export interface SingleOrderResponse {
 /**
  * Fetch orders with optional filtering
  */
-export async function getOrders(params: {
-  page?: number;
-  limit?: number;
-  status?: OrderStatus;
-  search?: string;
-}): Promise<OrdersResponse> {
+export async function getOrders() {
   try {
-    const { page = 1, limit = 10, status, search } = params;
-    
-    const response = await api.get('/orders', { params });
-    return response.data;
+    const response = await fetchWithAuth('/api/orders');
+    return response;
   } catch (error) {
+    console.error('Error fetching orders:', error);
     throw error;
   }
 }
@@ -89,12 +76,13 @@ export async function getOrders(params: {
 /**
  * Get order details by ID
  */
-export async function getOrder(id: string): Promise<AnyData> {
+export async function getOrderById(id: string) {
   try {
-    // Use a properly formatted path with slashes instead of nested paths
-    const response = await api.get(`/orders/${id}`);
-    return response.data;
+    console.log(`Fetching order with ID: ${id} using Next.js API route`);
+    const response = await fetchWithAuth(`/api/orders/by-id/${id}`);
+    return response;
   } catch (error) {
+    console.error(`Error fetching order ${id}:`, error);
     throw error;
   }
 }
@@ -102,11 +90,15 @@ export async function getOrder(id: string): Promise<AnyData> {
 /**
  * Create a new order
  */
-export async function createOrder(orderData: any): Promise<SingleOrderResponse> {
+export async function createOrder(orderData: any) {
   try {
-    const response = await api.post('/orders', orderData);
-    return response.data;
+    const response = await fetchWithAuth('/api/orders', {
+      method: 'POST',
+      body: JSON.stringify(orderData),
+    });
+    return response;
   } catch (error) {
+    console.error('Error creating order:', error);
     throw error;
   }
 }
@@ -114,11 +106,15 @@ export async function createOrder(orderData: any): Promise<SingleOrderResponse> 
 /**
  * Update an existing order
  */
-export async function updateOrder(id: string, updateData: any): Promise<SingleOrderResponse> {
+export async function updateOrder(id: string, orderData: any) {
   try {
-    const response = await api.patch(`/orders/${id}`, updateData);
-    return response.data;
+    const response = await fetchWithAuth(`/api/orders/${id}`, {
+      method: 'PUT',
+      body: JSON.stringify(orderData),
+    });
+    return response;
   } catch (error) {
+    console.error(`Error updating order ${id}:`, error);
     throw error;
   }
 }
@@ -129,7 +125,10 @@ export async function updateOrder(id: string, updateData: any): Promise<SingleOr
 export async function updateOrderStatus(id: string, status: OrderStatus): Promise<AnyData> {
   try {
     // Use a properly formatted path with slashes
-    const response = await api.patch(`/orders/${id}/status`, { status });
+    const response = await fetchWithAuth(`/api/orders/${id}/status`, {
+      method: 'PATCH',
+      body: JSON.stringify({ status }),
+    });
     return response.data;
   } catch (error) {
     throw error;
@@ -139,11 +138,14 @@ export async function updateOrderStatus(id: string, status: OrderStatus): Promis
 /**
  * Delete an order
  */
-export async function deleteOrder(id: string): Promise<void> {
+export async function deleteOrder(id: string) {
   try {
-    await api.delete(`/orders/${id}`);
-    return;
+    const response = await fetchWithAuth(`/api/orders/${id}`, {
+      method: 'DELETE',
+    });
+    return response;
   } catch (error) {
+    console.error(`Error deleting order ${id}:`, error);
     throw error;
   }
 }
@@ -154,9 +156,53 @@ export async function deleteOrder(id: string): Promise<void> {
 export async function getOrderByOrderNumber(orderNumber: string): Promise<AnyData> {
   try {
     // Use a specific API route for order number lookups
-    const response = await api.get(`/api/orders/by-number/${orderNumber}`);
+    const response = await fetchWithAuth(`/api/orders/by-number/${orderNumber}`);
     return response.data;
   } catch (error) {
+    throw error;
+  }
+}
+
+// Verification function for order tracking
+export async function verifyOrderWithPhone(orderId: string, phoneLastFour: string) {
+  try {
+    const response = await fetch('/api/order-tracking/verify', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ orderId, phoneLastFour }),
+    });
+
+    if (!response.ok) {
+      const errorData = await response.json();
+      throw new Error(errorData.message || 'Verification failed');
+    }
+
+    return await response.json();
+  } catch (error) {
+    console.error('Error verifying order:', error);
+    throw error;
+  }
+}
+
+// Get order status for tracking
+export async function getOrderStatus(orderId: string, verificationToken: string) {
+  try {
+    const response = await fetch(`/api/order-tracking/status?orderId=${orderId}`, {
+      headers: {
+        'Authorization': `Bearer ${verificationToken}`
+      }
+    });
+
+    if (!response.ok) {
+      const errorData = await response.json();
+      throw new Error(errorData.message || 'Failed to get order status');
+    }
+
+    return await response.json();
+  } catch (error) {
+    console.error('Error getting order status:', error);
     throw error;
   }
 } 

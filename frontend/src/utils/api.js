@@ -166,5 +166,50 @@ export const authApi = {
   }
 };
 
+// Helper function for fetch API with auth headers
+export async function fetchWithAuth(url, options = {}) {
+  const token = Cookies.get('token');
+  const headers = {
+    'Content-Type': 'application/json',
+    ...(token ? { 'Authorization': `Bearer ${token}` } : {}),
+    ...options.headers,
+  };
+
+  console.log(`[API] Fetching ${url} with auth token: ${token ? 'present' : 'not present'}`);
+  
+  try {
+    const response = await fetch(url, {
+      ...options,
+      headers,
+    });
+
+    console.log(`[API] Response status for ${url}: ${response.status}`);
+    
+    if (!response.ok) {
+      const errorText = await response.text();
+      console.error(`[API] Error response for ${url}:`, errorText);
+      
+      try {
+        const errorJson = JSON.parse(errorText);
+        throw { 
+          status: response.status, 
+          data: errorJson, 
+          message: errorJson.message || 'API Error' 
+        };
+      } catch (e) {
+        throw { 
+          status: response.status, 
+          message: errorText || 'API Error' 
+        };
+      }
+    }
+
+    return await response.json();
+  } catch (error) {
+    console.error(`[API] Fetch error for ${url}:`, error);
+    throw error;
+  }
+}
+
 // Export the API instance to use for all requests
 export default api; 

@@ -1,102 +1,187 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { createAuthHeaders } from '@/lib/api-utils';
+import { getCookie } from '@/lib/auth-cookies';
 
 // Get base URL from environment or use default
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
-console.log('[API Route] Order by ID lookup using backend URL:', API_BASE_URL);
+const DEBUG_MODE = true;
+
+// Helper to get token from request
+function getTokenFromRequest(req: NextRequest): string | null {
+  // Try to get from Authorization header first
+  const authHeader = req.headers.get('Authorization');
+  if (authHeader && authHeader.startsWith('Bearer ')) {
+    return authHeader.substring(7);
+  }
+  
+  // Fallback to cookie
+  const token = getCookie(req, 'token');
+  return token || null;
+}
+
+// Helper untuk decode token JWT tanpa validasi
+const decodeJWT = (token: string) => {
+  try {
+    const [headerB64, payloadB64] = token.split('.');
+    const payloadJson = Buffer.from(payloadB64, 'base64').toString('utf8');
+    return JSON.parse(payloadJson);
+  } catch (error) {
+    console.error('[JWT] Token decode error:', error);
+    return null;
+  }
+};
 
 export async function GET(
-  req: NextRequest,
+  request: NextRequest,
   { params }: { params: { id: string } }
 ) {
   try {
-    // Get token from cookies
-    const token = req.cookies.get('token')?.value;
+    const orderId = params.id;
+    console.log(`[API Route] Fetching order details for ID: ${orderId}`);
+    
+    // Get the auth token from request
+    const token = getTokenFromRequest(request);
+    console.log(`Auth token exists: ${!!token}`);
     
     if (!token) {
+      console.log('No auth token found in request');
       return NextResponse.json(
         { error: 'Authentication required' },
         { status: 401 }
       );
     }
     
-    console.log(`[Order API] Fetching order with ID: ${params.id}`);
-    
-    const headers = createAuthHeaders();
-    
-    // First try to get the order directly by UUID
-    const orderUrl = `${API_BASE_URL}/orders/${params.id}`;
-    console.log(`[Order API] Fetching from: ${orderUrl}`);
-    
-    try {
-      const response = await fetch(orderUrl, {
-        headers,
-        cache: 'no-store'
-      });
-      
-      console.log(`[Order API] Response status:`, response.status);
-      
-      if (!response.ok) {
-        const errorText = await response.text();
-        console.error(`[Order API] Error fetching order by ID:`, errorText);
-        
-        // If not found by ID, try searching by order_id filter
-        console.log(`[Order API] Order not found by ID, trying search`);
-        
-        // Try to search for the order in the list
-        const searchUrl = `${API_BASE_URL}/orders?order_id=${params.id}`;
-        console.log(`[Order API] Searching using: ${searchUrl}`);
-        
-        const searchResponse = await fetch(searchUrl, {
-          headers,
-          cache: 'no-store'
-        });
-        
-        if (!searchResponse.ok) {
-          const searchErrorText = await searchResponse.text();
-          console.error(`[Order API] Error searching for order:`, searchErrorText);
-          return NextResponse.json(
-            { error: 'Order not found' },
-            { status: 404 }
-          );
-        }
-        
-        const searchData = await searchResponse.json();
-        console.log(`[Order API] Search results:`, searchData);
-        
-        if (searchData.data && searchData.data.length > 0) {
-          return NextResponse.json({
-            statusCode: 200,
-            message: 'Order found by search',
-            data: searchData.data[0]
-          });
-        } else {
-          return NextResponse.json(
-            { error: 'Order not found in search results' },
-            { status: 404 }
-          );
+    // Debug token information
+    if (token) {
+      const payload = decodeJWT(token);
+      if (payload) {
+        console.log('Token payload:', payload);
+        const now = Math.floor(Date.now() / 1000);
+        if (payload.exp) {
+          const timeLeft = payload.exp - now;
+          console.log(`Token expires at: ${new Date(payload.exp * 1000).toLocaleString()}`);
+          console.log(`Current time: ${new Date().toLocaleString()}`);
+          console.log(`Time left: ${timeLeft} seconds`);
+          
+          if (timeLeft < 0) {
+            console.log(`Token expired ${Math.abs(timeLeft)} seconds ago`);
+          }
         }
       }
-      
-      const data = await response.json();
-      console.log(`[Order API] Order found:`, data);
-      
-      return NextResponse.json({
-        statusCode: 200,
-        message: 'Order found',
-        data: data.data
-      });
-    } catch (error) {
-      console.error('[Order API] Network error fetching order:', error);
-      return NextResponse.json(
-        { error: 'Network error fetching order', message: error instanceof Error ? error.message : 'Unknown error' },
-        { status: 500 }
-      );
     }
-  } catch (error) {
-    console.error('[Order API] Error in order lookup:', error);
+    
+    // Get CSRF token from cookies or headers
+    const csrfToken = request.cookies.get('XSRF-TOKEN')?.value || 
+                      request.headers.get('X-CSRF-Token') ||
+                      request.headers.get('X-XSRF-Token');
+    
+    console.log(`CSRF token exists: ${!!csrfToken}`);
+    
+    // URL for the backend API
+    const apiURL = `${API_BASE_URL}/orders/${encodeURIComponent(orderId)}`;
+    console.log(`Calling backend directly at: ${apiURL}`);
+    console.log(`Using token (first 10 chars): ${token.substring(0, 10)}...`);
+    
+    // Set up headers for the request
+    const headers: HeadersInit = {
+      'Authorization': `Bearer ${token}`,
+      'Content-Type': 'application/json',
+    };
+    
+    // Add CSRF token to headers if available
+    if (csrfToken) {
+      headers['X-CSRF-Token'] = csrfToken;
+      console.log(`Including CSRF token in request`);
+    } else {
+      console.log(`No CSRF token available to include in request`);
+    }
+    
+    // Make the request
+    const response = await fetch(apiURL, {
+      headers,
+      cache: 'no-store'
+    });
+    
+    console.log(`Backend response status: ${response.status}`);
+    
+    // Handle non-successful responses
+    if (!response.ok) {
+      console.log(`Error response: ${response.status} ${response.statusText}`);
+      
+      // Special handling for 401 Unauthorized
+      if (response.status === 401) {
+        console.log('Received 401 Unauthorized from backend');
+        
+        // Log detailed error information for debugging
+        console.log('-----------------------------');
+        console.log('ORDER DETAIL API ERROR 401');
+        console.log('Backend URL:', apiURL);
+        console.log('Request Headers:', headers);
+        
+        try {
+          const errorBody = await response.text();
+          console.log('Error Response Body:', errorBody);
+          
+          try {
+            const errorJson = JSON.parse(errorBody);
+            console.log('Error JSON:', errorJson);
+          } catch (e) {
+            console.log('Failed to parse error as JSON');
+          }
+        } catch (e) {
+          console.log('Failed to read error response body');
+        }
+        
+        console.log('-----------------------------');
+        
+        // Return detailed error for debugging
+        return NextResponse.json(
+          { 
+            error: 'Authentication error', 
+            message: 'Token validation failed with the backend',
+            debug: true,
+            timestamp: new Date().toISOString(),
+            requestUrl: apiURL,
+          },
+          { status: 401 }
+        );
+      }
+      
+      // For other errors
+      try {
+        const errorData = await response.json();
+        console.error('Error response from backend:', errorData);
+        return NextResponse.json(
+          errorData,
+          { status: response.status }
+        );
+      } catch (e) {
+        const errorText = await response.text();
+        console.error('Error response text:', errorText);
+        return NextResponse.json(
+          { error: 'Failed to fetch order details', message: errorText },
+          { status: response.status }
+        );
+      }
+    }
+    
+    // Parse and return the data
+    const data = await response.json();
+    console.log('Successfully fetched order data');
+    
+    // Return standardized format that our frontend expects
+    return NextResponse.json({
+      statusCode: 200,
+      message: 'Order details fetched successfully',
+      data: data
+    });
+  } catch (error: any) {
+    console.error('Error in order API route:', error);
     return NextResponse.json(
-      { error: 'Failed to look up order', message: error instanceof Error ? error.message : 'Unknown error' },
+      { 
+        error: 'Failed to fetch order details',
+        message: error.message,
+        stack: DEBUG_MODE ? error.stack : undefined
+      },
       { status: 500 }
     );
   }
