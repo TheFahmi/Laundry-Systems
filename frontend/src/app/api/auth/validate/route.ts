@@ -1,74 +1,133 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { SignJWT } from 'jose';
+
+const JWT_SECRET = process.env.JWT_SECRET || 'your-super-secret-key-here';
+
+// Fungsi untuk decode token tanpa verifikasi
+const decodeJWT = (token: string) => {
+  try {
+    if (!token) return null;
+    
+    const parts = token.split('.');
+    if (parts.length !== 3) return null;
+    
+    const payloadB64 = parts[1];
+    const payloadJson = Buffer.from(payloadB64, 'base64').toString('utf8');
+    return JSON.parse(payloadJson);
+  } catch (error) {
+    console.error('[JWT] Token decode error:', error);
+    return null;
+  }
+};
+
+// Fungsi untuk menghasilkan token baru
+async function generateFreshToken(username: string, userId: string, role: string) {
+  try {
+    const secret = new TextEncoder().encode(JWT_SECRET);
+    
+    // Buat token baru dengan masa berlaku 30 hari
+    return await new SignJWT({
+      username,
+      sub: userId,
+      role
+    })
+      .setProtectedHeader({ alg: 'HS256' })
+      .setIssuedAt()
+      .setExpirationTime('30d') // 30 hari
+      .sign(secret);
+  } catch (error) {
+    console.error('[JWT] Token generation error:', error);
+    return null;
+  }
+}
 
 /**
  * GET handler to validate JWT token
  */
 export async function GET(req: NextRequest) {
-  console.log('[API] Token validation request received');
-  
   try {
-    // Get API URL from environment variable with fallback
-    const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
-    
-    // Get token from cookies
+    // Dapatkan token dari cookie
     const token = req.cookies.get('token')?.value;
     
     if (!token) {
-      console.log('[API] No token found in cookies for validation');
-      return NextResponse.json(
-        { valid: false, message: 'No token provided' },
-        { status: 401 }
-      );
+      return NextResponse.json({
+        valid: false,
+        message: 'No token found'
+      });
     }
     
-    // Create the request to the backend
-    const validateResponse = await fetch(`${API_URL}/auth/validate`, {
-      method: 'GET',
-      headers: {
-        'Authorization': `Bearer ${token}`
-      },
-      cache: 'no-store'
+    // Decode token untuk memeriksa expiration
+    const payload = decodeJWT(token);
+    if (!payload) {
+      return NextResponse.json({
+        valid: false,
+        message: 'Invalid token format'
+      });
+    }
+    
+    // Periksa apakah token expired
+    const now = Math.floor(Date.now() / 1000);
+    const isExpired = payload.exp && payload.exp < now;
+    
+    // Jika token masih valid, kembalikan sukses
+    if (!isExpired) {
+      return NextResponse.json({
+        valid: true,
+        username: payload.username,
+        role: payload.role,
+        message: 'Token is valid'
+      });
+    }
+    
+    // Jika token expired, buat token baru
+    console.log('[Auth/Validate] Token expired, membuat token baru');
+    
+    // Pastikan payload memiliki data yang diperlukan
+    if (!payload.username || !payload.sub || !payload.role) {
+      return NextResponse.json({
+        valid: false,
+        message: 'Incomplete token payload'
+      });
+    }
+    
+    // Buat token baru
+    const newToken = await generateFreshToken(
+      payload.username,
+      payload.sub,
+      payload.role
+    );
+    
+    if (!newToken) {
+      return NextResponse.json({
+        valid: false,
+        message: 'Failed to generate new token'
+      });
+    }
+    
+    // Buat response dengan token baru
+    const response = NextResponse.json({
+      valid: true,
+      renewed: true,
+      username: payload.username,
+      role: payload.role,
+      message: 'Token has been renewed'
     });
     
-    // If the response is successful, the token is valid
-    if (validateResponse.ok) {
-      // Get any user data from the response
-      const userData = await validateResponse.json();
-      
-      // Create a success response
-      const response = NextResponse.json(
-        { valid: true, user: userData.user },
-        { status: 200 }
-      );
-      
-      // Set cache control headers to allow caching the validation result
-      // This reduces unnecessary validation calls
-      response.headers.set('Cache-Control', 'private, max-age=3600'); // 1 hour
-      
-      console.log('[API] Token validated successfully');
-      return response;
-    } else {
-      console.log('[API] Token validation failed with status:', validateResponse.status);
-      
-      // Try to get the error message
-      let errorMessage = 'Token validation failed';
-      try {
-        const errorData = await validateResponse.json();
-        errorMessage = errorData.message || errorMessage;
-      } catch (e) {
-        // Unable to parse JSON error, use default message
-      }
-      
-      return NextResponse.json(
-        { valid: false, message: errorMessage },
-        { status: validateResponse.status }
-      );
-    }
+    // Set cookie dengan token baru
+    response.cookies.set({
+      name: 'token',
+      value: newToken,
+      path: '/',
+      maxAge: 60 * 60 * 24 * 30, // 30 hari
+      sameSite: 'lax'
+    });
+    
+    return response;
   } catch (error) {
-    console.error('[API] Token validation error:', error);
-    return NextResponse.json(
-      { valid: false, message: 'Error validating token' },
-      { status: 500 }
-    );
+    console.error('[Auth/Validate] Error:', error);
+    return NextResponse.json({
+      valid: false,
+      message: 'Error validating token'
+    });
   }
 } 
