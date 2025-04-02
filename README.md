@@ -198,7 +198,7 @@ laundry-management-system/
 ├── frontend/            # Next.js Application
 │   ├── src/             # Frontend source code
 │   │   ├── app/         # Next.js application routes
-│   │   │   ├── (admin)/ # Admin panel routes
+│   │   │   ├── admin/   # Admin panel routes
 │   │   │   └── (customer)/ # Customer portal routes
 │   │   ├── components/  # React components
 │   │   │   ├── payments/ # Payment components

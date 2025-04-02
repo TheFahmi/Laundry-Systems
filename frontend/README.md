@@ -76,7 +76,7 @@ frontend/
 ├── public/           # File statis dan aset
 ├── src/              # Kode sumber
 │   ├── app/          # Rute aplikasi Next.js (App Router)
-│   │   ├── (admin)/  # Rute panel admin
+│   │   ├── admin/    # Rute panel admin
 │   │   └── (customer)/ # Rute portal pelanggan
 │   ├── components/   # Komponen React
 │   │   ├── ui/       # Komponen UI dasar
