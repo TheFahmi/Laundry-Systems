@@ -505,6 +505,16 @@ export default function PaymentStep({ orderId, orderData, onComplete, onPaymentC
         onClose={() => setShowConfirmationSheet(false)}
         onConfirm={processPayment}
         paymentData={sheetPaymentData}
+        setPaymentData={(data) => {
+          // Cast the method to PaymentMethod enum to satisfy the type check
+          const updatedMethod = data.method as unknown as PaymentMethod;
+          setPaymentData({
+            ...paymentData,
+            amount: data.amount,
+            paymentMethod: updatedMethod,
+            referenceNumber: data.referenceNumber || paymentData.referenceNumber
+          });
+        }}
         orderTotal={orderData.totalAmount || 0}
         isLoading={isLoading}
       />
