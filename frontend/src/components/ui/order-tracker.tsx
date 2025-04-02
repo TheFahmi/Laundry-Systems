@@ -3,6 +3,7 @@ import { useRouter } from 'next/navigation';
 import { 
   Package,
   Loader2,
+  Phone,
 } from 'lucide-react';
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -99,7 +100,7 @@ export function OrderTracker({
                 className="pl-10 bg-gray-50"
               />
               <div className="absolute left-3 top-2.5 text-gray-400">
-                <span className="font-mono font-medium">0XXX</span>
+                <Phone className="h-4 w-4" />
               </div>
             </div>
           </div>
