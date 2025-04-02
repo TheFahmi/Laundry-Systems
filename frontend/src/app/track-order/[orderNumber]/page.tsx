@@ -121,7 +121,7 @@ export default function TrackOrderPage() {
       // Check if date is valid
       if (isNaN(date.getTime())) return 'Invalid date';
       
-      return date.toLocaleDateString('en-US', {
+      return date.toLocaleDateString('id-ID', {
         weekday: 'long',
         year: 'numeric',
         month: 'long',
@@ -131,6 +131,11 @@ export default function TrackOrderPage() {
       console.error('Error formatting date:', error);
       return 'Error formatting date';
     }
+  };
+
+  const formatCurrency = (amount: number | null | undefined) => {
+    if (amount === null || amount === undefined) return 'Rp 0';
+    return `Rp ${amount.toLocaleString('id-ID')}`;
   };
 
   if (loading) {
@@ -350,7 +355,9 @@ export default function TrackOrderPage() {
               <div>
                 <h3 className="text-sm font-medium text-gray-500">Total Amount</h3>
                 <p className="font-medium">
-                  ${typeof order.totalAmount === 'number' ? order.totalAmount.toFixed(2) : '0.00'}
+                  {typeof order?.totalAmount === 'number' 
+                    ? formatCurrency(order.totalAmount) 
+                    : 'Rp 0'}
                 </p>
               </div>
               
