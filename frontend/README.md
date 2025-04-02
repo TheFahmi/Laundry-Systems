@@ -77,7 +77,7 @@ frontend/
 ├── src/              # Kode sumber
 │   ├── app/          # Rute aplikasi Next.js (App Router)
 │   │   ├── admin/    # Rute panel admin
-│   │   └── (customer)/ # Rute portal pelanggan
+│   │   └── customers/ # Rute portal pelanggan
 │   ├── components/   # Komponen React
 │   │   ├── ui/       # Komponen UI dasar
 │   │   ├── forms/    # Komponen form
