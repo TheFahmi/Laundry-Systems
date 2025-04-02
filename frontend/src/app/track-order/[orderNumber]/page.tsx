@@ -113,16 +113,24 @@ export default function TrackOrderPage() {
     fetchOrder();
   }, [orderNumber, verifyDigits]);
 
-  const formatDate = (dateString: string) => {
+  const formatDate = (dateString: string | null | undefined) => {
     if (!dateString) return 'Not specified';
     
-    const date = new Date(dateString);
-    return date.toLocaleDateString('en-US', {
-      weekday: 'long',
-      year: 'numeric',
-      month: 'long',
-      day: 'numeric'
-    });
+    try {
+      const date = new Date(dateString);
+      // Check if date is valid
+      if (isNaN(date.getTime())) return 'Invalid date';
+      
+      return date.toLocaleDateString('en-US', {
+        weekday: 'long',
+        year: 'numeric',
+        month: 'long',
+        day: 'numeric'
+      });
+    } catch (error) {
+      console.error('Error formatting date:', error);
+      return 'Error formatting date';
+    }
   };
 
   if (loading) {
@@ -186,12 +194,15 @@ export default function TrackOrderPage() {
     );
   }
 
-  const StatusIcon = statusInfo[order.status as keyof typeof statusInfo]?.icon || Clock;
-  const statusLabel = statusInfo[order.status as keyof typeof statusInfo]?.label || 'Unknown Status';
-  const statusColor = statusInfo[order.status as keyof typeof statusInfo]?.color || 'bg-gray-100 text-gray-800';
+  // Guard against all potential undefined values
+  const orderStatus = order?.status || 'new';
+  const StatusIcon = statusInfo[orderStatus as keyof typeof statusInfo]?.icon || Clock;
+  const statusLabel = statusInfo[orderStatus as keyof typeof statusInfo]?.label || 'Unknown Status';
+  const statusColor = statusInfo[orderStatus as keyof typeof statusInfo]?.color || 'bg-gray-100 text-gray-800';
   
-  const paymentStatusLabel = paymentStatusInfo[order.paymentStatus as keyof typeof paymentStatusInfo]?.label || 'Unknown';
-  const paymentStatusColor = paymentStatusInfo[order.paymentStatus as keyof typeof paymentStatusInfo]?.color || 'bg-gray-100 text-gray-800';
+  const paymentStatus = order?.paymentStatus || 'pending';
+  const paymentStatusLabel = paymentStatusInfo[paymentStatus as keyof typeof paymentStatusInfo]?.label || 'Unknown';
+  const paymentStatusColor = paymentStatusInfo[paymentStatus as keyof typeof paymentStatusInfo]?.color || 'bg-gray-100 text-gray-800';
 
   return (
     <div className="container max-w-4xl mx-auto py-8 px-4">
@@ -204,7 +215,7 @@ export default function TrackOrderPage() {
           <ArrowLeft className="mr-2 h-4 w-4" />
           Back to Home
         </Button>
-        <h1 className="text-3xl font-bold">{order.orderNumber}</h1>
+        <h1 className="text-3xl font-bold">{order?.orderNumber || 'Order Tracking'}</h1>
         <p className="text-gray-500">Order Status Tracker</p>
       </div>
       
@@ -318,27 +329,29 @@ export default function TrackOrderPage() {
             <CardContent className="space-y-4">
               <div>
                 <h3 className="text-sm font-medium text-gray-500">Customer</h3>
-                <p className="font-medium">{order.customerName}</p>
+                <p className="font-medium">{order?.customerName || 'Customer'}</p>
               </div>
               
               <div>
                 <h3 className="text-sm font-medium text-gray-500">Order Number</h3>
-                <p className="font-medium">{order.orderNumber}</p>
+                <p className="font-medium">{order?.orderNumber || 'N/A'}</p>
               </div>
               
               <div>
                 <h3 className="text-sm font-medium text-gray-500">Date Created</h3>
-                <p className="font-medium">{formatDate(order.createdAt)}</p>
+                <p className="font-medium">{formatDate(order?.createdAt || '')}</p>
               </div>
               
               <div>
                 <h3 className="text-sm font-medium text-gray-500">Expected Delivery</h3>
-                <p className="font-medium">{order.deliveryDate ? formatDate(order.deliveryDate) : 'Not scheduled'}</p>
+                <p className="font-medium">{order?.deliveryDate ? formatDate(order.deliveryDate) : 'Not scheduled'}</p>
               </div>
               
               <div>
                 <h3 className="text-sm font-medium text-gray-500">Total Amount</h3>
-                <p className="font-medium">${order.totalAmount.toFixed(2)}</p>
+                <p className="font-medium">
+                  ${typeof order.totalAmount === 'number' ? order.totalAmount.toFixed(2) : '0.00'}
+                </p>
               </div>
               
               <div>
