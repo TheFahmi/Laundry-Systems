@@ -359,7 +359,10 @@ export default function TrackOrderPage() {
                         <p className="text-xs text-gray-500">
                           {orderStatus === 'ready' || orderStatus === 'delivered' ? 
                             'Pesanan Anda siap' : 
-                            'Estimasi: ' + getEstimatedDeliveryDate(order?.createdAt, orderStatus)}
+                            order?.deliveryDate ? 
+                              `Estimasi: ${formatDate(order.deliveryDate)}` :
+                              'Estimasi akan diperbarui setelah pesanan diproses'
+                          }
                         </p>
                       </div>
                     </div>
@@ -413,10 +416,13 @@ export default function TrackOrderPage() {
               <div>
                 <h3 className="text-sm font-medium text-gray-500">Estimasi Pengiriman</h3>
                 <p className="font-medium">
-                  {order?.deliveryDate 
-                    ? formatDate(order.deliveryDate) 
-                    : getEstimatedDeliveryDate(order?.createdAt, orderStatus)}
+                  {formatDate(order?.deliveryDate || '')}
                 </p>
+                {!order?.deliveryDate && (
+                  <p className="text-xs text-gray-500 mt-1">
+                    Estimasi akan diperbarui setelah pesanan diproses
+                  </p>
+                )}
               </div>
               
               <div>
