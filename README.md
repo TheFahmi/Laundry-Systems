@@ -1,6 +1,12 @@
 # Laundry Management System
 
-A comprehensive fullstack laundry management application with NestJS backend, PostgreSQL database, and Next.js frontend.
+> A comprehensive laundry management solution for managing orders, customers, payments, and operations for laundry businesses of all sizes.
+
+[![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
+[![NextJS](https://img.shields.io/badge/Next.js-13.5-black)](https://nextjs.org/)
+[![NestJS](https://img.shields.io/badge/NestJS-10.0-red)](https://nestjs.com/)
+
+**Website:** [https://laundry-systems.com](https://laundry-systems.com)
 
 ## Table of Contents
 

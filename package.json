@@ -1,0 +1,32 @@
+{
+  "name": "laundry-systems",
+  "version": "1.0.0",
+  "description": "A comprehensive laundry management solution for managing orders, customers, payments, and operations for laundry businesses of all sizes",
+  "private": true,
+  "scripts": {
+    "start:dev": "concurrently \"cd backend && npm run start:dev\" \"cd frontend && npm run dev\"",
+    "start:prod": "concurrently \"cd backend && npm run start:prod\" \"cd frontend && npm run start\"",
+    "install": "concurrently \"cd backend && npm install\" \"cd frontend && npm install\"",
+    "build": "concurrently \"cd backend && npm run build\" \"cd frontend && npm run build\""
+  },
+  "keywords": [
+    "laundry",
+    "management",
+    "business",
+    "nextjs",
+    "nestjs",
+    "postgresql",
+    "react",
+    "typescript"
+  ],
+  "homepage": "https://laundry-systems.com",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/username/Laundry-Systems.git"
+  },
+  "author": "Laundry Systems Team",
+  "license": "MIT",
+  "dependencies": {
+    "concurrently": "^8.2.0"
+  }
+} 
