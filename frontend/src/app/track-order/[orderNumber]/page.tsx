@@ -138,6 +138,22 @@ export default function TrackOrderPage() {
     return `Rp ${amount.toLocaleString('id-ID')}`;
   };
 
+  // Utility function to get service processing time in days
+  const getServiceProcessingTime = (serviceType: string): number => {
+    // Durasi dalam hari berdasarkan tipe layanan
+    const serviceTimesMap: Record<string, number> = {
+      'regular': 2,      // 2 hari untuk layanan reguler
+      'express': 1,      // 1 hari untuk layanan express
+      'super-express': 0.5, // 12 jam untuk super express
+      'dry-cleaning': 3,  // 3 hari untuk dry cleaning
+      'premium': 2.5,    // 2.5 hari untuk layanan premium
+      'heavy': 3,        // 3 hari untuk item berat/besar
+      'delicate': 3      // 3 hari untuk pakaian halus/delicate
+    };
+    
+    return serviceTimesMap[serviceType] || 2; // Default 2 hari jika tipe tidak dikenal
+  };
+
   // Add function to calculate estimated delivery date
   const getEstimatedDeliveryDate = (createdAt: string | null | undefined, status: string): string => {
     if (!createdAt) return 'Akan ditentukan';
@@ -149,12 +165,22 @@ export default function TrackOrderPage() {
       // Add different days based on current status
       let daysToAdd = 2; // Default: 2 days for new orders
       
-      if (status === 'processing' || status === 'washing') {
-        daysToAdd = 1; // 1 more day if already processing
-      } else if (status === 'drying' || status === 'folding') {
-        daysToAdd = 0.5; // 12 hours if already drying/folding
-      } else if (status === 'ready' || status === 'delivered') {
-        return 'Siap untuk diambil/diantar';
+      // Cek apakah order memiliki data items
+      if (order?.items && order.items.length > 0) {
+        // Cari item dengan durasi proses terlama
+        daysToAdd = order.items.reduce((maxDays, item) => {
+          const serviceDuration = getServiceProcessingTime(item.serviceType);
+          return serviceDuration > maxDays ? serviceDuration : maxDays;
+        }, 0);
+      } else {
+        // Jika data items tidak tersedia, gunakan estimasi berdasarkan status
+        if (status === 'processing' || status === 'washing') {
+          daysToAdd = 1; // 1 more day if already processing
+        } else if (status === 'drying' || status === 'folding') {
+          daysToAdd = 0.5; // 12 hours if already drying/folding
+        } else if (status === 'ready' || status === 'delivered') {
+          return 'Siap untuk diambil/diantar';
+        }
       }
       
       // Calculate estimated date

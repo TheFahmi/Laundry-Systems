@@ -4,6 +4,19 @@ export interface TrackOrderRequest {
   orderNumber: string;
 }
 
+export interface OrderItemResponse {
+  id: string;
+  serviceId: string;
+  serviceName: string;
+  serviceType: string; // Tipe layanan: reguler, express, dll
+  quantity: number;
+  weightBased?: boolean;
+  weight?: number;
+  unitPrice: number;
+  totalPrice: number;
+  estimatedDuration?: number; // Dalam jam
+}
+
 export interface TrackOrderResponse {
   id: string;
   orderNumber: string;
@@ -13,6 +26,7 @@ export interface TrackOrderResponse {
   createdAt: string;
   deliveryDate: string | null;
   paymentStatus: string;
+  items?: OrderItemResponse[]; // Items pesanan, akan ditambahkan di masa mendatang
 }
 
 // API wrapper response format
