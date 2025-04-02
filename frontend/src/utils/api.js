@@ -4,7 +4,9 @@ import { getToken } from '@/api/auth';
 
 // Create an axios instance
 const api = axios.create({
-  baseURL: 'http://localhost:3001', // Direct to backend instead of /api proxy
+  // Use the Next.js proxy routes instead of accessing backend directly
+  // This will go through our /api/orders routes for proper JWT regeneration
+  baseURL: '/api',
   timeout: 10000,
   withCredentials: true, // Important for cookies handling
 });
@@ -12,6 +14,8 @@ const api = axios.create({
 // Add a request interceptor to add JWT token to requests
 api.interceptors.request.use(
   async (config) => {
+    console.log(`[API] Making request to: ${config.url}`);
+    
     // Get JWT token using the resilient getter function
     const token = getToken();
     

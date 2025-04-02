@@ -164,8 +164,13 @@ export async function GET(request: NextRequest) {
       }
     }
     
+    // Get URL parameters
+    const { searchParams } = new URL(request.url);
+    const queryString = searchParams.toString();
+    const queryParams = queryString ? `?${queryString}` : '';
+    
     // URL for the backend API
-    const apiURL = `${API_BASE_URL}/orders`;
+    const apiURL = `${API_BASE_URL}/orders${queryParams}`;
     console.log(`Calling backend directly at: ${apiURL}`);
     console.log(`Using token (first 10 chars): ${token.substring(0, 10)}...`);
     

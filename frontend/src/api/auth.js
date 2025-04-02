@@ -1,3 +1,5 @@
+import Cookies from 'js-cookie';
+
 /**
  * Gets the JWT token from cookies or fallback sources
  * Ensures we always return the most recent token
@@ -52,4 +54,45 @@ export const getToken = () => {
   }
   
   return token || null;
+};
+
+/**
+ * Decode and return the payload of a JWT token
+ */
+export const decodeToken = (token) => {
+  try {
+    if (!token) return null;
+    
+    const parts = token.split('.');
+    if (parts.length !== 3) return null;
+    
+    return JSON.parse(atob(parts[1]));
+  } catch (error) {
+    console.error('[Auth] Error decoding token:', error);
+    return null;
+  }
+};
+
+/**
+ * Get current user information from the token
+ */
+export const getCurrentUser = () => {
+  const token = getToken();
+  if (!token) return null;
+  
+  const payload = decodeToken(token);
+  if (!payload) return null;
+  
+  return {
+    id: payload.userId || payload.sub,
+    username: payload.username,
+    role: payload.role || 'user'
+  };
+};
+
+// Export other auth functions
+export default {
+  getToken,
+  decodeToken,
+  getCurrentUser
 }; 
