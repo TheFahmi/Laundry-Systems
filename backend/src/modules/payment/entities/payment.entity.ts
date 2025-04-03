@@ -5,17 +5,15 @@ import { Customer } from '../../customer/customer.entity';
 // Define enum types to match the database
 export enum PaymentMethod {
   CASH = 'cash',
-  CREDIT_CARD = 'credit_card',
   BANK_TRANSFER = 'bank_transfer',
-  EWALLET = 'ewallet',
-  OTHER = 'other'
+  CREDIT_CARD = 'credit_card',
+  E_WALLET = 'e_wallet'
 }
 
 export enum PaymentStatus {
   PENDING = 'pending',
   COMPLETED = 'completed',
   FAILED = 'failed',
-  CANCELLED = 'cancelled',
   REFUNDED = 'refunded'
 }
 

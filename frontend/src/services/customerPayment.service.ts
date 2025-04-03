@@ -1,6 +1,7 @@
 import { apiClient } from '@/lib/api-client';
 import { Payment, PaymentFilter, PaymentResponse } from "@/types/payment";
 
+// Define Payment interface for this service
 export interface Payment {
   id: string;
   orderId: string;
@@ -63,10 +64,12 @@ export async function getCustomerPayments({
     // Step 1: First try to get payments from the payments API
     const paymentsResponse = await fetch(`/api/customers/payments?${queryParams.toString()}`);
     const paymentsData = await paymentsResponse.json();
+
+    console.log('paymentsData', paymentsData);
     
     // If we have payment items and they're not empty, return them
-    if (paymentsResponse.ok && paymentsData?.items && paymentsData.items.length > 0) {
-      return paymentsData;
+    if (paymentsResponse.ok && paymentsData?.data?.items && paymentsData.data.items.length > 0) {
+      return paymentsData.data;
     }
     
     // Step 2: If no payments found or error, try to get them from orders
@@ -91,6 +94,7 @@ export async function getCustomerPayments({
     }
     
     const ordersResponse = await fetch(`/api/customers/orders?${orderQueryParams.toString()}`);
+    
     
     if (!ordersResponse.ok) {
       // If both endpoints fail, return empty result with proper pagination
@@ -191,8 +195,14 @@ export async function getCustomerPayments({
  */
 export async function getPaymentDetails({ id }: GetPaymentDetailsParams): Promise<Payment | null> {
   try {
+    console.log(`[customerPayment.service] Fetching payment details for ID: ${id}`);
+    
     // First try to get payment from payments API
-    const response = await fetch(`/api/customers/payments/${id}`);
+    const apiUrl = `/api/customers/payments/${id}`;
+    console.log(`[customerPayment.service] Making API request to: ${apiUrl}`);
+    
+    const response = await fetch(apiUrl);
+    console.log(`[customerPayment.service] API response status: ${response.status}`);
     
     // If payment found, return it
     if (response.ok) {

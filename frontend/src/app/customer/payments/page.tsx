@@ -168,9 +168,11 @@ export default function CustomerPayments() {
     handleFilterChange({});
   };
 
+  console.log(paymentsResponse);
   // Calculate payment stats
   const calculatePaymentStats = (): PaymentStatsType => {
     const payments = paymentsResponse?.items || [];
+    console.log(paymentsResponse);
     
     return {
       totalPayments: paymentsResponse?.total || 0,

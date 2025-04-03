@@ -1,7 +1,18 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { CustomerPaymentService, Payment, PaymentFilters, PaymentFilter, PaymentResponse } from './customerPayment.service';
+import { CustomerPaymentService } from './customerPayment.service';
 import { getCustomerPayments, getPaymentDetails } from './customerPayment.service';
+import type { Payment, PaymentFilters, PaymentListResponse } from './customerPayment.service';
+
+// Types for our hooks
+export interface PaymentFilter {
+  status?: string;
+  paymentMethod?: string;
+  startDate?: string;
+  endDate?: string;
+}
+
+export type PaymentResponse = PaymentListResponse;
 
 // Prefixes for query keys
 const PAYMENT_KEYS = {
@@ -99,10 +110,11 @@ interface UsePaymentDetailsProps {
 /**
  * Hook for fetching payment details
  */
-export function usePaymentDetails({ 
-  id, 
-  autoFetch = true 
-}: UsePaymentDetailsProps) {
+export function usePaymentDetails(props: UsePaymentDetailsProps | string) {
+  // Handle both object and string parameter formats for backward compatibility
+  const id = typeof props === 'string' ? props : props.id;
+  const autoFetch = typeof props === 'object' ? props.autoFetch !== false : true;
+  
   const [payment, setPayment] = useState<Payment | null>(null);
   const [isLoading, setIsLoading] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
@@ -110,19 +122,22 @@ export function usePaymentDetails({
   const fetchPaymentDetails = useCallback(async () => {
     if (!id) return;
     
+    console.log(`[usePaymentDetails] Fetching payment details for ID: ${id}`);
     setIsLoading(true);
     setError(null);
     try {
       const paymentData = await getPaymentDetails({ id });
       
       if (!paymentData) {
+        console.log(`[usePaymentDetails] Payment not found for ID: ${id}`);
         setError('Payment not found');
         setPayment(null);
       } else {
-        setPayment(paymentData);
+        console.log(`[usePaymentDetails] Successfully got payment for ID: ${id}`);
+        setPayment(paymentData as any);
       }
     } catch (err) {
-      console.error('Error fetching payment details:', err);
+      console.error('[usePaymentDetails] Error fetching payment details:', err);
       setError('Failed to fetch payment details. Please try again later.');
     } finally {
       setIsLoading(false);

@@ -306,26 +306,59 @@ export class OrderService {
     }, 0);
   }
 
-  async findAll({ page = 1, limit = 10, status }: { page?: number; limit?: number; status?: OrderStatus }): Promise<{ items: Order[]; total: number; page: number; limit: number }> {
+  async findAll({ 
+    page = 1, 
+    limit = 10, 
+    status,
+    include_payments = false
+  }: { 
+    page?: number; 
+    limit?: number; 
+    status?: OrderStatus;
+    include_payments?: boolean;
+  }): Promise<{ items: Order[]; total: number; page: number; limit: number }> {
     const query = this.orderRepository.createQueryBuilder('order')
       .leftJoinAndSelect('order.customer', 'customer')
       .leftJoinAndSelect('order.items', 'orderItems')
-      .leftJoinAndSelect('orderItems.service', 'service')
-      .select([
-        'order',
-        'customer',
-        'orderItems.id',
-        'orderItems.orderId',
-        'orderItems.serviceId',
-        'orderItems.serviceName',
-        'orderItems.quantity',
-        'orderItems.weight',
-        'orderItems.unitPrice',
-        'orderItems.totalPrice',
-        'orderItems.createdAt',
-        'orderItems.updatedAt',
-        'service'
+      .leftJoinAndSelect('orderItems.service', 'service');
+    
+    // Optionally include payments if requested
+    if (include_payments) {
+      query.leftJoinAndSelect('order.payments', 'payments');
+    }
+    
+    query.select([
+      'order',
+      'customer',
+      'orderItems.id',
+      'orderItems.orderId',
+      'orderItems.serviceId',
+      'orderItems.serviceName',
+      'orderItems.quantity',
+      'orderItems.weight',
+      'orderItems.unitPrice',
+      'orderItems.totalPrice',
+      'orderItems.createdAt',
+      'orderItems.updatedAt',
+      'service'
+    ]);
+    
+    // If including payments, also select payment fields
+    if (include_payments) {
+      query.addSelect([
+        'payments.id',
+        'payments.orderId',
+        'payments.customerId',
+        'payments.amount',
+        'payments.paymentMethod',
+        'payments.status',
+        'payments.transactionId',
+        'payments.referenceNumber',
+        'payments.notes',
+        'payments.createdAt',
+        'payments.updatedAt'
       ]);
+    }
     
     if (status) {
       query.andWhere('order.status = :status', { status });
@@ -554,9 +587,15 @@ export class OrderService {
       const createdDate = new Date(Date.now() - (i * 24 * 60 * 60 * 1000)); // Each order 1 day apart
       const price = Math.floor(Math.random() * 10 + 1) * 15000; // Random price between 15k-150k
       
-      // Random status
-      const statuses = ['pending', 'processing', 'completed', 'cancelled'];
-      const status = statuses[Math.floor(Math.random() * statuses.length)];
+      // Random status using OrderStatus enum values
+      const statusOptions = [
+        OrderStatus.NEW,
+        OrderStatus.PROCESSING,
+        OrderStatus.WASHING,
+        OrderStatus.READY,
+        OrderStatus.DELIVERED
+      ];
+      const status = statusOptions[Math.floor(Math.random() * statusOptions.length)];
       
       // Create mock order
       const order = {
@@ -570,19 +609,24 @@ export class OrderService {
       } as Order;
       
       // Add payment data if requested
-      if (includePayments && (status === 'processing' || status === 'completed')) {
+      if (includePayments && (status === OrderStatus.PROCESSING || status === OrderStatus.DELIVERED)) {
         // Create mock payment for this order
+        const paymentMethodOptions = [
+          PaymentMethod.CASH,
+          PaymentMethod.BANK_TRANSFER,
+          PaymentMethod.CREDIT_CARD
+        ];
         const payment = {
           id: `mock-pay-${i + 1}`,
           orderId: id,
           customerId: customerId,
           amount: price,
-          paymentMethod: ['cash', 'bank_transfer', 'credit_card'][Math.floor(Math.random() * 3)],
-          status: status === 'completed' ? 'completed' : 'pending',
-          transactionId: status === 'completed' ? `TRX-${Math.random().toString(36).substring(2, 10).toUpperCase()}` : null,
-          referenceNumber: `PAY-${orderNumber.substring(4)}`,
+          paymentMethod: paymentMethodOptions[Math.floor(Math.random() * paymentMethodOptions.length)],
+          status: status === OrderStatus.DELIVERED ? PaymentStatus.COMPLETED : PaymentStatus.PENDING,
+          transactionId: status === OrderStatus.DELIVERED ? `TRX-${Math.random().toString(36).substring(2, 10).toUpperCase()}` : null,
+          referenceNumber: `REF-ORD-${String(i + 1).padStart(7, '0')}`,
           createdAt: new Date(createdDate.getTime() + 1800000),
-          updatedAt: status === 'completed' ? 
+          updatedAt: status === OrderStatus.DELIVERED ? 
                     new Date(createdDate.getTime() + 7200000) : 
                     new Date(createdDate.getTime() + 1800000)
         };

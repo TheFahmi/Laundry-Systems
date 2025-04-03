@@ -236,12 +236,15 @@ let OrderService = class OrderService {
             return total + Number(itemTotal);
         }, 0);
     }
-    async findAll({ page = 1, limit = 10, status }) {
+    async findAll({ page = 1, limit = 10, status, include_payments = false }) {
         const query = this.orderRepository.createQueryBuilder('order')
             .leftJoinAndSelect('order.customer', 'customer')
             .leftJoinAndSelect('order.items', 'orderItems')
-            .leftJoinAndSelect('orderItems.service', 'service')
-            .select([
+            .leftJoinAndSelect('orderItems.service', 'service');
+        if (include_payments) {
+            query.leftJoinAndSelect('order.payments', 'payments');
+        }
+        query.select([
             'order',
             'customer',
             'orderItems.id',
@@ -256,6 +259,21 @@ let OrderService = class OrderService {
             'orderItems.updatedAt',
             'service'
         ]);
+        if (include_payments) {
+            query.addSelect([
+                'payments.id',
+                'payments.orderId',
+                'payments.customerId',
+                'payments.amount',
+                'payments.paymentMethod',
+                'payments.status',
+                'payments.transactionId',
+                'payments.referenceNumber',
+                'payments.notes',
+                'payments.createdAt',
+                'payments.updatedAt'
+            ]);
+        }
         if (status) {
             query.andWhere('order.status = :status', { status });
         }
@@ -404,8 +422,14 @@ let OrderService = class OrderService {
             const orderNumber = `ORD-MOCK-${String(i + 1).padStart(5, '0')}`;
             const createdDate = new Date(Date.now() - (i * 24 * 60 * 60 * 1000));
             const price = Math.floor(Math.random() * 10 + 1) * 15000;
-            const statuses = ['pending', 'processing', 'completed', 'cancelled'];
-            const status = statuses[Math.floor(Math.random() * statuses.length)];
+            const statusOptions = [
+                order_entity_1.OrderStatus.NEW,
+                order_entity_1.OrderStatus.PROCESSING,
+                order_entity_1.OrderStatus.WASHING,
+                order_entity_1.OrderStatus.READY,
+                order_entity_1.OrderStatus.DELIVERED
+            ];
+            const status = statusOptions[Math.floor(Math.random() * statusOptions.length)];
             const order = {
                 id,
                 orderNumber,
@@ -415,18 +439,23 @@ let OrderService = class OrderService {
                 createdAt: createdDate,
                 updatedAt: new Date(createdDate.getTime() + 3600000),
             };
-            if (includePayments && (status === 'processing' || status === 'completed')) {
+            if (includePayments && (status === order_entity_1.OrderStatus.PROCESSING || status === order_entity_1.OrderStatus.DELIVERED)) {
+                const paymentMethodOptions = [
+                    payment_entity_1.PaymentMethod.CASH,
+                    payment_entity_1.PaymentMethod.BANK_TRANSFER,
+                    payment_entity_1.PaymentMethod.CREDIT_CARD
+                ];
                 const payment = {
                     id: `mock-pay-${i + 1}`,
                     orderId: id,
                     customerId: customerId,
                     amount: price,
-                    paymentMethod: ['cash', 'bank_transfer', 'credit_card'][Math.floor(Math.random() * 3)],
-                    status: status === 'completed' ? 'completed' : 'pending',
-                    transactionId: status === 'completed' ? `TRX-${Math.random().toString(36).substring(2, 10).toUpperCase()}` : null,
-                    referenceNumber: `PAY-${orderNumber.substring(4)}`,
+                    paymentMethod: paymentMethodOptions[Math.floor(Math.random() * paymentMethodOptions.length)],
+                    status: status === order_entity_1.OrderStatus.DELIVERED ? payment_entity_1.PaymentStatus.COMPLETED : payment_entity_1.PaymentStatus.PENDING,
+                    transactionId: status === order_entity_1.OrderStatus.DELIVERED ? `TRX-${Math.random().toString(36).substring(2, 10).toUpperCase()}` : null,
+                    referenceNumber: `REF-ORD-${String(i + 1).padStart(7, '0')}`,
                     createdAt: new Date(createdDate.getTime() + 1800000),
-                    updatedAt: status === 'completed' ?
+                    updatedAt: status === order_entity_1.OrderStatus.DELIVERED ?
                         new Date(createdDate.getTime() + 7200000) :
                         new Date(createdDate.getTime() + 1800000)
                 };

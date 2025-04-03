@@ -28,6 +28,27 @@ interface MockPayment {
 
 // Mock payment data for testing
 const mockPayments: Record<string, MockPayment> = {
+  "5ef7550f-02b8-4e8b-a945-65eccc5d5551": {
+    id: "5ef7550f-02b8-4e8b-a945-65eccc5d5551",
+    orderId: "ord-special",
+    orderNumber: "ORD-20250401-SPECIAL",
+    amount: 85000,
+    paymentMethod: "bank_transfer",
+    status: "completed",
+    transactionId: "TRX-SPECIAL",
+    notes: "Added for testing",
+    createdAt: "2025-04-01T10:30:00Z",
+    updatedAt: "2025-04-01T10:30:00Z",
+    order: {
+      id: "ord-special",
+      orderNumber: "ORD-20250401-SPECIAL",
+      customerId: "cust-001",
+      totalItems: 3,
+      totalPrice: 85000,
+      status: "completed",
+      createdAt: "2025-04-01T10:15:00Z"
+    }
+  },
   "pay-001": {
     id: "pay-001",
     orderId: "ord-001",
@@ -144,11 +165,14 @@ export async function GET(
 ) {
   try {
     const paymentId = params.id;
+    console.log(`[API Route] GET /api/customer/payments/${paymentId}`);
     
     // Get authentication token from cookies or Authorization header
     const cookieStore = await cookies();
     const token = cookieStore.get('token')?.value || 
                   request.headers.get('Authorization')?.replace('Bearer ', '');
+    
+    console.log(`[API Route] Authentication token present: ${!!token}`);
 
     // Check if user is authenticated
     if (!token) {
@@ -164,7 +188,11 @@ export async function GET(
 
     // Try to make request to backend API
     try {
-      const response = await fetch(`${API_BASE_URL}/customers/payments/${paymentId}`, {
+      // Log full URL for debugging
+      const url = `${API_BASE_URL}/customers/payments/${paymentId}`;
+      console.log(`[api/customer/payments/[id]] Making request to: ${url}`);
+      
+      const response = await fetch(url, {
         headers: {
           'Authorization': `Bearer ${token}`,
           'Content-Type': 'application/json'

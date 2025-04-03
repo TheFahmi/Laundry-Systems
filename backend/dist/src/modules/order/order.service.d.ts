@@ -16,10 +16,11 @@ export declare class OrderService {
         data: Order;
     }>;
     private calculateTotalAmount;
-    findAll({ page, limit, status }: {
+    findAll({ page, limit, status, include_payments }: {
         page?: number;
         limit?: number;
         status?: OrderStatus;
+        include_payments?: boolean;
     }): Promise<{
         items: Order[];
         total: number;
