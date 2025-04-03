@@ -1,0 +1,9 @@
+
+CUSTOMER ACCOUNT GENERATION REPORT
+==================================
+Date: 02/04/2025, 17.47.36
+Total accounts created: 0
+Default password for all accounts: Laundry@2025
+    
+Note: Users will need to reset their password on first login.
+A separate email should be sent to customers with their credentials.

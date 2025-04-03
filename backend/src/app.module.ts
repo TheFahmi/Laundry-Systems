@@ -13,6 +13,7 @@ import { ValidationMiddleware } from './middleware/validation.middleware';
 import { GlobalAuthModule } from './guards/auth.module';
 import { SnakeNamingStrategy } from 'typeorm-naming-strategies';
 import { CalendarModule } from './modules/calendar/calendar.module';
+import { AdminModule } from './modules/admin/admin.module';
 
 @Module({
   imports: [
@@ -49,6 +50,7 @@ import { CalendarModule } from './modules/calendar/calendar.module';
     PaymentModule,
     DashboardModule,
     CalendarModule,
+    AdminModule,
   ],
 })
 export class AppModule implements NestModule {

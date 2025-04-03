@@ -16,6 +16,8 @@ const compression_interceptor_1 = require("./interceptors/compression.intercepto
 const helmet_interceptor_1 = require("./interceptors/helmet.interceptor");
 const cors_interceptor_1 = require("./interceptors/cors.interceptor");
 const global_auth_guard_1 = require("./guards/global-auth.guard");
+const admin_role_guard_1 = require("./guards/admin-role.guard");
+const roles_guard_1 = require("./modules/auth/guards/roles.guard");
 const cookieParser = require("cookie-parser");
 dotenv.config();
 async function bootstrap() {
@@ -55,7 +57,9 @@ async function bootstrap() {
     app.useGlobalInterceptors(new helmet_interceptor_1.HelmetInterceptor());
     app.useGlobalInterceptors(new cors_interceptor_1.CorsInterceptor());
     const globalAuthGuard = app.get(global_auth_guard_1.GlobalAuthGuard);
-    app.useGlobalGuards(globalAuthGuard);
+    const adminRoleGuard = app.get(admin_role_guard_1.AdminRoleGuard);
+    const rolesGuard = new roles_guard_1.RolesGuard(app.get('Reflector'));
+    app.useGlobalGuards(globalAuthGuard, adminRoleGuard, rolesGuard);
     const config = new swagger_1.DocumentBuilder()
         .setTitle('Laundry App API')
         .setDescription('API documentation for Laundry App')

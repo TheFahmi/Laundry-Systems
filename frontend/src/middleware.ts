@@ -9,6 +9,15 @@ const PUBLIC_PATHS = ['/', '/login', '/register', '/forgot-password'];
 // Public API paths that don't require authentication
 const PUBLIC_API_PATHS = ['/api/auth/login', '/api/auth/register'];
 
+// Admin paths that require admin role
+const ADMIN_PATHS = ['/admin', '/admin/dashboard', '/admin/users', '/admin/settings'];
+
+// Customer paths 
+const CUSTOMER_PATHS = ['/customer', '/customer/dashboard', '/customer/orders', '/customer/profile'];
+
+// Roles that are allowed to access admin paths
+const ADMIN_ROLES = ['admin', 'staff', 'manager', 'operator', 'cashier'];
+
 // Secret key for JWT verification - should match the one in auth.ts
 const JWT_SECRET = process.env.JWT_SECRET || 'your-super-secret-key-here';
 
@@ -20,7 +29,42 @@ const BYPASS_PATHS: string[] = [
 export async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
   
-  // Only apply this middleware to API routes
+  // For admin paths, check if user has admin role
+  if (pathname.startsWith('/admin')) {
+    const token = request.cookies.get('token')?.value;
+    
+    // If no token, redirect to login
+    if (!token) {
+      const url = new URL('/login', request.url);
+      url.searchParams.set('redirectTo', pathname);
+      return NextResponse.redirect(url);
+    }
+    
+    try {
+      // Verify and decode the token
+      const secret = new TextEncoder().encode(JWT_SECRET);
+      const { payload } = await jwtVerify(token, secret);
+      
+      // Check if user has admin role
+      if (!payload.role || !ADMIN_ROLES.includes(payload.role as string)) {
+        // Check if user is a customer
+        if (payload.role === 'customer') {
+          // User is a customer, redirect directly to customer dashboard
+          return NextResponse.redirect(new URL('/customer/dashboard', request.url));
+        } else {
+          // User has another non-admin role, redirect to access denied page
+          return NextResponse.redirect(new URL('/access-denied', request.url));
+        }
+      }
+    } catch (error) {
+      // Token is invalid, redirect to login
+      const url = new URL('/login', request.url);
+      url.searchParams.set('redirectTo', pathname);
+      return NextResponse.redirect(url);
+    }
+  }
+  
+  // Only apply API proxy middleware to API routes
   if (!pathname.startsWith('/api/')) {
     return NextResponse.next();
   }
@@ -89,7 +133,7 @@ export async function middleware(request: NextRequest) {
   }
 }
 
-// Configure the middleware to run only for API routes
+// Configure the middleware to run for both API routes and admin routes
 export const config = {
-  matcher: '/api/:path*',
+  matcher: ['/api/:path*', '/admin/:path*']
 }; 

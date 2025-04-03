@@ -1,6 +1,7 @@
-import { Entity, Column, OneToMany, CreateDateColumn, UpdateDateColumn, PrimaryGeneratedColumn } from 'typeorm';
+import { Entity, Column, OneToMany, CreateDateColumn, UpdateDateColumn, PrimaryGeneratedColumn, ManyToOne, JoinColumn } from 'typeorm';
 import { Order } from './order.entity';
 import { Payment } from './payment.entity';
+import { User } from './user.entity';
 
 @Entity('customers')
 export class Customer {
@@ -21,6 +22,13 @@ export class Customer {
 
   @Column({ nullable: true })
   notes: string;
+
+  @Column({ name: 'user_id', nullable: true })
+  userId: string;
+
+  @ManyToOne(() => User, { nullable: true })
+  @JoinColumn({ name: 'user_id' })
+  user: User;
 
   @OneToMany(() => Order, order => order.customer)
   orders: Order[];

@@ -14,6 +14,8 @@ import { CompressionInterceptor } from './interceptors/compression.interceptor';
 import { HelmetInterceptor } from './interceptors/helmet.interceptor';
 import { CorsInterceptor } from './interceptors/cors.interceptor';
 import { GlobalAuthGuard } from './guards/global-auth.guard';
+import { AdminRoleGuard } from './guards/admin-role.guard';
+import { RolesGuard } from './modules/auth/guards/roles.guard';
 import * as cookieParser from 'cookie-parser';
 
 // Load environment variables
@@ -81,9 +83,11 @@ async function bootstrap() {
   // Use global cors interceptor
   app.useGlobalInterceptors(new CorsInterceptor());
   
-  // Apply global JWT and CSRF authentication
+  // Apply global authentication and role-based guards
   const globalAuthGuard = app.get(GlobalAuthGuard);
-  app.useGlobalGuards(globalAuthGuard);
+  const adminRoleGuard = app.get(AdminRoleGuard);
+  const rolesGuard = new RolesGuard(app.get('Reflector'));
+  app.useGlobalGuards(globalAuthGuard, adminRoleGuard, rolesGuard);
   
   // Setup Swagger
   const config = new DocumentBuilder()

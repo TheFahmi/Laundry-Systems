@@ -19,6 +19,7 @@ import {
   Toolbar,
   Typography,
   useMediaQuery,
+  useTheme as useMuiTheme,
 } from '@mui/material';
 import {
   Menu as MenuIcon,
@@ -32,7 +33,7 @@ import {
 } from '@mui/icons-material';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { useTheme } from '@/providers/ThemeProvider';
+import { useTheme } from "next-themes";
 
 const menuItems = [
   { text: 'Profil', icon: <PersonIcon />, path: '/profile' },
@@ -45,9 +46,9 @@ const menuItems = [
 export default function CustomerLayout({ children }: { children: ReactNode }) {
   const [mobileOpen, setMobileOpen] = useState(false);
   const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null);
-  const { mode } = useTheme();
-  const theme = mode === 'dark' ? { breakpoints: { down: (size: string) => `(max-width:${size === 'sm' ? '600px' : '900px'})` } } : { breakpoints: { down: (size: string) => `(max-width:${size === 'sm' ? '600px' : '900px'})` } };
-  const isSmallScreen = useMediaQuery(theme.breakpoints.down('sm'));
+  const { theme, setTheme } = useTheme();
+  const muiTheme = useMuiTheme();
+  const isSmallScreen = useMediaQuery(muiTheme.breakpoints.down('sm'));
   const pathname = usePathname();
 
   const handleDrawerToggle = () => {
