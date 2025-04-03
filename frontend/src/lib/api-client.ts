@@ -3,7 +3,7 @@ import { fetchAPI } from './api';
 
 // Create base axios instance
 const apiClient = axios.create({
-  baseURL: process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000/api',
+  baseURL: '', // Empty string for relative URLs
   headers: {
     'Content-Type': 'application/json',
   },
@@ -13,7 +13,11 @@ const apiClient = axios.create({
 // Add request interceptor for auth tokens, etc.
 apiClient.interceptors.request.use(
   (config) => {
-    // You could add auth tokens here if needed
+    // Add auth tokens if available (from localStorage or cookies)
+    const token = typeof window !== 'undefined' ? localStorage.getItem('token') : null;
+    if (token) {
+      config.headers['Authorization'] = `Bearer ${token}`;
+    }
     return config;
   },
   (error) => {
@@ -28,11 +32,29 @@ apiClient.interceptors.response.use(
   },
   (error: AxiosError) => {
     if (error.response) {
-      // Log or handle specific error status codes
-      console.error(`API Error ${error.response.status}:`, error.response.data);
+      // Handle specific error status codes
+      const status = error.response.status;
+
+      // Redirect to login on authentication errors
+      if (status === 401 && typeof window !== 'undefined') {
+        // Clear auth tokens
+        localStorage.removeItem('token');
+        // Redirect to login page if not already there
+        if (!window.location.pathname.includes('/login')) {
+          window.location.href = '/login?redirect=' + encodeURIComponent(window.location.pathname);
+        }
+      }
+
+      // Log error details
+      console.error(`API Error ${status}:`, error.response.data);
+    } else if (error.request) {
+      // Request was made but no response received
+      console.error('API Request Error (No Response):', error.request);
     } else {
-      console.error('API Request Error:', error.message);
+      // Something else happened during request setup
+      console.error('API Error:', error.message);
     }
+    
     return Promise.reject(error);
   }
 );

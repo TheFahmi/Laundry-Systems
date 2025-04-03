@@ -345,16 +345,45 @@ export class OrderService {
     };
   }
 
-  async findOne(id: string): Promise<Order> {
-    const order = await this.orderRepository.findOne({
-      where: { id },
-      relations: ['customer', 'items', 'items.service', 'payments'],
-    });
-
+  /**
+   * Find one order by id
+   * @param id Order ID
+   * @param user User making the request (for permission checking)
+   */
+  async findOne(id: string, user?: any): Promise<Order> {
+    // Build query with optional relations
+    const queryBuilder = this.orderRepository
+      .createQueryBuilder('order')
+      .leftJoinAndSelect('order.items', 'item')
+      .leftJoinAndSelect('item.service', 'service')
+      .leftJoinAndSelect('order.payments', 'payment')
+      .where('order.id = :id', { id });
+    
+    // For customer users, restrict to their own orders
+    if (user && user.role === 'customer') {
+      queryBuilder.andWhere('order.customerId = :customerId', { customerId: user.id });
+    }
+    
+    const order = await queryBuilder.getOne();
+    
+    // Mock data for development if order not found
+    if (!order && process.env.NODE_ENV !== 'production' && id.startsWith('mock-ord-')) {
+      console.log(`[order.service] Order with ID ${id} not found, returning mock data for development`);
+      
+      const mockOrder = this.generateMockOrders(
+        user?.id || 'mock-customer',
+        1,
+        true
+      )[0];
+      mockOrder.id = id;
+      
+      return mockOrder;
+    }
+    
     if (!order) {
       throw new NotFoundException(`Order with ID ${id} not found`);
     }
-
+    
     return order;
   }
 
@@ -444,5 +473,127 @@ export class OrderService {
       console.error('Error creating default payment:', error);
       return null;
     }
+  }
+
+  async findCustomerOrders(
+    customerId: string,
+    page: number = 1, 
+    limit: number = 10,
+    filters?: any,
+    options?: { includePayments?: boolean }
+  ): Promise<{ items: Order[]; total: number; page: number; limit: number }> {
+    
+    // FOR DEVELOPMENT: Don't filter by customerId to see all orders
+    const queryBuilder = process.env.NODE_ENV === 'production'
+      ? this.orderRepository.createQueryBuilder('order')
+          .where('order.customerId = :customerId', { customerId })
+      : this.orderRepository.createQueryBuilder('order');
+    
+    // Include related customer data
+    queryBuilder.leftJoinAndSelect('order.customer', 'customer');
+    
+    // Apply status filter if provided
+    if (filters?.status) {
+      // Handle comma-separated list of statuses
+      if (filters.status.includes(',')) {
+        const statuses = filters.status.split(',');
+        queryBuilder.andWhere('order.status IN (:...statuses)', { statuses });
+      } else {
+        queryBuilder.andWhere('order.status = :status', { status: filters.status });
+      }
+    }
+    
+    // Always include payment data regardless of options
+    queryBuilder.leftJoinAndSelect('order.payments', 'payment');
+    
+    // Include order items and services
+    queryBuilder.leftJoinAndSelect('order.items', 'item')
+      .leftJoinAndSelect('item.service', 'service');
+    
+    // Count total and apply pagination
+    const total = await queryBuilder.getCount();
+    
+    queryBuilder
+      .orderBy('order.createdAt', 'DESC')
+      .skip((page - 1) * limit)
+      .take(limit);
+    
+    const items = await queryBuilder.getMany();
+    
+    // If no results found, still return mock data (as before)
+    if (items.length === 0 && process.env.NODE_ENV !== 'production') {
+      console.log(`[order.service] No orders found for customer ${customerId}, returning mock data for development`);
+      
+      const mockOrders = this.generateMockOrders(customerId, limit, options?.includePayments);
+      
+      return {
+        items: mockOrders,
+        total: mockOrders.length,
+        page,
+        limit
+      };
+    }
+    
+    return {
+      items,
+      total,
+      page,
+      limit
+    };
+  }
+  
+  /**
+   * Generate mock orders for development/testing
+   */
+  private generateMockOrders(customerId: string, count: number = 5, includePayments: boolean = false): Order[] {
+    const mockOrders = [];
+    
+    for (let i = 0; i < count; i++) {
+      const id = `mock-ord-${String(i + 1).padStart(3, '0')}`;
+      const orderNumber = `ORD-MOCK-${String(i + 1).padStart(5, '0')}`;
+      const createdDate = new Date(Date.now() - (i * 24 * 60 * 60 * 1000)); // Each order 1 day apart
+      const price = Math.floor(Math.random() * 10 + 1) * 15000; // Random price between 15k-150k
+      
+      // Random status
+      const statuses = ['pending', 'processing', 'completed', 'cancelled'];
+      const status = statuses[Math.floor(Math.random() * statuses.length)];
+      
+      // Create mock order
+      const order = {
+        id,
+        orderNumber,
+        customerId,
+        status,
+        totalAmount: price,
+        createdAt: createdDate,
+        updatedAt: new Date(createdDate.getTime() + 3600000),
+      } as Order;
+      
+      // Add payment data if requested
+      if (includePayments && (status === 'processing' || status === 'completed')) {
+        // Create mock payment for this order
+        const payment = {
+          id: `mock-pay-${i + 1}`,
+          orderId: id,
+          customerId: customerId,
+          amount: price,
+          paymentMethod: ['cash', 'bank_transfer', 'credit_card'][Math.floor(Math.random() * 3)],
+          status: status === 'completed' ? 'completed' : 'pending',
+          transactionId: status === 'completed' ? `TRX-${Math.random().toString(36).substring(2, 10).toUpperCase()}` : null,
+          referenceNumber: `PAY-${orderNumber.substring(4)}`,
+          createdAt: new Date(createdDate.getTime() + 1800000),
+          updatedAt: status === 'completed' ? 
+                    new Date(createdDate.getTime() + 7200000) : 
+                    new Date(createdDate.getTime() + 1800000)
+        };
+        
+        // Add payments to order
+        order.payments = [payment as any];
+      }
+      
+      mockOrders.push(order);
+    }
+    
+    return mockOrders;
   }
 } 

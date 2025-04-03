@@ -26,6 +26,8 @@ import {
   FilterList as FilterIcon 
 } from '@mui/icons-material';
 import Link from 'next/link';
+import { OrderService } from '@/services/order.service';
+import { useOrders, useCancelOrder } from '@/services/useOrderQuery';
 
 interface Order {
   id: string;
@@ -107,18 +109,28 @@ const sampleOrders: Order[] = [
 export default function CustomerOrders() {
   const [orders, setOrders] = useState<Order[]>([]);
   const [loading, setLoading] = useState(true);
-  const [page, setPage] = useState(0);
+  const [page, setPage] = useState(1);
   const [rowsPerPage, setRowsPerPage] = useState(5);
   const [tabValue, setTabValue] = useState(0);
   const [searchTerm, setSearchTerm] = useState('');
+  const [openConfirmDialog, setOpenConfirmDialog] = useState(false);
+  const [selectedOrderId, setSelectedOrderId] = useState<string | null>(null);
+  const [snackbar, setSnackbar] = useState({ open: false, message: '', severity: 'success' });
 
-  useEffect(() => {
-    // Simulate API call
-    setTimeout(() => {
-      setOrders(sampleOrders);
-      setLoading(false);
-    }, 1000);
-  }, []);
+  // Use React Query hook for fetching orders
+  const {
+    data: ordersResponse,
+    isLoading,
+    isError,
+    error
+  } = useOrders(page, rowsPerPage, tabValue !== 0 ? String(tabValue) : undefined);
+  
+  // Extract orders data and pagination info from response
+  const ordersData = ordersResponse?.data?.items || [];
+  const totalItems = ordersResponse?.data?.total || 0;
+  
+  // Use mutation for cancelling orders
+  const { mutate: cancelOrder, isPending: isCancelling } = useCancelOrder();
 
   const handleChangePage = (event: unknown, newPage: number) => {
     setPage(newPage);
@@ -126,15 +138,67 @@ export default function CustomerOrders() {
 
   const handleChangeRowsPerPage = (event: React.ChangeEvent<HTMLInputElement>) => {
     setRowsPerPage(parseInt(event.target.value, 10));
-    setPage(0);
+    setPage(1);
   };
 
   const handleTabChange = (event: React.SyntheticEvent, newValue: number) => {
     setTabValue(newValue);
   };
 
+  // Fungsi untuk mengonversi status API ke status UI
+  const mapApiStatusToUiStatus = (apiStatus: string): string => {
+    switch (apiStatus) {
+      case 'new':
+        return 'Baru';
+      case 'processing':
+        return 'Dalam Proses';
+      case 'ready_for_pickup':
+        return 'Siap Diambil';
+      case 'completed':
+        return 'Selesai';
+      case 'cancelled':
+        return 'Dibatalkan';
+      default:
+        return 'Tidak Diketahui';
+    }
+  };
+
+  // Fungsi untuk mengonversi status pembayaran
+  const mapPaymentStatus = (order: any): string => {
+    // Logika sederhana sesuai data yang tersedia
+    return order.status === 'cancelled' ? 'Dikembalikan' : 'Lunas';
+  };
+
+  // Fungsi untuk menghitung total item dalam pesanan
+  const calculateTotalItems = (items: any[]): number => {
+    return items ? items.length : 0;
+  };
+
+  // Fungsi untuk memformat tanggal dari API
+  const formatDate = (dateString: string): string => {
+    try {
+      const date = new Date(dateString);
+      
+      // Cek valid date
+      if (isNaN(date.getTime())) {
+        return 'Tanggal tidak valid';
+      }
+      
+      return date.toLocaleDateString('id-ID', { 
+        day: 'numeric',
+        month: 'long',
+        year: 'numeric'
+      });
+    } catch (error) {
+      console.error('Error formatting date:', error);
+      return dateString;
+    }
+  };
+
   const getStatusColor = (status: string) => {
     switch (status) {
+      case 'Baru':
+        return 'info';
       case 'Dalam Proses':
         return 'primary';
       case 'Siap Diambil':
@@ -161,24 +225,63 @@ export default function CustomerOrders() {
     }
   };
 
-  const filteredOrders = orders.filter(order => {
+  // Update untuk filteredOrders menggunakan data dari API
+  const filteredOrders = ordersData.filter((order: any) => {
+    if (!order) return false;
+    
+    // Konversi status API ke status UI
+    const uiStatus = mapApiStatusToUiStatus(order.status || 'unknown');
+    
     // Filter by tab value
-    if (tabValue === 1 && order.status !== 'Dalam Proses') return false;
-    if (tabValue === 2 && order.status !== 'Siap Diambil') return false;
-    if (tabValue === 3 && order.status !== 'Selesai') return false;
+    if (tabValue === 1 && uiStatus !== 'Dalam Proses') return false;
+    if (tabValue === 2 && uiStatus !== 'Siap Diambil') return false;
+    if (tabValue === 3 && uiStatus !== 'Selesai') return false;
     
     // Filter by search term
-    if (searchTerm && !order.orderNumber.toLowerCase().includes(searchTerm.toLowerCase())) {
+    if (searchTerm && order.orderNumber && !order.orderNumber.toLowerCase().includes(searchTerm.toLowerCase())) {
       return false;
     }
     
     return true;
   });
 
-  if (loading) {
+  // Update cancel order handler
+  const handleCancelOrder = (orderId: string) => {
+    setOpenConfirmDialog(false);
+    
+    if (!selectedOrderId) return;
+    
+    cancelOrder(orderId, {
+      onSuccess: () => {
+        setSnackbar({
+          open: true,
+          message: 'Pesanan berhasil dibatalkan',
+          severity: 'success'
+        });
+      },
+      onError: (error: Error) => {
+        setSnackbar({
+          open: true,
+          message: error.message || 'Gagal membatalkan pesanan',
+          severity: 'error'
+        });
+      }
+    });
+  };
+
+  if (isLoading) {
     return (
       <Box display="flex" justifyContent="center" alignItems="center" height="50vh">
         <CircularProgress />
+      </Box>
+    );
+  }
+
+  if (isError) {
+    return (
+      <Box display="flex" justifyContent="center" alignItems="center" height="50vh" flexDirection="column">
+        <Typography color="error" gutterBottom>Gagal memuat data pesanan</Typography>
+        <Typography variant="body2">{error?.message || 'Silakan coba lagi nanti'}</Typography>
       </Box>
     );
   }
@@ -251,8 +354,7 @@ export default function CustomerOrders() {
             </TableHead>
             <TableBody>
               {filteredOrders
-                .slice(page * rowsPerPage, page * rowsPerPage + rowsPerPage)
-                .map((order) => (
+                .map((order: any) => (
                 <TableRow key={order.id} hover>
                   <TableCell>
                     <Link href={`/customer/orders/${order.id}`} style={{ textDecoration: 'none', color: 'primary' }}>
@@ -264,24 +366,24 @@ export default function CustomerOrders() {
                   <TableCell>
                     <Box display="flex" alignItems="center">
                       <CalendarIcon fontSize="small" sx={{ mr: 1, opacity: 0.6 }} />
-                      <Typography variant="body2">{order.date}</Typography>
+                      <Typography variant="body2">{formatDate(order.createdAt)}</Typography>
                     </Box>
                   </TableCell>
-                  <TableCell>{order.items}</TableCell>
-                  <TableCell>Rp {order.total.toLocaleString()}</TableCell>
+                  <TableCell>{calculateTotalItems(order.items)}</TableCell>
+                  <TableCell>Rp {parseFloat(order.totalAmount).toLocaleString()}</TableCell>
                   <TableCell>
                     <Chip 
-                      label={order.status} 
+                      label={mapApiStatusToUiStatus(order.status)} 
                       size="small" 
-                      color={getStatusColor(order.status) as any} 
+                      color={getStatusColor(mapApiStatusToUiStatus(order.status)) as any} 
                     />
                   </TableCell>
                   <TableCell>
                     <Chip 
-                      label={order.paymentStatus} 
+                      label={mapPaymentStatus(order)} 
                       size="small" 
                       variant="outlined"
-                      color={getPaymentStatusColor(order.paymentStatus) as any} 
+                      color={getPaymentStatusColor(mapPaymentStatus(order)) as any} 
                     />
                   </TableCell>
                   <TableCell align="right">
@@ -315,10 +417,10 @@ export default function CustomerOrders() {
         <TablePagination
           rowsPerPageOptions={[5, 10, 25]}
           component="div"
-          count={filteredOrders.length}
+          count={totalItems}
           rowsPerPage={rowsPerPage}
-          page={page}
-          onPageChange={handleChangePage}
+          page={page - 1}
+          onPageChange={(event, newPage) => setPage(newPage + 1)}
           onRowsPerPageChange={handleChangeRowsPerPage}
           labelRowsPerPage="Baris per halaman:"
           labelDisplayedRows={({ from, to, count }) => `${from}-${to} dari ${count}`}

@@ -84,8 +84,8 @@ const financialDetails = [
 
 export default function ReportDetailPage() {
   const searchParams = useSearchParams();
-  const date = searchParams.get('date') || '2023-03-01';
-  const type = searchParams.get('type') || 'financial';
+  const date = searchParams?.get('date') || '2023-03-01';
+  const type = searchParams?.get('type') || 'financial';
   
   // Menghitung total pendapatan untuk tanggal tertentu
   const totalRevenue = financialDetails.reduce((sum, item) => sum + item.total, 0);

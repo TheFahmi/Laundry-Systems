@@ -20,25 +20,109 @@ export enum PaymentStatus {
 // Frontend payment model (camelCase)
 export interface Payment {
   id: string;
-  orderId: string;
-  customerId?: string;
   amount: number;
-  paymentMethod: PaymentMethod;
-  status: PaymentStatus;
-  transactionId?: string;
-  referenceNumber: string;
-  notes?: string;
+  paymentMethod: string;
+  status: string;
+  transactionId?: string | null;
+  referenceNumber?: string | null;
+  notes?: string | null;
   createdAt: string;
   updatedAt: string;
-  // Allow snake_case properties for API response
-  order_id?: string;
-  customer_id?: string;
-  payment_method?: PaymentMethod;
-  payment_status?: PaymentStatus;
-  transaction_id?: string;
-  reference_number?: string;
-  created_at?: string;
-  updated_at?: string;
+  
+  // Fields that might be added from order context
+  orderId?: string;
+  orderNumber?: string;
+  orderStatus?: string;
+}
+
+export interface PaymentResponse {
+  items: Payment[];
+  total: number;
+  page: number;
+  limit: number;
+}
+
+export interface PaymentFilter {
+  status?: string;
+  paymentMethod?: string;
+  startDate?: string;
+  endDate?: string;
+}
+
+export interface PaymentStats {
+  totalPayments: number;
+  completedPayments: number;
+  pendingPayments: number;
+  totalAmount: number;
+}
+
+export interface CreatePaymentRequest {
+  amount: number;
+  paymentMethod: string;
+  notes?: string;
+  orderId?: string;
+}
+
+export interface UpdatePaymentRequest {
+  status?: string;
+  transactionId?: string;
+  notes?: string;
+}
+
+// Constants for payment status and methods
+export const PAYMENT_STATUS = {
+  PENDING: 'pending',
+  COMPLETED: 'completed',
+  CANCELLED: 'cancelled',
+  REFUNDED: 'refunded'
+};
+
+export const PAYMENT_METHODS = {
+  CASH: 'cash',
+  BANK_TRANSFER: 'bank_transfer',
+  CREDIT_CARD: 'credit_card',
+  DIGITAL_WALLET: 'digital_wallet'
+};
+
+// Utility to format currency
+export function formatCurrency(amount: number): string {
+  return new Intl.NumberFormat('id-ID', {
+    style: 'currency',
+    currency: 'IDR',
+    minimumFractionDigits: 0,
+    maximumFractionDigits: 0
+  }).format(amount);
+}
+
+// Helper functions for payment data
+export function getPaymentStatusColor(status: string): string {
+  switch (status.toLowerCase()) {
+    case PAYMENT_STATUS.COMPLETED:
+      return 'success';
+    case PAYMENT_STATUS.PENDING:
+      return 'warning';
+    case PAYMENT_STATUS.CANCELLED:
+      return 'error';
+    case PAYMENT_STATUS.REFUNDED:
+      return 'info';
+    default:
+      return 'default';
+  }
+}
+
+export function getPaymentMethodIcon(method: string): string {
+  switch (method.toLowerCase()) {
+    case PAYMENT_METHODS.CASH:
+      return 'cash';
+    case PAYMENT_METHODS.BANK_TRANSFER:
+      return 'bank';
+    case PAYMENT_METHODS.CREDIT_CARD:
+      return 'credit_card';
+    case PAYMENT_METHODS.DIGITAL_WALLET:
+      return 'wallet';
+    default:
+      return 'payment';
+  }
 }
 
 // Backend payment model (snake_case)

@@ -1,4 +1,6 @@
 /** @type {import('next').NextConfig} */
+const path = require('path');
+
 const nextConfig = {
   reactStrictMode: true,
   // Enable experimental features for standalone output needed for Docker
@@ -75,20 +77,7 @@ const nextConfig = {
     removeConsole: process.env.NODE_ENV === 'production',
   },
   // Improve webpack configurations
-  webpack: (config, { dev, isServer }) => {
-    // Add optimizations
-    if (!dev && !isServer) {
-      config.optimization.splitChunks = {
-        chunks: 'all',
-        cacheGroups: {
-          default: {
-            minChunks: 2,
-            priority: -20,
-            reuseExistingChunk: true,
-          },
-        },
-      };
-    }
+  webpack: (config, { isServer }) => {
     return config;
   },
 }

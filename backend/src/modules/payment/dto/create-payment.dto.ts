@@ -8,6 +8,11 @@ export class CreatePaymentDto {
   @ApiProperty({ description: 'Order ID for the payment', example: 'f9f2a97d-e9db-4a76-9aa1-ed74e2acef79' })
   orderId: string;
 
+  @IsOptional()
+  @IsString()
+  @ApiProperty({ description: 'Customer ID for the payment', example: 'ec7a251a-f9cf-4930-a857-46fb62448490', required: false })
+  customerId?: string;
+
   @IsNotEmpty()
   @IsNumber()
   @ApiProperty({ description: 'Payment amount', example: 99.99 })
@@ -37,10 +42,14 @@ export class CreatePaymentDto {
   @ApiProperty({ description: 'Transaction ID from payment provider', required: false })
   transactionId?: string;
 
-  @IsNotEmpty()
+  @IsOptional()
   @IsString()
-  @ApiProperty({ description: 'Reference number for the payment', example: 'PAY-1743323773' })
-  referenceNumber: string;
+  @ApiProperty({ 
+    description: 'Reference number for the payment', 
+    example: 'PAY-1743323773',
+    required: false
+  })
+  referenceNumber?: string;
 
   @IsOptional()
   @IsString()

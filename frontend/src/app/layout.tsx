@@ -8,6 +8,7 @@ import { ThemeProvider } from "@/components/ui/theme-provider";
 import '../styles/calendar-styles.css';
 import '../styles/cursor-fixes.css';
 import '../styles/calendar-fixes.css';
+import { Providers } from '@/app/providers';
 
 const inter = Inter({ subsets: ["latin"] });
 
@@ -25,17 +26,19 @@ export default function RootLayout({
     <html lang="id" suppressHydrationWarning>
       <head />
       <body className={inter.className}>
-        <AuthProvider>
-          <ThemeProvider
-            attribute="class"
-            defaultTheme="system"
-            enableSystem
-            disableTransitionOnChange
-          >
-            {children}
-            <Toaster position="top-right" />
-          </ThemeProvider>
-        </AuthProvider>
+        <Providers>
+          <AuthProvider>
+            <ThemeProvider
+              attribute="class"
+              defaultTheme="system"
+              enableSystem
+              disableTransitionOnChange
+            >
+              {children}
+              <Toaster position="top-right" />
+            </ThemeProvider>
+          </AuthProvider>
+        </Providers>
       </body>
     </html>
   );

@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getCookie } from '@/lib/auth-cookies';
+import { cookies } from 'next/headers';
 
 // Define API_BASE_URL directly since we disabled rewrites
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
@@ -20,75 +21,186 @@ function getTokenFromRequest(req: NextRequest): string | null {
   return token || null;
 }
 
+/**
+ * GET handler for order details
+ */
 export async function GET(
   request: NextRequest,
-  { params }: { params: { orderNumber: string } }
+  { params }: { params: { id: string } }
 ) {
   try {
-    const orderNumber = params.orderNumber;
-    console.log(`API Route: Fetching order details for: ${orderNumber}`);
-    
-    // Get the auth token from request
-    const token = getTokenFromRequest(request);
-    console.log(`Auth token exists: ${!!token}`);
-    
+    // Get authentication token from cookies or Authorization header
+    const cookieStore = await cookies();
+    const token = cookieStore.get('token')?.value || 
+                  request.headers.get('Authorization')?.replace('Bearer ', '');
+
+    // Check if user is authenticated
     if (!token) {
-      console.log('No auth token found in request');
+      console.log('[api/orders/[id]] Not authenticated');
       return NextResponse.json(
-        { error: 'Authentication required' },
+        { message: 'Unauthorized' },
         { status: 401 }
       );
     }
-    
-    // Get CSRF token from cookies or headers
-    const csrfToken = request.cookies.get('XSRF-TOKEN')?.value || 
-                      request.headers.get('X-CSRF-Token') ||
-                      request.headers.get('X-XSRF-Token');
-    
-    console.log(`CSRF token exists: ${!!csrfToken}`);
-    
-    // Instead of relying on rewrites, directly call the backend
-    const apiURL = `${API_BASE_URL}/orders/by-number/${encodeURIComponent(orderNumber)}`;
-    console.log(`Calling backend directly at: ${apiURL}`);
-    console.log(`Using token (first 10 chars): ${token.substring(0, 10)}...`);
 
-    const headers: HeadersInit = {
-      'Authorization': `Bearer ${token}`,
-      'Content-Type': 'application/json',
-    };
-    
-    // Add CSRF token to headers if available
-    if (csrfToken) {
-      headers['X-CSRF-Token'] = csrfToken;
-      console.log(`Including CSRF token in request`);
-    } else {
-      console.log(`No CSRF token available to include in request`);
-    }
+    // Log the request
+    console.log(`[api/orders/[id]] Fetching order details for ID: ${params.id}`);
 
-    const response = await fetch(apiURL, {
-      headers,
+    // Make request to backend API
+    const response = await fetch(`${API_BASE_URL}/orders/${params.id}`, {
+      headers: {
+        'Authorization': `Bearer ${token}`,
+        'Content-Type': 'application/json'
+      },
       cache: 'no-store'
     });
 
-    console.log(`Backend response status: ${response.status}`);
-    
+    // Get response data
+    const data = await response.json();
+
+    // Handle different response statuses
     if (!response.ok) {
-      const errorData = await response.json().catch(() => ({ message: 'Unknown error' }));
-      console.error('Error response from backend:', errorData);
+      if (response.status === 404) {
+        console.log(`[api/orders/[id]] Order not found: ${params.id}`);
+        return NextResponse.json(
+          { message: 'Order not found' },
+          { status: 404 }
+        );
+      }
+      
+      if (response.status === 401) {
+        console.log('[api/orders/[id]] Unauthorized');
+        return NextResponse.json(
+          { message: 'Unauthorized' },
+          { status: 401 }
+        );
+      }
+      
+      if (response.status === 403) {
+        console.log('[api/orders/[id]] Forbidden - User cannot access this order');
+        return NextResponse.json(
+          { message: 'Forbidden - You do not have permission to access this order' },
+          { status: 403 }
+        );
+      }
+      
+      console.log(`[api/orders/[id]] Backend API error: ${response.status}`);
       return NextResponse.json(
-        errorData,
+        { message: 'Error fetching order details', error: data },
         { status: response.status }
       );
     }
 
-    const data = await response.json();
-    console.log('Successfully fetched order data');
-    
+    // Return successful response
+    console.log(`[api/orders/[id]] Successfully fetched order details for ID: ${params.id}`);
     return NextResponse.json(data);
   } catch (error) {
-    console.error('Error in order API route:', error);
+    console.error('[api/orders/[id]] Error in GET handler:', error);
     return NextResponse.json(
-      { error: 'Failed to fetch order details' },
+      { message: 'Internal server error' },
+      { status: 500 }
+    );
+  }
+}
+
+/**
+ * POST handler for order cancellation
+ * Endpoint: /api/orders/[id]/cancel
+ */
+export async function POST(
+  request: NextRequest,
+  { params }: { params: { id: string } }
+) {
+  try {
+    // First, get the URL path to check if it's a cancel request
+    const pathParts = request.nextUrl.pathname.split('/');
+    const lastPart = pathParts[pathParts.length - 1];
+    
+    // Only handle cancel requests here
+    if (lastPart !== 'cancel') {
+      return NextResponse.json(
+        { message: 'Method not allowed' },
+        { status: 405 }
+      );
+    }
+    
+    // Get authentication token from cookies or Authorization header
+    const cookieStore = await cookies();
+    const token = cookieStore.get('token')?.value || 
+                  request.headers.get('Authorization')?.replace('Bearer ', '');
+
+    // Check if user is authenticated
+    if (!token) {
+      console.log('[api/orders/[id]/cancel] Not authenticated');
+      return NextResponse.json(
+        { message: 'Unauthorized' },
+        { status: 401 }
+      );
+    }
+
+    // Log the request
+    console.log(`[api/orders/[id]/cancel] Cancelling order: ${params.id}`);
+
+    // Make request to backend API
+    const response = await fetch(`${API_BASE_URL}/orders/${params.id}/cancel`, {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${token}`,
+        'Content-Type': 'application/json'
+      }
+    });
+
+    // Get response data
+    const data = await response.json();
+
+    // Handle different response statuses
+    if (!response.ok) {
+      if (response.status === 404) {
+        console.log(`[api/orders/[id]/cancel] Order not found: ${params.id}`);
+        return NextResponse.json(
+          { message: 'Order not found' },
+          { status: 404 }
+        );
+      }
+      
+      if (response.status === 401) {
+        console.log('[api/orders/[id]/cancel] Unauthorized');
+        return NextResponse.json(
+          { message: 'Unauthorized' },
+          { status: 401 }
+        );
+      }
+      
+      if (response.status === 403) {
+        console.log('[api/orders/[id]/cancel] Forbidden - User cannot access this order');
+        return NextResponse.json(
+          { message: 'Forbidden - You do not have permission to cancel this order' },
+          { status: 403 }
+        );
+      }
+
+      if (response.status === 400) {
+        console.log('[api/orders/[id]/cancel] Bad request - Order cannot be cancelled');
+        return NextResponse.json(
+          { message: data.message || 'Order cannot be cancelled at this stage' },
+          { status: 400 }
+        );
+      }
+      
+      console.log(`[api/orders/[id]/cancel] Backend API error: ${response.status}`);
+      return NextResponse.json(
+        { message: 'Error cancelling order', error: data },
+        { status: response.status }
+      );
+    }
+
+    // Return successful response
+    console.log(`[api/orders/[id]/cancel] Successfully cancelled order: ${params.id}`);
+    return NextResponse.json(data);
+  } catch (error) {
+    console.error('[api/orders/[id]/cancel] Error in POST handler:', error);
+    return NextResponse.json(
+      { message: 'Internal server error' },
       { status: 500 }
     );
   }
